@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.29';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.30';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -411,7 +411,7 @@ const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) 
 let keys = { left: false, right: false, up: false, down: false };
 let throttle = 0, brake = 0;                          // vom Knüppel: 0..1
 let wasWet = false, splashT = 0, scrapeT = 0, glareT = 0, wasTunnel = false;   // Wasser (v3.28), Anschlag, Tunnel (v3.29)
-let slipTime = 0;                                     // > 0: Auto rutscht auf Öl
+let slipTime = 0, slipKind = 'slip', slipDir = 1, slipT0 = 1;   // > 0: Auto rutscht auf Öl (v3.30: je nach Tempo rutschen, wegdriften, sich drehen)
 
 // Touch-Steuerung: Knüppel im Bedienfeld
 // Analoge Lenkung: steer von -1 (voll links) bis +1 (voll rechts).
@@ -1329,10 +1329,24 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
         segments[startSeg + 8].checker = segments[startSeg + 9].checker = true;
         segments[startSeg + 8].gates = [{ o: 0, kind: 'start' }];
     }
-    const nOil = [3, 5, 6][st.col];                    // Ölflecken an festen Stellen
+    const nOil = [3, 5, 6][st.col];                    // Ölflecken an festen Stellen, bevorzugt kurz vor oder in Kurven (v3.30)
+    const okOil = (i) => {                             // sichtbar (nicht hinter einer Kuppe), kein Tor, kein Tunnel
+        const g = segments[i]; if (!g || g.gates || g.tunnel || g.roads.length > 1 || segments[i + 1].gates) return false;
+        for (let j = 5; j < 40; j++) if (segments[i - j].p1.world.y > g.p1.world.y + 120 + j * 3) return false;
+        return true;
+    };
     for (let i = 0; i < nOil; i++) {
-        const s = startSeg + 250 + Math.floor((i + 0.2 + r() * 0.6) * (len - 700) / nOil);
-        if (!segments[s].gates) segments[s].oil = [-0.6, 0, 0.6][Math.floor(r() * 3)];
+        const a = startSeg + 250 + Math.floor(i * (len - 700) / nOil), b = startSeg + 250 + Math.floor((i + 1) * (len - 700) / nOil);
+        const cand = [];
+        for (let j = a; j < b; j++) {                  // Kurveneingang: hier gerade, 6–20 Segmente weiter eine echte Kurve
+            if (!okOil(j) || Math.abs(segments[j].curve) > 3) continue;
+            let c = 0; for (let q = 6; q <= 20; q++) c = Math.max(c, Math.abs(segments[j + q].curve));
+            if (c >= 2.5) cand.push(j);
+        }
+        let s = cand.length ? cand[Math.floor(r() * cand.length)] : a + Math.floor((0.2 + r() * 0.6) * (b - a));
+        if (r() < 0.35 && cand.length) s += 14;        // manchmal liegt es schon in der Kurve
+        let near = false; for (let q = -30; q <= 30; q++) if (segments[s + q] && segments[s + q].oil !== undefined) near = true;
+        if (okOil(s) && !near) segments[s].oil = [-0.6, 0, 0.6][Math.floor(r() * 3)];
     }
     if (!sim) {
         paint(decoFrom, segments.length);
@@ -2620,8 +2634,11 @@ function render() {
     const onGravel = (carSegR.gravel || carSegR.cobble) && speed > maxSpeed * 0.1;
     const shake = isTurbo ? (Math.random() - 0.5) * 5 : (onGravel ? (Math.random() - 0.5) * 2.5 : 0);
     drawDust();
-    if (slipTime > 0) {                                // auf Öl: Auto schlingert sichtbar
-        const ang = Math.sin(slipTime * 14) * 0.18 * Math.min(1, slipTime * 2);
+    if (slipTime > 0) {                                // auf Öl: schlingern, Heck ausbrechen lassen oder ganze Drehung
+        const u = 1 - slipTime / slipT0, fade = Math.min(1, slipTime * 2);
+        const ang = slipKind === 'spin' ? -slipDir * Math.PI * 2 * (u * u * (3 - 2 * u))
+                  : slipKind === 'slide' ? -slipDir * (0.45 * Math.sin(Math.min(1, u * 3) * Math.PI / 2) * fade + Math.sin(slipTime * 10) * 0.08)
+                  : Math.sin(slipTime * 14) * 0.18 * fade;
         ctx.save(); ctx.translate(W / 2, H - 60); ctx.rotate(ang); ctx.translate(-W / 2, -(H - 60));
         drawCar(W / 2, H - 50, carW, carW * 0.6, '#D40000', true);
         ctx.restore();
@@ -3165,7 +3182,7 @@ function update(dt) {
     if (timeLeft <= 0 && !trip.training) { gameOver(); updateHud(); return; }
 
     // Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
-    const gas = Math.max(throttle, keys.up ? 1 : 0, tiltGas), brk = Math.max(brake, keys.down ? 1 : 0, tiltBrake);
+    let gas = Math.max(throttle, keys.up ? 1 : 0, tiltGas), brk = Math.max(brake, keys.down ? 1 : 0, tiltBrake);
     // Turbo: nur mit Vorrat und erst ab etwas Tempo
     isTurbo = turboHeld && turboEnergy > 0 && speed > maxSpeed * 0.3;
     if (isTurbo) turboEnergy = Math.max(0, turboEnergy - dt / 3);
@@ -3182,14 +3199,36 @@ function update(dt) {
         const r = stickR() - 20;
         stickKnob.style.transform = 'translate(' + (tiltSteer * r).toFixed(1) + 'px,' + (-(tiltGas - tiltBrake) * r).toFixed(1) + 'px)';
     }
-    // Öl: 1,2 s kaum Lenkwirkung, das Auto schlingert und verliert etwas Tempo
+    // Öl (v3.30): wie schlimm es wird, hängt vom Tempo beim Überfahren ab.
+    //   unter 55 %: kurz schlingern, kaum Lenkwirkung · 55–80 %: das Heck bricht aus, das Auto driftet zur Kurvenaußenseite
+    //   über 80 %: Dreher – eine ganze Umdrehung, Lenken und Gas wirkungslos, Tempo bricht ein, man rutscht von der Fahrbahn
     const carSeg0 = segAt(position + PLAYER_Z);
-    if (slipTime <= 0 && carSeg0.oil !== undefined && Math.abs(playerX - carSeg0.oil) < 0.28 && speed > maxSpeed * 0.2) { slipTime = 1.2; playOilSlide(); }
+    if (slipTime <= 0 && carSeg0.oil !== undefined && Math.abs(playerX - carSeg0.oil) < 0.28 && speed > maxSpeed * 0.2) {
+        const sp0 = speed / maxSpeed, i0 = Math.floor(carSegF());
+        let cv = 0; for (let j = 0; j < 40; j++) { const g = segments[Math.min(segments.length - 1, i0 + j)]; if (Math.abs(g.curve) > Math.abs(cv)) cv = g.curve; }
+        slipDir = Math.abs(cv) > 0.8 ? -Math.sign(cv) : (Math.sign(playerX - carSeg0.roads[0]) || (i0 % 2 ? 1 : -1));   // nach außen
+        slipKind = sp0 > 0.8 ? 'spin' : sp0 > 0.55 ? 'slide' : 'slip';
+        slipTime = slipT0 = { slip: 1.0, slide: 1.3, spin: 1.7 }[slipKind];
+        playOilSlide();
+        if (slipKind === 'spin') { showMsg('SCHLEUDERN!', 'Zu schnell aufs Öl', 1.6); if (navigator.vibrate) navigator.vibrate([80, 60, 80]); }
+        else if (navigator.vibrate) navigator.vibrate(40);
+    }
     if (slipTime > 0) {
         slipTime -= dt;
-        s *= 0.15;
-        playerX += Math.sin(slipTime * 14) * dt * 1.1 * (speed / maxSpeed);
-        speed -= accel * 0.6 * dt;
+        const sp = speed / maxSpeed;
+        if (slipKind === 'slip') {
+            s *= 0.15;
+            playerX += Math.sin(slipTime * 14) * dt * 1.1 * sp;
+            speed -= accel * 0.6 * dt;
+        } else if (slipKind === 'slide') {
+            s *= 0.1; gas *= 0.5;
+            playerX += slipDir * dt * 1.5 * sp + Math.sin(slipTime * 10) * dt * 0.6 * sp;
+            speed -= accel * 1.4 * dt;
+        } else {
+            s = 0; gas = 0;
+            playerX += slipDir * dt * 2.2 * sp;
+            if (speed > maxSpeed * 0.18) speed -= maxSpeed * 0.5 * dt;
+        }
     }
     const st = { position, playerX, speed };
     const ph = physicsStep(st, segments, gas, brk, s, isTurbo, dt);

@@ -92,6 +92,10 @@ als Vollgas); Tunnel dunkel, Motor hallt (`echoGain`), Blendung beim Ausfahren. 
 `calibrate`). Bot-Zeiten: L2 68,8 s (Pflaster), G3 72,1 s (Kehren), sonst unverändert 66–69 s. Neue Sprites: palm, house,
 house2, fachwerk(2), church, fisher(2), lighthouse, boathouse, dune, smoke, mesa, gas, crane, container, tower(2), neon(2),
 cube, dome, willow, boat, reed. Offen (spätere Schritte): Eisplatten/Steinschlag (4), Nebel/Sandsturm (3).
+Öl (v3.30, Nutzer-Idee): Wirkung nach Tempo beim Überfahren: < 55 % kurz schlingern, 55–80 % Heck bricht aus und driftet
+zur Kurvenaußenseite (≈ 2 s Verlust), > 80 % Dreher (ganze Umdrehung, „SCHLEUDERN!“, Gas/Lenken wirkungslos, von der Fahrbahn,
+≈ 4 s Verlust). Flecken liegen bevorzugt 6–20 Segmente vor einer Kurve (manchmal schon darin), nie hinter einer Kuppe, im
+Tunnel oder am Tor. Der Bot ist davon nicht betroffen (Öl nur in update()), Zeiten unverändert.
 Training: Etappe antippen → Startpunkt wählen (Anfang oder Abschnitt 2/3, `startAt`), Start kurz vor dem Checkpoint.
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
