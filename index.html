@@ -64,9 +64,9 @@
         }
         #panel {
             flex: 0 0 auto;
-            height: 34vh;
-            max-height: 320px;
-            min-height: 190px;
+            height: 20vh;
+            max-height: 170px;
+            min-height: 120px;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -99,8 +99,8 @@
             position: relative;
             flex: 0 0 auto;
             z-index: 20;
-            width: 96px;
-            height: 96px;
+            width: 72px;
+            height: 72px;
             border-radius: 50%;
             border: 3px solid #ff3333;
             background: rgba(0, 0, 0, 0.25);
@@ -139,9 +139,9 @@
         }
         #stickBase {
             position: absolute;
-            width: 170px;
-            height: 170px;
-            margin: -85px 0 0 -85px;
+            width: 112px;
+            height: 112px;
+            margin: -56px 0 0 -56px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(36,40,51,.55) 0 58%, rgba(36,40,51,.8) 59%);
             border: 2px solid rgba(241,239,230,.4);
@@ -150,28 +150,17 @@
         }
         #stickBase.on { border-color: #f2b632; }
         #stickBase span {
-            position: absolute; top: 50%; margin-top: -14px;
-            font: bold 24px sans-serif; color: rgba(241,239,230,.75);
+            position: absolute; top: 50%; margin-top: -11px;
+            font: bold 18px sans-serif; color: rgba(241,239,230,.75);
         }
-        #stickBase .l { left: 14px; }
-        #stickBase .r { right: 14px; }
+        #stickBase .l { left: 9px; }
+        #stickBase .r { right: 9px; }
         #stickKnob {
             position: absolute; left: 50%; top: 50%;
-            width: 66px; height: 66px; margin: -33px 0 0 -33px;
+            width: 46px; height: 46px; margin: -23px 0 0 -23px;
             border-radius: 50%;
             background: radial-gradient(circle at 38% 34%, #ffd05a, #f2b632 55%, #c98f17);
             box-shadow: 0 4px 10px rgba(0,0,0,.45);
-        }
-        #hint {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 6px;
-            text-align: center;
-            color: rgba(241,239,230,.7);
-            font-size: 13px;
-            pointer-events: none;
-            transition: opacity 0.5s;
         }
     </style>
 </head>
@@ -184,7 +173,6 @@
 <div id="panel">
     <div id="steerZone">
         <div id="stickBase"><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
-        <div id="hint">Daumen aufsetzen und seitlich schieben</div>
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
 </div>
@@ -196,7 +184,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '1.7';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -236,7 +224,6 @@ let steer = 0;
 const steerZone = document.getElementById('steerZone');
 const stickBase = document.getElementById('stickBase');
 const stickKnob = document.getElementById('stickKnob');
-const hint = document.getElementById('hint');
 let steerPtr = null, steerX0 = 0;
 function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
@@ -245,11 +232,11 @@ function stickHome() {
     if (!r.width) return;
     const R = stickR();
     if (window.innerWidth > window.innerHeight) {          // Querformat: links unten, nicht über dem Auto
-        stickBase.style.left = (R + 24) + 'px';
-        stickBase.style.top = (r.height - R - 12) + 'px';
+        stickBase.style.left = (R + 20) + 'px';
+        stickBase.style.top = (r.height - R - 10) + 'px';
     } else {                                               // Hochformat: Mitte des Bedienfelds
         stickBase.style.left = (r.width / 2) + 'px';
-        stickBase.style.top = (r.height / 2 - 8) + 'px';
+        stickBase.style.top = (r.height / 2 - 2) + 'px';
     }
 }
 function steerMove(x) {
@@ -257,7 +244,7 @@ function steerMove(x) {
     const off = Math.max(-range, Math.min(range, x - steerX0));
     const a = off / range, m = Math.abs(a);
     steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
-    stickKnob.style.transform = 'translateX(' + (a * (stickR() - 24)).toFixed(1) + 'px)';
+    stickKnob.style.transform = 'translateX(' + (a * (stickR() - 20)).toFixed(1) + 'px)';
 }
 function steerEnd(e) {
     if (e.pointerId !== steerPtr) return;
@@ -279,7 +266,6 @@ steerZone.addEventListener('pointerdown', (e) => {
     stickBase.classList.add('on');
     steerX0 = e.clientX;
     steerMove(e.clientX);
-    hint.style.opacity = 0;
     e.preventDefault();
 });
 steerZone.addEventListener('pointermove', (e) => {
@@ -301,7 +287,6 @@ turboBtn.addEventListener('pointerdown', (e) => {
     turboPtr = e.pointerId;
     try { turboBtn.setPointerCapture(e.pointerId); } catch (x) {}
     turboHeld = true;
-    hint.style.opacity = 0;
 });
 function turboEnd(e) { if (e.pointerId === turboPtr) { turboPtr = null; turboHeld = false; } }
 turboBtn.addEventListener('pointerup', turboEnd);
