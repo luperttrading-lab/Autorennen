@@ -167,10 +167,10 @@
         body:not(.racing) #pauseBtn { display: none; }
         #pauseScreen { background: rgba(10, 8, 20, 0.8); z-index: 16; }
         /* Zahnrad unten zwischen den Knöpfen: Einstellungen (nur auf Start- und Endbildschirm) */
-        #btnKnoepfe { position: absolute; left: 50%; top: 50%; width: 56px; height: 52px; margin: -26px 0 0 -28px; z-index: 21;
+        #btnKnoepfe { position: absolute; left: 50%; top: 50%; width: 84px; height: 52px; margin: -26px 0 0 -42px; z-index: 21;
             border: 1px solid rgba(241,239,230,.35); border-radius: 12px; background: rgba(0,0,0,.3); color: rgba(241,239,230,.85);
             font: 22px sans-serif; line-height: 1; padding: 4px 0 0; touch-action: manipulation; cursor: pointer; }
-        #btnKnoepfe span { display: block; font: bold 8px sans-serif; letter-spacing: .05em; margin-top: 3px; }
+        #btnKnoepfe span { display: block; font: bold 8px sans-serif; letter-spacing: .03em; margin-top: 3px; }
         body:not(.menu) #btnKnoepfe, body.edit #btnKnoepfe { display: none; }
         @media (orientation: landscape) { #btnKnoepfe { top: auto; bottom: 8px; margin-top: 0; } }
         body.edit #stickBase, body.edit #turbo { outline: 3px dashed #ffd84a; outline-offset: 4px; }
@@ -310,7 +310,7 @@
     <div id="steerZone">
         <div id="stickBase"><span class="u">GAS</span><span class="d">BREMSE</span><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
     </div>
-    <button id="btnKnoepfe" type="button" aria-label="Knöpfe einstellen">⚙<span>KNÖPFE</span></button>
+    <button id="btnKnoepfe" type="button" aria-label="Einstellungen">⚙<span>EINSTELLUNGEN</span></button>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
@@ -336,7 +336,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.24';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.25';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
