@@ -31,6 +31,35 @@
 <h1>Autorennen – Konzept: Karte, Strecken, Abwechslung</h1>
 <p class="lead">Stand 19.11.2026, Entwurf zum Abstimmen. Noch nichts davon ist programmiert. Nach deiner Rückmeldung ergänzt: Abschnitt 3a (Tempo der Landschaften und sinnvolle Übergänge).</p>
 
+<h2>0 · Entscheidungen vom 19.11.2026</h2>
+<div class="card">
+<table>
+  <tr><th>Frage</th><th>Entscheidung</th></tr>
+  <tr><td>Kartengröße</td><td><b>noch offen</b>: Empfehlung 5 Etappen pro Fahrt (Variante 3 × 5, siehe Abschnitt 2a), weil
+      dann Vulkan und Stadt Platz haben</td></tr>
+  <tr><td>Abzweigung</td><td><b>durch Lenken</b>. Große Schilder vor der Gabel zeigen, was links und was rechts kommt
+      (Name und Bild der nächsten Etappe, Schwierigkeit als 1–3 Punkte).</td></tr>
+  <tr><td>Zeit</td><td><b>schwere Variante</b>: An <b>jedem</b> Tor, also Checkpoint und Etappenende, geht nur die
+      <b>Hälfte</b> der Restzeit mit. Ein Polster wächst so nie unbegrenzt.</td></tr>
+  <tr><td>Game Over</td><td><b>immer von vorn</b>. Dazu ein versteckter <b>Trainingsmodus</b> (siehe unten).</td></tr>
+  <tr><td>Tageslauf</td><td><b>ja</b>, Start am Morgen, Ziel in der Nacht</td></tr>
+  <tr><td>Landschaften</td><td><b>so viel Abwechslung wie möglich</b>, Vulkan und Stadt ausdrücklich erwünscht</td></tr>
+</table>
+<h3>Versteckter Trainingsmodus</h3>
+<ul>
+  <li><b>Öffnen:</b> Auf dem Startbildschirm die Versionsnummer <b>2 s gedrückt halten</b>. Dann erscheint die Wahl
+      <b>RENNEN</b> (normal) oder <b>TRAINING</b>.</li>
+  <li><b>Training:</b> Man tippt auf der Karte eine beliebige Etappe an und startet direkt dort, auch Etappen, die man
+      noch nie erreicht hat. Die Zeit läuft und wird angezeigt, aber es gibt kein Game Over.</li>
+  <li><b>Bestzeiten und Sammlung</b> zählen im Training nicht.</li>
+  <li><b>Kennzeichnung:</b> Oben steht klein „TRAINING“, damit man den Modus nicht vergisst. Er gilt bis zum Zurückstellen.</li>
+</ul>
+<p class="small">Rechnung zur schweren Zeitvariante: Bekommt man an jedem Tor die Zeit G gutgeschrieben, braucht man für
+den Abschnitt die Zeit t und behält die Hälfte der Restzeit, dann pendelt sich die Restzeit am Tor bei R = 2 · (G − t)
+ein. Beispiel Gebirge: G = 1,12 · t und t = 22 s, also R = 2 · 0,12 · 22 ≈ 5 s. Mehr Polster ist auf Dauer nicht
+möglich, ein Fehler von 5 s kostet also das Rennen.</p>
+</div>
+
 <h2>1 · Die Grundidee in einem Satz</h2>
 <div class="card">
 <p>Eine <b>Tagesreise</b> über eine feste Karte: Start am Morgen auf dem Land, an jedem Etappenende eine
@@ -81,6 +110,29 @@ nach links oder rechts.</p>
 <p class="small">Rechnung zu den 17 Routen: Vom Start gibt es 3 Wege. Danach kann man vom Rand aus 2 Spalten
 erreichen, aus der Mitte 3. Anzahl Wege je Spalte nach jeder Reihe: [1, 1, 1] → [2, 3, 2] → [5, 7, 5], zusammen 17.
 Mit einer fünften Reihe wären es [12, 17, 12] = 41 Routen.</p>
+</div>
+
+<h2>2a · Variante mit 5 Etappen pro Fahrt (Empfehlung)</h2>
+<div class="card">
+<p>„Kartengröße“ heißt nur: <b>Wie viele Etappen fährt man vom Start bis zum Ziel?</b></p>
+<table>
+  <tr><th></th><th>4 Etappen pro Fahrt</th><th>5 Etappen pro Fahrt</th></tr>
+  <tr><td>Fahrtdauer</td><td>≈ 5 min</td><td>≈ 6 min</td></tr>
+  <tr><td>Etappen insgesamt</td><td>10</td><td>13</td></tr>
+  <tr><td>verschiedene Routen</td><td>17</td><td>41</td></tr>
+  <tr><td>Platz für Vulkan und Stadt</td><td>nur wenn andere Etappen wegfallen</td><td>ja, zusätzlich</td></tr>
+</table>
+<h3>Die 13 Etappen der 5er-Variante</h3>
+<table>
+  <tr><th>Tageszeit</th><th><span class="tag k">Küste</span> leicht</th><th><span class="tag l">Land</span> mittel</th><th><span class="tag g">Gebirge</span> schwer</th></tr>
+  <tr><td>Morgen</td><td colspan="3"><b>START Morgenland</b>: Felder, Allee, Dorf mit Kirchturm</td></tr>
+  <tr><td>Vormittag</td><td>Küstenstraße: Felswand und Meer, Leuchtturm</td><td><b>Kleinstadt am Fluss</b>: Fachwerk, Kopfsteinpflaster, Marktplatz, Brücke (Stadt am Tag)</td><td>Voralpen und Bergsee: Almen, Kühe, Schotterweg</td></tr>
+  <tr><td>Mittag</td><td>Inseln und Meeresbrücke: kilometerlange Brücke übers Wasser, Palmeninseln</td><td>Weinland und Talbrücke: Terrassen, Brücke mit Abgrund links und rechts</td><td>Alpenpass: Kehren, Lawinengalerie, Schnee</td></tr>
+  <tr><td>Abend</td><td><b>Vulkaninsel</b>: schwarzer Sand, Lavafelder, Rauchsäulen, glühendes Abendrot</td><td>Canyon und Staudamm: Dammkrone, Sandsturm</td><td>Gletscher: Tunnel, Eisplatten, Steinschlag</td></tr>
+  <tr><td>Nacht</td><td><b>ZIEL Hafenstadt</b>: Neon, Regen</td><td><b>ZIEL Oase der Lichter</b></td><td><b>ZIEL Sternwarte</b>: über den Wolken</td></tr>
+</table>
+<p class="small">Die Übergänge folgen der Klima-Regel aus Abschnitt 3a. Zum Beispiel führt der Weg von den Inseln zur
+Vulkaninsel übers Meer, und vom Weinland zum Vulkan über dunkle Vulkanerde mit Reben.</p>
 </div>
 
 <h3>Warum diese Form</h3>
@@ -295,14 +347,12 @@ Seite.</p>
 <h2>10 · Was du entscheiden müsstest</h2>
 <div class="card q">
 <ol>
-  <li><b>Kartengröße:</b> 3 × 4 (17 Routen, ≈ 5 min) oder 3 × 5 (41 Routen, ≈ 6 min)?</li>
-  <li><b>Abzweigung:</b> Wahl durch Lenken in die Fahrbahn wie vorgeschlagen, einverstanden?</li>
-  <li><b>Zeit:</b> Zwischen-Checkpoints plus halbe Restzeit zwischen den Etappen, oder lieber nur am Etappenende?</li>
-  <li><b>Game Over:</b> Tour von vorn (klassisch), oder zusätzlich ein Übungsmodus, der jede schon erreichte Etappe
-      direkt startet?</li>
-  <li><b>Tageslauf</b> Morgen → Nacht: ja oder nein?</li>
-  <li><b>Namen und Etappen:</b> Passen die zehn Etappen, oder willst du andere Landschaften (z. B. Vulkan, Stadt am Tag,
-      Herbstwald)?</li>
+  <li><b>Kartengröße:</b> 4 oder 5 Etappen pro Fahrt? Siehe Abschnitt 2a. <i>Noch offen, Empfehlung: 5.</i></li>
+  <li><b>Abzweigung:</b> <i>entschieden: Lenken, mit großen Schildern</i></li>
+  <li><b>Zeit:</b> <i>entschieden: an jedem Tor nur die halbe Restzeit</i></li>
+  <li><b>Game Over:</b> <i>entschieden: von vorn, dazu versteckter Trainingsmodus</i></li>
+  <li><b>Tageslauf:</b> <i>entschieden: ja</i></li>
+  <li><b>Landschaften:</b> <i>entschieden: maximale Abwechslung, Vulkan und Stadt dabei</i></li>
 </ol>
 </div>
 </main>
