@@ -28,5 +28,5 @@ und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was überno
 
 ## Entwürfe
 
-`autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D), gleiche Schnittstelle
+`autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D). Gewählt: B (ab v2.1 im Spiel). Gleiche Schnittstelle
 wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funktion ins Spiel übernehmen.
