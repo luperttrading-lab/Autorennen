@@ -77,9 +77,12 @@
         #bar {
             position: absolute; z-index: 12; top: max(env(safe-area-inset-top), 14px); left: 12px; right: 64px;
             color: #fff; font: bold 13px 'Courier New', Courier, monospace; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
-            pointer-events: none;
         }
-        #bar.tr { pointer-events: auto; cursor: pointer; }
+        #bar { pointer-events: auto; cursor: pointer; }
+        #miniMap { position: absolute; z-index: 13; left: 50%; top: calc(max(env(safe-area-inset-top), 14px) + 30px); transform: translateX(-50%);
+            background: rgba(10, 8, 20, 0.82); border-radius: 12px; padding: 6px; pointer-events: none; opacity: 0; transition: opacity .25s; }
+        #miniMap.an { opacity: 1; }
+        #miniMap svg { display: block; width: min(60vw, 220px); height: auto; }
         body.menu #bar, body.menu #ui { visibility: hidden; }
         #barTop { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
         #barName { overflow: hidden; text-overflow: ellipsis; }
@@ -227,6 +230,7 @@
     <div id="msg"><div class="t" id="msgT"></div><div class="s" id="msgS"></div></div>
     <div id="bar"><div id="barTop"><span id="barName"></span><span id="barMode"></span><span id="barKm"></span></div>
         <div id="barTrack"><div id="barFill"></div><i style="left:33.3%"></i><i style="left:66.7%"></i></div></div>
+    <div id="miniMap"></div>
     <div class="overlay" id="startScreen">
         <div class="big" id="startTitle">AUTORENNEN</div>
         <div class="map" id="startMap"></div>
@@ -266,7 +270,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.0';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.1';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1921,8 +1925,18 @@ document.getElementById('btnRennen').addEventListener('click', () => setMode('re
 document.getElementById('btnTraining').addEventListener('click', () => setMode('training'));
 for (const b of [document.getElementById('btnStart'), btnAgain, document.getElementById('btnRennen'), document.getElementById('btnTraining')])
     b.addEventListener('pointerdown', (e) => e.stopPropagation());
-// Im Training: Tipp auf die Leiste oben führt zurück zur Karte
-document.getElementById('bar').addEventListener('click', () => { if (trip && trip.training && phase === 'race') showStart(); });
+// Tipp auf die Leiste oben: im Rennen kurz die Mini-Karte mit der bisherigen Route, im Training zurück zur Karte
+const miniMap = document.getElementById('miniMap');
+let miniTimer = null;
+document.getElementById('bar').addEventListener('pointerdown', (e) => e.stopPropagation());
+document.getElementById('bar').addEventListener('click', () => {
+    if (!trip || phase !== 'race') return;
+    if (trip.training) { showStart(); return; }
+    miniMap.innerHTML = mapSVG(trip.route, false);
+    miniMap.classList.add('an');
+    clearTimeout(miniTimer);
+    miniTimer = setTimeout(() => miniMap.classList.remove('an'), 2500);
+});
 
 // Leiste oben: Etappe, Fortschritt mit Checkpoint-Marken, km
 const barName = document.getElementById('barName'), barKm = document.getElementById('barKm'), barFill = document.getElementById('barFill');

@@ -19,13 +19,22 @@ Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach A
 seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen bei schneller Kurvenfahrt und Vollbremsung.
 
-## Spielablauf
+## Spielablauf (seit v3.0: Konzept Schritt 1)
 
-Strecke: Wiese, Wald, Berge (Auffahrt in Kehren, Passhöhe im Schnee mit Schneefall, Abfahrt), Wüste, Nacht; 1250 Segmente. Bergauf weniger Höchsttempo (Steigung 0,15 → 76 %), bergab etwas mehr. Ferne Berge wachsen beim Heranfahren.
-Jede Runde ist eine Etappe mit Zieltor (Schachbrett auf Segment 0/1). Grundzeit `STAGE_BASE` 32 s, je Etappe 1 s weniger (min. `STAGE_MIN` 23 s).
-Durchs Ziel vor Ablauf: 50 % der Restzeit werden gutgeschrieben (`BONUS_SHARE`), neue Deko, gerade Etappen gespiegelt,
-Gegner je Etappe 3 Prozentpunkte schneller. Rekord (geschaffte Etappen) im localStorage. Messung 19.11. (v2.5): fehlerfreie
-Runde ≈ 21 s, erste Etappe ≈ 23,5 s (Anfahren).
+Fahrt über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer) × 5 Reihen (Morgen bis Nacht):
+13 Etappen (`STAGES`), 41 Routen, 3 Ziele (Hafenstadt, Oase, Sternwarte). Jede Etappe: 4 000 Segmente (`STAGE_SEGS`),
+fehlerfrei ≈ 66–69 s (Bot), Fahrt ≈ 5,6 min, 27,8 km. Strecke je Etappe fest aus Zufallskeim des Namens (`genBody`).
+Aufbau einer Etappe: Astende der vorigen Gabel (160) → Verbindungsstück (900, Landschaften per Klima-Regel `CLIMATE`
+segmentweise gemischt) → Hauptteil → Schilderbrücken (300) → Gabel (120) → Gabeltor je Ast. Die Strecke ist ein Array,
+das am Gabeltor vorn abgeschnitten wird (`commitFork`, `rebase`); die gewählte Fahrbahn wird zur Mitte.
+Zeit: 2 Checkpoints (1/3, 2/3) + Tor; jedes Tor schreibt die Zeit fürs nächste Drittel gut = Bot-Zeit × 1,30/1,20/1,12
+(Küste/Land/Gebirge, `calibrate`, läuft beim Laden der Etappe), von der Restzeit geht nur die Hälfte mit (`BONUS_SHARE`).
+Game Over = von vorn. Tageslauf über die ganze Fahrt (`TOD`): Lichtfarbe per `source-atop`, Himmel per `destination-over`.
+Sammlung im localStorage `autorennen.sammlung` (Routen mit Bestzeit, Ziele). Versteckter Trainingsmodus: Versionsnummer
+auf dem Startbildschirm 2 s halten → RENNEN/TRAINING (`autorennen.modus`); Training: Etappe auf der Karte antippen,
+kein Game Over, keine Rekorde, Tipp auf die Leiste oben = zurück zur Karte. Landschaften (`LANDS`) bisher nur aus den
+alten Bausteinen gefärbt (Wiese, Wald, Schnee, Wüste, Stadt-Laternen, Schotter in Voralpen, Öl); Brücken, Tunnel,
+Meer, Vulkan- und Stadtelemente folgen ab Schritt 2.
 
 ## Eingefügter HTML-Code aus anderen Chats
 
@@ -39,7 +48,7 @@ und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was überno
 `autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D). Gewählt: B (ab v2.1 im Spiel). Gleiche Schnittstelle
 wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funktion ins Spiel übernehmen.
 
-## Konzept (Entwurf, noch nicht umgesetzt)
+## Konzept (Schritt 1 umgesetzt in v3.0, Schritte 2–5 offen)
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
 × 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
