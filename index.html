@@ -142,11 +142,14 @@
         }
         /* Knöpfe getauscht: Turbo links, Knüppel rechts */
         #panel.swap { flex-direction: row-reverse; padding-left: 16px; padding-right: 0; }
-        #swap {
-            position: absolute; left: 50%; margin-left: -15px; bottom: max(env(safe-area-inset-bottom), 4px); z-index: 21;
+        #swap, #lower {
+            position: absolute; left: 50%; margin-left: -34px; top: 8px; z-index: 21;
             width: 30px; height: 26px; padding: 0; border: 1px solid rgba(241,239,230,.35); border-radius: 8px;
             background: rgba(0,0,0,.3); color: rgba(241,239,230,.8); font: bold 15px sans-serif; touch-action: manipulation;
         }
+        #lower { margin-left: 4px; }
+        #lower[hidden] { display: none; }
+        #diag { font-size: 10px; opacity: .55; text-shadow: none; }
         /* Querformat: Bedienfeld liegt durchsichtig über dem unteren Bildrand */
         @media (orientation: landscape) {
             #panel {
@@ -253,6 +256,7 @@
         <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
         <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb</div>
+        <div class="small" id="diag"></div>
         <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
     </div>
     <div class="overlay" id="modeScreen" hidden>
@@ -277,6 +281,7 @@
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
     <button id="swap" type="button" aria-label="Knüppel und Turbo tauschen">⇄</button>
+    <button id="lower" type="button" aria-label="Bedienfeld tiefer oder höher" hidden>▼</button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
 <button id="ver" type="button"></button>
@@ -286,7 +291,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.7';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.8';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -299,13 +304,34 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // Bildschirmgröße anpassen
 const gameEl = document.getElementById('game');
+// iPhone-Home-Bildschirm-App: das Layout endet dort ein Stück über dem unteren Bildschirmrand (Screenshots des
+// Nutzers 19.11.: oben und unten je ≈ 60 pt frei). Das Bedienfeld wird um diesen Betrag nach unten verlängert.
+// Der Knopf ▼/▲ im Bedienfeld schaltet das ab, falls der Bereich auf einem Gerät doch nicht sichtbar ist.
+let lowerOn = true, lowerExtra = 0;
+try { lowerOn = localStorage.getItem('autorennen.tief') !== 'nein'; } catch (_) {}
+function fitScreen() {
+    const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight, shh = screen.height;
+    const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    let extra = 0;
+    if (ih > window.innerWidth) {                          // nur Hochformat
+        if (ih - ch > 10) extra = ih - ch;                 // Fenster ist höher als das Layout
+        else if (standalone && shh - ih > 60 && shh - ih < 170) extra = Math.round((shh - ih) / 2);
+    }
+    lowerExtra = extra;
+    document.body.style.bottom = (lowerOn ? -extra : 0) + 'px';
+    const lb = document.getElementById('lower'), dg = document.getElementById('diag');
+    if (lb) { lb.hidden = !extra; lb.textContent = lowerOn ? '▲' : '▼'; }
+    if (dg) dg.textContent = 'Bild ' + window.innerWidth + '×' + ih + ' · Layout ' + ch + ' · Gerät ' + shh + ' · tiefer ' + (lowerOn ? extra : 0) + (standalone ? ' · App' : '');
+}
 function resize() {
+    fitScreen();
     const r = gameEl.getBoundingClientRect();
     canvas.width = Math.round(r.width);
     canvas.height = Math.round(r.height);
     try { stickHome(); } catch (_) {} // beim ersten Aufruf ist die Lenkung noch nicht angelegt
 }
 window.addEventListener('resize', resize);
+window.addEventListener('pageshow', () => { resize(); setTimeout(resize, 600); });   // iOS meldet die Größe beim Start teils verspätet
 resize();
 
 // --- SPIELVARIABLEN ---
@@ -334,6 +360,13 @@ const stickBase = document.getElementById('stickBase');
 const stickKnob = document.getElementById('stickKnob');
 let steerPtr = null, steerX0 = 0, steerY0 = 0;
 // Knöpfe tauschen (kleiner Knopf unten links): Knüppel und Turbo wechseln die Seite, wird gemerkt
+document.getElementById('lower').addEventListener('pointerdown', (e) => e.stopPropagation());
+document.getElementById('lower').addEventListener('click', () => {
+    lowerOn = !lowerOn;
+    try { localStorage.setItem('autorennen.tief', lowerOn ? 'ja' : 'nein'); } catch (_) {}
+    edgeColor = '';
+    resize();
+});
 let swapped = false;
 try { swapped = localStorage.getItem('autorennen.tausch') === 'ja'; } catch (_) {}
 const panelEl = document.getElementById('panel'), swapBtn = document.getElementById('swap');
@@ -1478,7 +1511,8 @@ const themeMeta = document.querySelector('meta[name="theme-color"]');
 function setEdgeColor(c) {
     if (c === edgeColor) return;
     edgeColor = c;
-    document.documentElement.style.background = 'linear-gradient(to bottom, ' + c + ' 0 50%, #242833 50% 100%) #242833';
+    // Außerhalb des Layouts zeigt das iPhone nur die Grundfarbe: Himmel, wenn das Bedienfeld bis unten reicht, sonst dunkel
+    document.documentElement.style.background = lowerOn && lowerExtra ? c : '#242833';
     if (themeMeta) themeMeta.setAttribute('content', c);
 }
 let glows = [], curDark = 0;                           // Lichtpunkte, die nach dem Abdunkeln leuchten
