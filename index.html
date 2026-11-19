@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.37';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.38';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -2681,7 +2681,9 @@ function drawStruct(seg, W) {
         for (const sd of [-1, 1]) {
             const d = sd * 1.5, y1 = p1.y - seg.cable * p1.w, y2 = p2.y - cb2 * p2.w;
             drawPolygon(X1(d), y1, X2(d), y2, X2(d), y2 + th, X1(d), y1 + th, '#c8402f');
-            if (i % 3 === 0 && seg.cable > 0.3) { ctx.fillStyle = '#a8483a'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - 0.14) * p1.w); }
+            const GH = 0.24;                           // Versteifungsträger an der Fahrbahnkante: daran hängen die Hänger
+            quad(d, GH, GH, 0, 0, light ? '#b8392a' : '#a83426'); quad(d, GH * 0.35, GH * 0.35, 0, 0, '#7e261c');
+            if (i % 3 === 0 && seg.cable > GH + 0.05) { ctx.fillStyle = '#a8483a'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - GH) * p1.w); }
         }
         if (seg.pylon) {
             const lw = p1.w * 0.13, top = p1.y - 3.6 * p1.w;
