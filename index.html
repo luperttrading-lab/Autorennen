@@ -70,7 +70,7 @@
         .overlay[hidden] { display: none; }
         .overlay { gap: 10px; padding: 46px 10px 12px; box-sizing: border-box; overflow-y: auto; justify-content: safe center; }
         .overlay [hidden] { display: none; }
-        .map svg { display: block; width: min(86vw, 320px); height: auto; max-height: 46vh; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+        .map svg { display: block; width: min(86vw, 320px); height: auto; max-height: 44vh; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
         #modeScreen { background: rgba(10, 8, 20, 0.88); z-index: 16; }
         .startBtn.alt { background: #2a6fd6; box-shadow: 0 6px 0 #123a7a, 0 10px 20px rgba(0,0,0,.4); }
         /* Leiste oben: Etappe, km, Fortschritt mit Checkpoint-Marken */
@@ -242,8 +242,7 @@
         <div class="map" id="startMap"></div>
         <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
-        <div class="small" id="startHelp">5 Etappen vom Morgen in die Nacht · an der Gabel lenken<br>
-            An jedem Tor neue Zeit, die Restzeit zählt nur zur Hälfte</div>
+        <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb</div>
         <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
     </div>
     <div class="overlay" id="modeScreen" hidden>
@@ -276,7 +275,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.2';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.3';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -343,7 +342,7 @@ function steerMove(x, y) {
     const a = off / range, m = Math.abs(a);
     steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
     // senkrecht: nach vorn (oben) = Gas, zurück (unten) = Bremse; Vollausschlag nach 60 % des Seitenwegs
-    const vr = range * 0.6;
+    const vr = range * 0.35;                           // Gas/Bremse: voller Ausschlag schon nach 35 % des Seitenwegs (Nutzer: vorher zu weit)
     const b = Math.max(-1, Math.min(1, -(y - steerY0) / vr)), mb = Math.abs(b);
     const v = mb < 0.12 ? 0 : Math.sign(b) * (mb - 0.12) / 0.88;
     throttle = Math.max(0, v); brake = Math.max(0, -v);
@@ -364,13 +363,11 @@ steerZone.addEventListener('pointerdown', (e) => {
     if (steerPtr !== null) return;
     steerPtr = e.pointerId;
     try { steerZone.setPointerCapture(e.pointerId); } catch (x) {}
-    const r = steerZone.getBoundingClientRect(), R = stickR();
-    const cx = Math.max(R * 0.6, Math.min(r.width - R * 0.6, e.clientX - r.left));
-    const cy = Math.max(R * 0.6, Math.min(r.height - R * 0.6, e.clientY - r.top));
-    stickBase.style.left = cx + 'px';
-    stickBase.style.top = cy + 'px';
+    // Knüppel steht fest (Nutzer 19.11.): maßgeblich ist, wo der Finger relativ zur Knüppelmitte liegt –
+    // links/rechts lenkt, oberhalb Gas, unterhalb Bremse, schon beim Aufsetzen
+    const kb = stickBase.getBoundingClientRect();
     stickBase.classList.add('on');
-    steerX0 = e.clientX; steerY0 = e.clientY;
+    steerX0 = kb.left + kb.width / 2; steerY0 = kb.top + kb.height / 2;
     steerMove(e.clientX, e.clientY);
     e.preventDefault();
 });
@@ -1886,10 +1883,10 @@ function mapSVG(route, clickable) {
         s += '<circle cx="' + x + '" cy="' + y + '" r="' + (hit ? 9 : 7) + '" fill="' + COL_COLOR[st.col] + '" stroke="' + (hit ? '#ffd84a' : '#1b1730') + '" stroke-width="' + (hit ? 3 : 2) + '"/>';
         if (st.row === 0) s += '<path d="M' + (x + 6) + ',' + (y - 6) + ' v-16 l12,4 l-12,4" fill="#fff" stroke="#111" stroke-width="1"/>';
         if (st.row === ROWS - 1) s += '<text x="' + x + '" y="' + (y + 3.5) + '" text-anchor="middle" font-size="9" fill="' + (save.ziele[id] ? '#c08a00' : '#333') + '">★</text>';
-        const lbl = st.name.split(' ')[0];
-        s += '<text x="' + x + '" y="' + (y - 13) + '" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="11" fill="#111" stroke="#fff" stroke-width="3" paint-order="stroke">' + lbl + '</text>';
-        s += '<text x="' + x + '" y="' + (y + 19) + '" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">' +
-             '●'.repeat(st.col + 1) + '○'.repeat(2 - st.col) + '</text>';
+        const lbl = st.name.split(' ')[0], lw = lbl.length * 6.2 + 32;   // Namensschild: dunkel, darin Name und Schwierigkeit
+        s += '<rect x="' + (x - lw / 2) + '" y="' + (y - 27) + '" width="' + lw + '" height="15" rx="7.5" fill="rgba(20,18,32,0.82)"/>';
+        s += '<text x="' + (x - lw / 2 + 8) + '" y="' + (y - 16.5) + '" font-family="sans-serif" font-weight="600" font-size="10" fill="#fff">' + lbl + '</text>';
+        for (let k = 0; k < 3; k++) s += '<circle cx="' + (x + lw / 2 - 14 + k * 4) + '" cy="' + (y - 19.5) + '" r="1.5" fill="' + (k <= st.col ? '#ffd84a' : 'rgba(255,255,255,0.35)') + '"/>';
         s += '</g>';
     }
     return s + '</g></svg>';
