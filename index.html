@@ -68,13 +68,32 @@
             color: white; font-family: 'Courier New', Courier, monospace; text-shadow: 3px 3px 0 #000; text-align: center;
         }
         .overlay[hidden] { display: none; }
+        .overlay { gap: 10px; padding: 46px 10px 12px; box-sizing: border-box; overflow-y: auto; justify-content: safe center; }
+        .overlay [hidden] { display: none; }
+        .map svg { display: block; width: min(86vw, 330px); height: auto; max-height: 40vh; }
+        #modeScreen { background: rgba(10, 8, 20, 0.88); z-index: 16; }
+        .startBtn.alt { background: #2a6fd6; box-shadow: 0 6px 0 #123a7a, 0 10px 20px rgba(0,0,0,.4); }
+        /* Leiste oben: Etappe, km, Fortschritt mit Checkpoint-Marken */
+        #bar {
+            position: absolute; z-index: 12; top: max(env(safe-area-inset-top), 14px); left: 12px; right: 64px;
+            color: #fff; font: bold 13px 'Courier New', Courier, monospace; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+            pointer-events: none;
+        }
+        #bar.tr { pointer-events: auto; cursor: pointer; }
+        body.menu #bar, body.menu #ui { visibility: hidden; }
+        #barTop { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
+        #barName { overflow: hidden; text-overflow: ellipsis; }
+        #barMode { color: #ffd84a; font-size: 11px; }
+        #barTrack { position: relative; height: 7px; margin-top: 4px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.7); border-radius: 4px; overflow: hidden; }
+        #barFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: #ffd84a; }
+        #barTrack i { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
         #msg {
             position: absolute; left: 0; right: 0; top: 26%; z-index: 14; text-align: center; pointer-events: none;
             color: #fff; font-family: 'Courier New', Courier, monospace; text-shadow: 3px 3px 0 #000;
             opacity: 0; transition: opacity .3s;
         }
         #msg.an { opacity: 1; }
-        #msg .t { font-size: 30px; font-weight: bold; }
+        #msg .t { font-size: 26px; font-weight: bold; padding: 0 8px; }
         #msg .s { font-size: 16px; margin-top: 6px; color: #ffe066; }
         .overlay .big { font-size: 40px; font-weight: bold; line-height: 1.1; }
         .overlay .small { font-size: 15px; opacity: .9; text-shadow: 1px 1px 0 #000; }
@@ -120,10 +139,10 @@
         }
         #ui {
             position: absolute;
-            top: max(env(safe-area-inset-top), 20px);
-            left: 20px;
+            top: calc(max(env(safe-area-inset-top), 14px) + 34px);
+            left: 12px;
             color: white;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             font-family: 'Courier New', Courier, monospace;
             text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
@@ -206,20 +225,31 @@
 
 <div id="game"><canvas id="gameCanvas"></canvas>
     <div id="msg"><div class="t" id="msgT"></div><div class="s" id="msgS"></div></div>
+    <div id="bar"><div id="barTop"><span id="barName"></span><span id="barMode"></span><span id="barKm"></span></div>
+        <div id="barTrack"><div id="barFill"></div><i style="left:33.3%"></i><i style="left:66.7%"></i></div></div>
     <div class="overlay" id="startScreen">
-        <div class="big">AUTORENNEN</div>
+        <div class="big" id="startTitle">AUTORENNEN</div>
+        <div class="map" id="startMap"></div>
+        <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
-        <div class="small">Knüppel: nach vorn = Gas · zurück = Bremse · seitlich = lenken<br>TURBO halten = schneller</div>
-        <div class="small">Jede Runde ist eine Etappe: vor Ablauf der Zeit durchs ZIEL.<br>Die Hälfte der Restzeit wird gutgeschrieben.</div>
-        <div class="small" id="recordStart"></div>
+        <div class="small" id="startHelp">5 Etappen vom Morgen in die Nacht · an der Gabel lenken<br>
+            An jedem Tor neue Zeit, die Restzeit zählt nur zur Hälfte</div>
+        <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
+    </div>
+    <div class="overlay" id="modeScreen" hidden>
+        <div class="big">MODUS</div>
+        <button class="startBtn" id="btnRennen" type="button">RENNEN</button>
+        <button class="startBtn alt" id="btnTraining" type="button">TRAINING</button>
+        <div class="small">Training: Etappe auf der Karte frei wählen,<br>kein Game Over, keine Rekorde.</div>
     </div>
     <div class="overlay" id="gameOver" hidden>
-        <div class="big">GAME OVER</div>
+        <div class="big" id="endTitle">GAME OVER</div>
+        <div class="map" id="endMap"></div>
         <div class="small" id="goInfo"></div>
         <button class="startBtn" id="btnAgain" type="button">NOCHMAL</button>
     </div>
 </div>
-<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 32</span> <span id="stageDisplay">ETAPPE 1</span></div>
+<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 0</span></div>
 
 <!-- Bedienfeld unten: links/Mitte lenken, rechts Turbo -->
 <div id="panel">
@@ -236,7 +266,7 @@
 </div>
 
 <script>
-const APP_VERSION = '2.7';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.0';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -529,101 +559,283 @@ window.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowDown') keys.down = false;
 });
 
-// --- STRASSEN-GENERATOR (Pseudo-3D) ---
+// --- STRASSE, LANDSCHAFTEN UND KARTE (Konzept Schritt 1, siehe konzept.html) ---
 const rumbleLength = 3;
 const roadWidth = 2000;
 const lanes = 3;
-let trackLength = 0;
 let segments = [];
 
-// Landschaften: 0 Wiese, 1 Wald, 2 Wüste, 3 Nacht, 4 Berge (Schnee); Reihenfolge auf der Strecke: 0, 1, 4, 2, 3
-const THEMES = [
-    { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#3a6ea5', grass: ['#00b300', '#00cc00'], base: '#004d00' },
-    { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#2f5d50', grass: ['#004400', '#003300'], base: '#002a00' },
-    { sky: ['#ffaa00', '#ffdd88'], sun: '#ff4500', mount: '#b5653a', grass: ['#d2b48c', '#c2a47c'], base: '#a88a60' },
-    { sky: ['#050520', '#0b0b30'], sun: '#eeeeee', mount: '#16163a', grass: ['#111111', '#000000'], base: '#000000', night: true },
-    { sky: ['#2f74d0', '#bfe1ff'], sun: '#fff6c8', mount: '#9fb2c9', grass: ['#eef3f7', '#dfe7ee'], base: '#d0dae3', snow: true }
-];
-let currentTheme = 0;
-let gravelOn = false;
+// Landschaften. Bodenfarbe, Berge, Randobjekte und Staub werden pro Segment zwischen zwei Landschaften gemischt.
+// msc = Höhe der fernen Berge, sq = Reifenquietschen (A Arcade, B Gummi, C tief schleifend), lamps = Laterne alle n Segmente
+const LANDS = {
+    feld:   { grass: ['#00b300', '#00cc00'], base: '#004d00', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B',
+              spr: { every: 4, chance: 0.55, types: ['tree', 'tree', 'tree', 'bush', 'bush'] } },
+    dorf:   { grass: ['#33a83a', '#2b9a33'], base: '#1d5a20', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B', lamps: 12,
+              spr: { every: 4, chance: 0.5, types: ['tree', 'tree', 'bush'] } },
+    strand: { grass: ['#e4d39a', '#d8c68a'], base: '#bba970', mount: 'strand', msc: 0.8, dust: '215,195,150', sq: 'B',
+              spr: { every: 5, chance: 0.5, types: ['bush', 'bush', 'rock', 'tree'] } },
+    wein:   { grass: ['#8dbd3e', '#80b036'], base: '#56761f', mount: 'feld',   msc: 1.1, dust: '160,140,100', sq: 'B', rows: true,
+              spr: { every: 6, chance: 0.5, types: ['tree', 'bush'] } },
+    wald:   { grass: ['#004400', '#003300'], base: '#002a00', mount: 'wald',   msc: 1.3, dust: '120,110,85',  sq: 'B',
+              spr: { every: 3, chance: 0.85, types: ['fir', 'fir', 'fir', 'fir', 'bush'] } },
+    fels:   { grass: ['#8c8676', '#817b6b'], base: '#5d584a', mount: 'fels',   msc: 1.6, dust: '150,145,135', sq: 'C',
+              spr: { every: 4, chance: 0.6, types: ['rock', 'rock', 'fir'] } },
+    schnee: { grass: ['#eef3f7', '#dfe7ee'], base: '#d0dae3', mount: 'schnee', msc: 2.0, dust: '240,245,250', sq: 'C', snow: true,
+              spr: { every: 3, chance: 0.75, types: ['snowfir', 'snowfir', 'snowfir', 'snowrock'] } },
+    eis:    { grass: ['#d6e7f5', '#c7daec'], base: '#a6c0d8', mount: 'eis',    msc: 2.2, dust: '235,242,250', sq: 'C', snow: true,
+              spr: { every: 4, chance: 0.6, types: ['snowrock', 'snowrock', 'snowfir'] } },
+    gipfel: { grass: ['#e2e9f0', '#d4dde6'], base: '#b5c2cf', mount: 'eis',    msc: 2.4, dust: '235,240,248', sq: 'C',
+              spr: { every: 5, chance: 0.5, types: ['snowrock', 'snowrock', 'rock'] } },
+    wueste: { grass: ['#d2b48c', '#c2a47c'], base: '#a88a60', mount: 'wueste', msc: 1.0, dust: '215,185,140', sq: 'C',
+              spr: { every: 4, chance: 0.55, types: ['cactus', 'cactus', 'rock', 'rock', 'rock'] } },
+    canyon: { grass: ['#c46e3c', '#b56334'], base: '#7f4224', mount: 'canyon', msc: 1.5, dust: '200,120,80',  sq: 'C',
+              spr: { every: 4, chance: 0.55, types: ['rock', 'rock', 'rock', 'cactus'] } },
+    vulkan: { grass: ['#3b3533', '#322d2b'], base: '#1d1918', mount: 'vulkan', msc: 1.6, dust: '90,85,85',    sq: 'C',
+              spr: { every: 4, chance: 0.5, types: ['rock', 'rock', 'rock', 'bush'] } },
+    stadt:  { grass: ['#5d6168', '#53575e'], base: '#383b41', mount: 'stadt',  msc: 1.0, dust: '130,130,130', sq: 'A', lamps: 8,
+              spr: { every: 6, chance: 0.4, types: ['bush'] } },
+    oase:   { grass: ['#d8bb8e', '#cbad80'], base: '#a88a60', mount: 'wueste', msc: 1.0, dust: '215,185,140', sq: 'C', lamps: 10,
+              spr: { every: 5, chance: 0.5, types: ['bush', 'cactus', 'tree'] } }
+};
+// Klima-Regel (Konzept 3a): direkt aneinander grenzen dürfen nur diese Landschaften; sonst liegt eine Zwischenstufe dazwischen
+const CLIMATE = {
+    feld: ['strand', 'dorf', 'wein', 'wald'], dorf: ['feld', 'strand', 'wein', 'stadt'],
+    strand: ['feld', 'dorf', 'wueste', 'vulkan', 'stadt'], wein: ['feld', 'dorf', 'wald', 'wueste', 'vulkan'],
+    wald: ['feld', 'wein', 'fels'], fels: ['wald', 'schnee', 'canyon', 'vulkan', 'gipfel'],
+    schnee: ['fels', 'eis', 'gipfel'], eis: ['schnee', 'gipfel'], gipfel: ['schnee', 'eis', 'fels'],
+    wueste: ['strand', 'wein', 'canyon', 'oase'], canyon: ['wueste', 'fels', 'oase'],
+    vulkan: ['strand', 'wein', 'fels'], stadt: ['dorf', 'strand'], oase: ['wueste', 'canyon']
+};
+function climatePath(a, b) {                           // kürzester Weg im Klima-Graphen (Breitensuche)
+    if (a === b) return [a];
+    const prev = { [a]: null }, q = [a];
+    while (q.length) {
+        const n = q.shift();
+        for (const m of CLIMATE[n]) if (!(m in prev)) { prev[m] = n; if (m === b) q.length = 0; else q.push(m); }
+    }
+    const path = [b];
+    while (prev[path[0]] !== null && path[0] !== a) path.unshift(prev[path[0]]);
+    return path;
+}
+
+// Karte: 3 Spalten (Küste leicht, Land mittel, Gebirge schwer) × 5 Reihen (Morgen bis Nacht) = 13 Etappen, 41 Routen
+const COLS = ['K', 'L', 'G'];
+const COL_NAME = ['KÜSTE', 'LAND', 'GEBIRGE'];
+const COL_COLOR = ['#3aa7d8', '#7cc35a', '#e3e8ef'];
+const TIME_FACTOR = [1.30, 1.20, 1.12];               // Zeit je Drittel = fehlerfreie Bot-Zeit × Faktor
+const ROWS = 5;
+const ROW_NAME = ['Morgen', 'Vormittag', 'Mittag', 'Abend', 'Nacht'];
+const STAGES = {
+    S:  { row: 0, col: 1, name: 'Morgenland',              short: 'MORGENLAND',    land: 'feld' },
+    K2: { row: 1, col: 0, name: 'Küstenstraße',            short: 'KÜSTENSTRASSE', land: 'strand' },
+    L2: { row: 1, col: 1, name: 'Kleinstadt am Fluss',     short: 'KLEINSTADT',    land: 'dorf' },
+    G2: { row: 1, col: 2, name: 'Voralpen und Bergsee',    short: 'VORALPEN',      land: 'wald', gravel: true },
+    K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand' },
+    L3: { row: 2, col: 1, name: 'Weinland und Talbrücke',  short: 'WEINLAND',      land: 'wein' },
+    G3: { row: 2, col: 2, name: 'Alpenpass',               short: 'ALPENPASS',     land: 'schnee' },
+    K4: { row: 3, col: 0, name: 'Vulkaninsel',             short: 'VULKANINSEL',   land: 'vulkan' },
+    L4: { row: 3, col: 1, name: 'Canyon und Staudamm',     short: 'CANYON',        land: 'canyon' },
+    G4: { row: 3, col: 2, name: 'Gletscher',               short: 'GLETSCHER',     land: 'eis' },
+    K5: { row: 4, col: 0, name: 'Hafenstadt',              short: 'HAFENSTADT',    land: 'stadt' },
+    L5: { row: 4, col: 1, name: 'Oase der Lichter',        short: 'OASE',          land: 'oase' },
+    G5: { row: 4, col: 2, name: 'Sternwarte',              short: 'STERNWARTE',    land: 'gipfel' }
+};
+function stageAt(row, col) { return row === 0 ? (col === 1 ? 'S' : null) : COLS[col] + (row + 1); }
+function nextStages(id) {                              // geradeaus oder eine Spalte nach links/rechts, links → rechts sortiert
+    const s = STAGES[id], out = [];
+    if (s.row >= ROWS - 1) return out;
+    for (let c = Math.max(0, s.col - 1); c <= Math.min(2, s.col + 1); c++) out.push(stageAt(s.row + 1, c));
+    return out;
+}
+
+// Längen in Segmenten: jede Etappe 4 000 Segmente vom Tor davor bis zum eigenen Tor (≈ 60–75 s fehlerfrei)
+const STAGE_SEGS = 4000, HEAD = 160, CONN = 900, PRE = 300, SPLIT = 120, TAIL = HEAD, PRE_FINAL = 120, RUNOUT = 320;
+const SPLIT_D = 3.4;     // Abstand benachbarter Fahrbahnen am Ende der Gabel, in halben Straßenbreiten
+const TAIL_BEND = 1.6;   // danach laufen die Äste weiter auseinander (Kurve der gewählten Fahrbahn)
+
+let curLand = 'feld', curLand2 = 'feld', curMix = 0, gravelOn = false;
+const ROAD0 = [0];
 function addSegment(curve, y) {
     const n = segments.length;
-    segments.push({
+    const seg = {
         index: n,
         p1: { world: { y: lastY(), z: n * segmentLength }, camera: {}, screen: {} },
         p2: { world: { y: y, z: (n + 1) * segmentLength }, camera: {}, screen: {} },
         curve: curve,
-        theme: currentTheme,
         color: Math.floor(n / rumbleLength) % 2 ? 'dark' : 'light',
         sprites: [],
-        gravel: gravelOn
-    });
+        gravel: gravelOn,
+        land: curLand, land2: curLand2, mix: curMix,
+        roads: ROAD0, roads2: ROAD0                    // Mitten der Fahrbahnen (am Anfang/Ende des Segments)
+    };
+    segments.push(seg);
+    return seg;
 }
 function lastY() { return (segments.length === 0) ? 0 : segments[segments.length - 1].p2.world.y; }
-
-// Strecke bauen
-function buildTrack(mirror = false) {
-    curveSign = mirror ? -1 : 1;
-    segments = [];
-    currentTheme = 0;
-    addStraight(50); addCurve(50, 4); addHill(50, 200); addStraight(50);
-    currentTheme = 1;
-    addCurve(100, -5);
-    gravelOn = true; addStraight(50); addHill(50, -100); addStraight(50); gravelOn = false;   // Schotterweg durch den Wald
-    // Berge: lange Auffahrt in Kehren, Passhöhe im Schnee, Abfahrt
-    currentTheme = 4;
-    mountainStart = segments.length;
-    addRamp(60, 1200, 3); addRamp(60, 1200, -4);
-    addCurve(40, 5); addStraight(30); addCurve(40, -5);
-    addRamp(60, -1200, -3); addRamp(60, -1200, 4);
-    mountainEnd = segments.length;
-    currentTheme = 2;
-    addCurve(50, 6); addStraight(100); addCurve(50, -6); addStraight(50);
-    currentTheme = 3;
-    addCurve(100, 4); addStraight(100);
-    trackLength = segments.length * segmentLength;
-    // Ölflecken: feste Stellen (Segment, Spur), damit man sie lernen kann
-    oils = [[160, 0], [420, 0.6], [700, -0.6], [905, 0], [1040, 0.6], [1180, -0.6]].map(([seg, off]) => ({ seg, offset: off * curveSign }));
-    // Randobjekte je Landschaft: Wiese Laubbäume + Büsche, Wald dichte Tannen, Wüste Kakteen + Felsen,
-    // Nacht Straßenlaternen im festen Abstand. offset 1 = Straßenrand, Größe leicht zufällig.
-    const pick = (a) => a[Math.floor(Math.random() * a.length)];
-    for (let i = 8; i < segments.length - 8; i++) {
-        const th = segments[i].theme;
-        if (th === 3) {
-            if (i % 8 === 0) segments[i].sprites.push({ type: 'lamp', offset: (i % 16 === 0 ? -1 : 1) * 1.15, scale: 1 });
-            continue;
-        }
-        const every = th === 1 || th === 4 ? 3 : 4, chance = th === 1 ? 0.85 : th === 4 ? 0.75 : 0.55;
-        if (i % every !== 0 || Math.random() > chance) continue;
-        const side = Math.random() > 0.5 ? 1 : -1;
-        const type = th === 0 ? pick(['tree', 'tree', 'tree', 'bush', 'bush'])
-                   : th === 1 ? pick(['fir', 'fir', 'fir', 'fir', 'bush'])
-                   : th === 4 ? pick(['snowfir', 'snowfir', 'snowfir', 'snowrock'])
-                   : pick(['cactus', 'cactus', 'rock', 'rock', 'rock']);
-        const near = type === 'bush' || type === 'rock' || type === 'snowrock' ? 1.3 : 1.45;
-        segments[i].sprites.push({ type, offset: side * (near + Math.random() * 0.5), scale: 0.8 + Math.random() * 0.5, v: Math.floor(Math.random() * 3) });
-    }
-}
-function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
-let mountainStart = 0, mountainEnd = 0, oils = [];
-// Rampe: Höhenänderung dh weich ein- und auslaufend (smoothstep), optional mit Kurve
-function addRamp(num, dh, curve = 0) {
+// Straßenstück: Kurve läuft weich ein und aus, Höhe ändert sich um dh (smoothstep), dazu optional eine Kuppe
+function addRoad(n, curve = 0, dh = 0, hill = 0) {
     const y0 = lastY();
-    for (let i = 0; i < num; i++) {
-        const f = (i + 1) / num, e = f * f * (3 - 2 * f);
-        addSegment(curve * curveSign, y0 + dh * e);
+    for (let i = 0; i < n; i++) {
+        const f = (i + 1) / n, e = f * f * (3 - 2 * f);
+        const ramp = Math.min(1, (i + 0.5) / (n * 0.2), (n - i - 0.5) / (n * 0.2));
+        addSegment(curve * ramp, y0 + dh * e + hill * Math.sin(f * Math.PI));
     }
 }
-let curveSign = 1;                                     // -1 = Kurven gespiegelt (gerade Etappen)
-function addCurve(num, curve) { for(let i=0; i<num; i++) addSegment(curve * curveSign, lastY()); }
-function addHill(num, height) {
-    const startY = lastY();
-    for(let i=0; i<num; i++) {
-        let y = startY + Math.sin((i/num) * Math.PI) * height;
-        addSegment(0, y);
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; }
+
+// Feste Streckenführung je Etappe (gleicher Zufallskeim = bei jeder Fahrt dieselbe Strecke)
+function genBody(st, n, r, conn = false) {
+    const end = segments.length + n, c = st.col, start = segments.length;
+    const R = (a, b) => a + r() * (b - a), I = (a, b) => Math.floor(R(a, b + 1)), sgn = () => (r() < 0.5 ? -1 : 1);
+    const left = () => end - segments.length;
+    const k0 = conn ? 0.6 : 1;                         // Verbindungsstücke: sanftere Kurven
+    const cMax = [3.5, 5, 6][c] * k0, cMin = [1.5, 2.5, 3.5][c] * k0, hillMax = [300, 600, 900][c];
+    const gravelAt = st.gravel && !conn ? [Math.floor(n * 0.3), Math.floor(n * 0.65)] : [];
+    while (left() > 0) {
+        const L0 = left();
+        if (L0 < 40) { addRoad(L0); break; }
+        const m = (a, b) => Math.min(L0, I(a, b));
+        if (gravelAt.length && segments.length - start >= gravelAt[0]) {   // Schotterweg
+            gravelAt.shift(); gravelOn = true;
+            const len = Math.min(L0, 160), h = Math.floor(len / 2);
+            addRoad(h, sgn() * R(1.5, 3), 0, R(-150, 150)); addRoad(len - h, sgn() * R(1.5, 3));
+            gravelOn = false; continue;
+        }
+        const k = r(), y = lastY();
+        if (c === 2 && !conn && k < 0.35) {             // Gebirge: Auffahrt oder Abfahrt in Kehren
+            const up = y < 1500 ? 1 : y > 5000 ? -1 : sgn(), s = sgn();
+            for (let j = 0; j < 2 && left() > 60; j++) addRoad(Math.min(left(), I(50, 70)), (j % 2 ? -s : s) * R(4, 5.5), up * R(500, 900));
+        } else if (k < 0.25) addRoad(m(30, 90), 0, 0, R(-1, 1) * hillMax * 0.6);
+        else if (k < 0.65) addRoad(m(50, 110), sgn() * R(cMin, cMax), 0, r() < 0.5 ? R(-1, 1) * hillMax : 0);
+        else if (k < 0.85) { const s = sgn(); addRoad(m(40, 70), s * R(cMin, cMax)); if (left() > 40) addRoad(Math.min(left(), I(40, 70)), -s * R(cMin, cMax)); }
+        else addRoad(m(60, 120), 0, (y > 2500 ? -1 : y < -500 ? 1 : sgn()) * R(200, hillMax) * (conn && c === 2 ? 1.5 : 1));
     }
 }
-buildTrack();
+// Verbindungsstück: Landschaft A geht über die Zwischenstufen der Klima-Regel Segment für Segment in B über
+function addConnection(st, from, r) {
+    const a = segments.length;
+    genBody(st, CONN, r, true);
+    const path = climatePath(from, st.land), m = path.length - 1;
+    for (let k = 0; k < CONN; k++) {
+        const seg = segments[a + k];
+        if (m === 0) { seg.land = seg.land2 = st.land; seg.mix = 0; continue; }
+        const u = (k + 0.5) / CONN * m, j = Math.min(m - 1, Math.floor(u));
+        const e = Math.max(0, Math.min(1, (u - j - 0.1) / 0.8));
+        seg.land = path[j]; seg.land2 = path[j + 1]; seg.mix = e * e * (3 - 2 * e);
+    }
+}
+// Gabel: gerades Stück mit zwei Schilderbrücken, dann teilt sich die Straße in 2–3 Fahrbahnen, die auseinanderlaufen
+function addFork(id) {
+    const br = nextStages(id), cs = br.length === 3 ? [-1, 0, 1] : [-0.5, 0.5];
+    const preSeg = segments.length;
+    addRoad(PRE);
+    segments[preSeg + 30].sign = br;
+    segments[preSeg + PRE - 80].sign = br;
+    const splitSeg = segments.length, sm = (t) => t * t * (3 - 2 * t);
+    for (let k = 0; k < SPLIT; k++) {
+        const s = addSegment(0, lastY());
+        const d1 = SPLIT_D * sm(k / SPLIT), d2 = SPLIT_D * sm((k + 1) / SPLIT);
+        s.roads = cs.map(c => c * d1); s.roads2 = cs.map(c => c * d2); s.fork = true;
+        if (d1 < 2.3 && d2 >= 2.3) s.tip = true;       // Spitze des Trenndreiecks
+    }
+    const commitSeg = segments.length;
+    const cc = cs.map(c => c * SPLIT_D * TAIL_BEND);
+    const off = (j, k) => cs[j] * SPLIT_D + cc[j] * k * (k - 1) / 2 / roadWidth;
+    for (let k = 0; k < TAIL; k++) {
+        const s = addSegment(0, lastY());
+        s.roads = cs.map((c, j) => off(j, k)); s.roads2 = cs.map((c, j) => off(j, k + 1)); s.tailK = k;
+    }
+    segments[commitSeg].gates = br.map((b, j) => ({ o: cs[j] * SPLIT_D, kind: 'tor', id: b }));
+    return { branches: br, cs, cc, preSeg, splitSeg, commitSeg };
+}
+// Farben der Segmente vorab mischen
+function mixRgb(a, b, t) { const x = hexRgb(a), y = hexRgb(b); return x.map((v, i) => Math.round(v + (y[i] - v) * t)); }
+function rgbStr(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+function paint(a, b) {
+    for (let i = a; i < b; i++) {
+        const s = segments[i], A = LANDS[s.land], B = LANDS[s.land2];
+        s.gL = rgbStr(mixRgb(A.grass[0], B.grass[0], s.mix));
+        s.gD = rgbStr(mixRgb(A.grass[1], B.grass[1], s.mix));
+        s.base = rgbStr(mixRgb(A.base, B.base, s.mix));
+        s.msc = A.msc + (B.msc - A.msc) * s.mix;
+    }
+}
+// Randobjekte fest setzen. Im Übergang stammt jedes Objekt mit Wahrscheinlichkeit mix aus der neuen Landschaft.
+function decorate(a, b, r) {
+    for (let i = a; i < b; i++) {
+        const seg = segments[i];
+        if (seg.checker || seg.sign) continue;
+        const L = r() < seg.mix ? seg.land2 : seg.land, D = LANDS[L];
+        const lo = Math.min(...seg.roads), hi = Math.max(...seg.roads);
+        if (D.lamps && i % D.lamps === 0) seg.sprites.push({ type: 'lamp', offset: (i % (2 * D.lamps) === 0 ? lo - 1.15 : hi + 1.15), scale: 1 });
+        if (D.rows && i % 3 === 0) {                   // Weinreben in Reihen beidseits
+            seg.sprites.push({ type: 'bush', offset: lo - 1.3, scale: 0.75, v: i % 2 }, { type: 'bush', offset: hi + 1.3, scale: 0.75, v: (i + 1) % 2 });
+        }
+        const sp = D.spr;
+        if (!sp || i % sp.every !== 0 || r() > sp.chance) continue;
+        const side = r() > 0.5 ? 1 : -1;
+        const type = sp.types[Math.floor(r() * sp.types.length)];
+        const near = (type === 'bush' || type === 'rock' || type === 'snowrock' ? 1.3 : 1.45) + (D.rows ? 0.4 : 0);
+        const off = near + r() * 0.5;
+        seg.sprites.push({ type, offset: side > 0 ? hi + off : lo - off, scale: 0.8 + r() * 0.5, v: Math.floor(r() * 3) });
+    }
+}
+// Eine Etappe an die Strecke hängen. startSeg = null: mit eigenem Anlauf (Fahrtbeginn, Training, Bot);
+// sonst beginnt sie am Gabeltor der vorigen Etappe, deren Astende schon liegt.
+function appendStage(id, fromLand, startSeg = null, sim = false) {
+    const st = STAGES[id], r = rng(hashStr(id) ^ 0x5eed);
+    const decoFrom = segments.length, ownHead = startSeg === null;
+    gravelOn = false; curMix = 0;
+    if (ownHead) { startSeg = segments.length; curLand = curLand2 = fromLand; addRoad(HEAD); }
+    curLand = curLand2 = st.land;
+    if (st.row > 0) addConnection(st, fromLand, r);
+    curLand = curLand2 = st.land; curMix = 0;
+    const final = st.row === ROWS - 1;
+    genBody(st, STAGE_SEGS - (segments.length - startSeg) - (final ? PRE_FINAL : PRE + SPLIT), r);
+    const S = { id, row: st.row, col: st.col, startSeg, final, nextCp: 0, signShown: false };
+    if (final) {
+        addRoad(PRE_FINAL);
+        S.endSeg = segments.length;
+        addRoad(RUNOUT);
+        segments[S.endSeg].gates = [{ o: 0, kind: 'ziel' }];
+        segments[S.endSeg].checker = segments[S.endSeg + 1].checker = true;
+    } else {
+        Object.assign(S, addFork(id));
+        S.endSeg = S.commitSeg;
+    }
+    const len = S.endSeg - startSeg;
+    S.cps = [startSeg + Math.round(len / 3), startSeg + Math.round(len * 2 / 3)];
+    for (const c of S.cps) segments[c].gates = [{ o: 0, kind: 'cp' }];
+    if (ownHead) {                                     // Startlinie
+        segments[startSeg + 8].checker = segments[startSeg + 9].checker = true;
+        segments[startSeg + 8].gates = [{ o: 0, kind: 'start' }];
+    }
+    const nOil = [3, 5, 6][st.col];                    // Ölflecken an festen Stellen
+    for (let i = 0; i < nOil; i++) {
+        const s = startSeg + 250 + Math.floor((i + 0.2 + r() * 0.6) * (len - 700) / nOil);
+        if (!segments[s].gates) segments[s].oil = [-0.6, 0, 0.6][Math.floor(r() * 3)];
+    }
+    if (!sim) {
+        paint(decoFrom, segments.length);
+        decorate(decoFrom, segments.length, r);
+        spawnOpponents(st, startSeg + (ownHead ? 30 : drawDistance + 10), S.endSeg - 10, r);
+    }
+    return S;
+}
+// Strecke vorn abschneiden: alles vor dem Segment base fällt weg, Positionen rücken nach
+function rebase(base) {
+    segments = segments.slice(base);
+    for (let i = 0; i < segments.length; i++) {
+        const s = segments[i];
+        s.index = i; s.p1.world.z = i * segmentLength; s.p2.world.z = (i + 1) * segmentLength;
+    }
+    position -= base * segmentLength;
+    for (const o of opponents) o.z -= base * segmentLength;
+    opponents = opponents.filter(o => o.z >= 0);
+}
+function roadDist(seg, x) { let d = 1e9; for (const o of seg.roads) d = Math.min(d, Math.abs(x - o)); return d; }   // Abstand zur nächsten Fahrbahnmitte
+function nearestRoad(seg, x) { let k = 0; seg.roads.forEach((o, j) => { if (Math.abs(x - o) < Math.abs(x - seg.roads[k])) k = j; }); return k; }
+function segAt(z) { return segments[Math.max(0, Math.min(segments.length - 1, Math.floor(z / segmentLength)))]; }
 
 // Kamera Einstellungen
 const cameraHeight = 1000;
@@ -631,24 +843,26 @@ const cameraDepth = 1 / Math.tan((100 / 2) * Math.PI / 180);
 const drawDistance = 150;
 
 // --- GEGNER-AUTOS ---
+// Starten je Etappe immer gleich (fester Zufallskeim). An der Gabel nimmt jeder den Ast, der zu seiner Spur passt.
 const PLAYER_Z = 950;        // Abstand Kamera -> eigenes Auto (dort steht es unten im Bild)
 const CAR_WORLD_W = 450;     // Breite eines Autos in Welt-Einheiten (Straße: 2 * roadWidth = 4000)
-const OPP_COUNT = 28;
 const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1a1a', '#00a3a3'];
 let opponents = [];
-function resetOpponents(stage = 1) {
-    const lo = Math.min(0.55, 0.35 + (stage - 1) * 0.03);   // je Etappe 3 Prozentpunkte schneller
-    opponents = [];
-    for (let i = 0; i < OPP_COUNT; i++) {
-        opponents.push({
-            z: (i + 1) * trackLength / (OPP_COUNT + 1),                // gleichmäßig verteilt
-            offset: [-0.6, 0, 0.6][i % 3] + (Math.random() - 0.5) * 0.2, // Spur: -1 linker, +1 rechter Rand
-            speed: maxSpeed * (lo + Math.random() * 0.35),               // Etappe 1: 35-70 % unseres Höchsttempos
-            color: OPP_COLORS[i % OPP_COLORS.length]
-        });
-    }
+function spawnOpponents(st, a, b, r) {
+    const n = Math.max(0, Math.round((b - a) / 45)), lo = Math.min(0.55, 0.35 + st.row * 0.03);   // je Reihe 3 Prozentpunkte schneller
+    for (let i = 0; i < n; i++) opponents.push({
+        z: (a + (i + 0.5) * (b - a) / n) * segmentLength,
+        offset: [-0.6, 0, 0.6][i % 3] + (r() - 0.5) * 0.2,   // Spur innerhalb der Fahrbahn
+        speed: maxSpeed * (lo + r() * 0.35),
+        color: OPP_COLORS[i % OPP_COLORS.length],
+        road: undefined                                       // Fahrbahn an der Gabel, wird beim Einfahren gewählt
+    });
 }
-resetOpponents();
+function oppLat(o, seg, t = 0) {                       // seitliche Lage des Gegners (halbe Straßenbreiten) oder null
+    const k = o.road || 0;
+    if (k >= seg.roads.length) return null;
+    return seg.roads[k] + (seg.roads2[k] - seg.roads[k]) * t + o.offset;
+}
 
 // Sportwagen von hinten; x = Mitte, y = Unterkante, w = Breite in Pixeln
 function drawCar(x, y, w, h, color, player = false) {
@@ -912,25 +1126,26 @@ function drawSprite(sp, x, y, size) {
         ctx.drawImage(img, -w / 2, y - h, w, h);
         ctx.restore();
     } else ctx.drawImage(img, x - w / 2, y - h, w, h);
-    if (sp.type === 'lamp') {                          // Lichtschein an der Leuchte
+    if (sp.type === 'lamp' && curDark > 0.05) {        // Lichtschein an der Leuchte, wird nach dem Abdunkeln gemalt
         const k = w / img.width;
         const lx = flip ? x + w / 2 - 3.5 * k : x - w / 2 + 3.5 * k, ly = y - h + 6 * k;
-        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, size * 0.35);
-        g.addColorStop(0, 'rgba(255, 230, 150, 0.5)');
-        g.addColorStop(1, 'rgba(255, 230, 150, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(lx, ly, size * 0.35, 0, Math.PI * 2); ctx.fill();
+        glows.push({ x: lx, y: ly, r: size * 0.35 });
     }
 }
 
-// Berge: zwei Schichten (fern mit Schneekappen, nah als Hügel), nahtlos wiederholbar, pro Landschaft gefärbt
-const MOUNT = [
-    { far: ['#9db6d6', '#7d9bc1', '#5f7da6'], snow: '#f1f5fa', near: ['#5a9a50', '#3f7a3c', '#2c5e2c'], trees: '#24502a' },
-    { far: ['#8eaccb', '#6f8fae', '#526f8f'], snow: '#e8eef5', near: ['#3a7a48', '#2a6038', '#1b4428'], trees: '#113420' },
-    { far: ['#e6a873', '#d08b55', '#a96638'], snow: null,      near: ['#c7854c', '#a8683a', '#83492a'], trees: null },
-    { far: ['#343a6e', '#262a52', '#1b1e3d'], snow: '#5d6396', near: ['#1c1f3a', '#15172e', '#0e0f20'], trees: '#0a0b16' },
-    { far: ['#c9d6e6', '#9fb2c9', '#7489a3'], snow: '#ffffff', near: ['#eef3f7', '#d3dde7', '#b2c0cf'], trees: '#2d4a3a' }
-];
+// Berge: zwei Schichten (fern mit Schneekappen, nah als Hügel), nahtlos wiederholbar, je Landschaft gefärbt
+const MOUNT = {
+    feld:   { far: ['#9db6d6', '#7d9bc1', '#5f7da6'], snow: '#f1f5fa', near: ['#5a9a50', '#3f7a3c', '#2c5e2c'], trees: '#24502a' },
+    wald:   { far: ['#8eaccb', '#6f8fae', '#526f8f'], snow: '#e8eef5', near: ['#3a7a48', '#2a6038', '#1b4428'], trees: '#113420' },
+    wueste: { far: ['#e6a873', '#d08b55', '#a96638'], snow: null,      near: ['#c7854c', '#a8683a', '#83492a'], trees: null },
+    schnee: { far: ['#c9d6e6', '#9fb2c9', '#7489a3'], snow: '#ffffff', near: ['#eef3f7', '#d3dde7', '#b2c0cf'], trees: '#2d4a3a' },
+    strand: { far: ['#a9c9e6', '#8fb5d8', '#7aa2c8'], snow: null,      near: ['#cdbf86', '#b7a873', '#9a8c5c'], trees: '#5d7a3a' },
+    fels:   { far: ['#a7b0bc', '#8a94a2', '#6c7684'], snow: '#eef2f6', near: ['#8a8474', '#736d5e', '#5a5548'], trees: '#3d4a34' },
+    eis:    { far: ['#dfe8f3', '#b8c8dc', '#8ea4c0'], snow: '#ffffff', near: ['#e6eef6', '#c8d6e4', '#a5b6c8'], trees: null },
+    canyon: { far: ['#d98a5a', '#bf6d40', '#9a4f2c'], snow: null,      near: ['#b5602f', '#964c24', '#73381a'], trees: null },
+    vulkan: { far: ['#5a4646', '#463434', '#322424'], snow: '#ff5a1e', near: ['#2e2a29', '#242120', '#1a1716'], trees: null },
+    stadt:  { skyline: true, near: ['#2c3038', '#252830', '#1e2128'], trees: null }
+};
 const MOUNT_PX = 3;
 const mountCache = {};
 function mountainLayer(tw, th, seed, minH, maxH, cols, snow, trees, freqs) {
@@ -962,17 +1177,29 @@ function mountainLayer(tw, th, seed, minH, maxH, cols, snow, trees, freqs) {
     g.putImageData(img, 0, 0);
     return c;
 }
-function getMountains(theme, W, H) {
-    const key = theme + ':' + W + 'x' + H;
-    if (!mountCache[key]) {
-        const M = MOUNT[theme];
+function skylineLayer(tw, th, seed) {                  // Stadt: Häuserblöcke mit Fenstern statt Bergen
+    const c = makeCanvas(tw, th), g = c.getContext('2d'), r = rng(seed);
+    for (let x = 0; x < tw;) {
+        const w = 4 + Math.floor(r() * 10), h = Math.floor(th * (0.25 + r() * 0.7));
+        g.fillStyle = ['#3d4250', '#353a47', '#2d313c'][Math.floor(r() * 3)];
+        g.fillRect(x, th - h, w, h);
+        g.fillStyle = '#e8d48a';
+        for (let yy = th - h + 2; yy < th - 2; yy += 3) for (let xx = x + 1; xx < x + w - 1; xx += 2) if (r() < 0.35) g.fillRect(xx, yy, 1, 1);
+        x += w + (r() < 0.3 ? 1 : 0);
+    }
+    return c;
+}
+function getMountains(key, W, H) {
+    const ck = key + ':' + W + 'x' + H;
+    if (!mountCache[ck]) {
+        const M = MOUNT[key], seed = hashStr(key) % 1000;
         const tw = Math.ceil(W * 1.5 / MOUNT_PX), th = Math.ceil(H * 0.17 / MOUNT_PX);
-        mountCache[key] = {
-            far: mountainLayer(tw, th, 100 + theme, 0.35, 1.0, M.far, M.snow, null, [1, 2, 3, 5, 8, 13]),
-            near: mountainLayer(tw, th, 200 + theme, 0.08, 0.42, M.near, null, M.trees, [2, 3, 5, 9, 17, 29])
+        mountCache[ck] = {
+            far: M.skyline ? skylineLayer(tw, th, 100 + seed) : mountainLayer(tw, th, 100 + seed, 0.35, 1.0, M.far, M.snow, null, [1, 2, 3, 5, 8, 13]),
+            near: mountainLayer(tw, th, 200 + seed, 0.08, 0.42, M.near, null, M.trees, [2, 3, 5, 9, 17, 29])
         };
     }
-    return mountCache[key];
+    return mountCache[ck];
 }
 
 // Staubwolken hinter den Hinterrädern: wandern nach hinten (zum Betrachter = im Bild nach unten) und
@@ -980,7 +1207,6 @@ function getMountains(theme, W, H) {
 // Werte in Pixeln pro Bild bei 60 Bildern/s, mit dt umgerechnet.
 const dustParticles = [];
 let prevDustSpeed = 0;
-const DUST_RGB = ['150,140,110', '120,110,85', '215,185,140', '110,110,110', '240,245,250'];   // Berge: Schneestaub   // je Landschaft
 function updateDust(dt) {
     const k = dt * 60;
     for (let i = dustParticles.length - 1; i >= 0; i--) {
@@ -995,14 +1221,14 @@ function updateDust(dt) {
     const sp = speed / maxSpeed;
     const accelerating = speed > prevDustSpeed + 1;
     prevDustSpeed = speed;
-    const offRoad = playerX < -1 || playerX > 1;
+    const seg = segAt(position + PLAYER_Z);
+    const offRoad = roadDist(seg, playerX) > 1;
     // Asphalt: nur beim Anfahren (Tempo steigt und liegt unter 60 %), am stärksten direkt nach dem Start.
     // Gras/Sand: immer ab 15 % Tempo.
-    const seg = segments[Math.floor(position / segmentLength) % segments.length];
     const gravel = seg.gravel && !offRoad;
     const launch = !offRoad && !gravel && accelerating && sp > 0.01 && sp < 0.6;
     if (dustParticles.length > 160 || !(launch || ((offRoad || gravel) && sp >= 0.15))) return;
-    const rgb = gravel ? '160,145,120' : DUST_RGB[seg.theme];
+    const rgb = gravel ? '160,145,120' : LANDS[seg.mix < 0.5 ? seg.land : seg.land2].dust;
     const carW = canvas.width * 0.2;
     const wheelY = canvas.height - 50;
     const rate = (offRoad ? 1.2 * sp : gravel ? 0.8 * sp : 1.6 * (1 - sp / 0.6)) * k;   // Teilchen je Rad und Bild
@@ -1048,62 +1274,90 @@ function drawDust() {
     }
 }
 
-// Hintergrund: Himmelsverlauf, Sonne, Berge (wandern in Kurven seitlich mit)
-let bgOffset = 0;
-// Wie hoch die fernen Berge gezeichnet werden: wachsen auf den letzten 250 Segmenten vor dem Gebirge,
-// im Gebirge doppelt so hoch, nach der Abfahrt wieder kleiner
-function mountainScale(baseSegment) {
-    const len = segments.length;
-    if (baseSegment >= mountainStart && baseSegment < mountainEnd) return 2.0;
-    const ahead = (mountainStart - baseSegment + len) % len;
-    const behind = (baseSegment - mountainEnd + len) % len;
-    let m = 1;
-    if (ahead < 250) m = Math.max(m, 1 + (1 - ahead / 250));
-    if (behind < 150) m = Math.max(m, 2 - behind / 150);
-    return m;
-}
-function drawBackground(theme) {
-    const T = THEMES[theme];
-    const W = canvas.width, H = canvas.height, hz = H / 2;
-    const sky = ctx.createLinearGradient(0, 0, 0, hz);
-    sky.addColorStop(0, T.sky[0]);
-    sky.addColorStop(1, T.sky[1]);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, hz + 2);
-    if (T.night) {                                     // Sterne und Mond
-        ctx.fillStyle = 'white';
-        for (let i = 0; i < 20; i++) {                 // feste, gestreute Positionen (keine Diagonale)
-            const fx = ((i * 0.618034) % 1), fy = ((i * i * 0.137 + i * 0.29) % 1);
-            ctx.fillRect(fx * W, fy * H * 0.4, 2, 2);
-        }
-        ctx.fillStyle = T.sun;
-        ctx.beginPath();
-        ctx.arc(W * 0.8 - playerX * 80, H * 0.2, Math.min(40, W * 0.1), 0, Math.PI * 2);
-        ctx.fill();
-    } else {                                           // Sonne, wandert beim Lenken leicht gegen
-        ctx.fillStyle = T.sun;
-        ctx.beginPath();
-        ctx.arc(W * 0.8 - playerX * 100, H * 0.3, Math.min(50, W * 0.12), 0, Math.PI * 2);
-        ctx.fill();
-    }
-    const M = getMountains(theme, W, H);
-    ctx.imageSmoothingEnabled = false;
-    const mScale = mountainScale(Math.floor(position / segmentLength) % segments.length);
-    for (const [layer, par, sc] of [[M.far, 0.5, mScale], [M.near, 1, 1 + (mScale - 1) * 0.4]]) {
-        const lw = layer.width * MOUNT_PX, lh = layer.height * MOUNT_PX * sc;
-        const off = ((bgOffset * par * W) % lw + lw) % lw;
-        for (let x0 = -off; x0 < W; x0 += lw) ctx.drawImage(layer, Math.floor(x0), Math.ceil(hz + 1 - lh), lw, lh);
-    }
+// --- TAGESLAUF ---
+// Läuft über die ganze Fahrt: Position P = Reihe + Fortschritt in der Etappe (0 Morgen … 5 Ende der Nacht).
+// tint = Lichtfarbe, die über die Landschaft gelegt wird (Farbe + Deckkraft); night = Sterne/Mond; dark = Laternen leuchten
+const TOD = [
+    { p: 0.0, top: '#7fb2e0', bot: '#ffd6a8', tint: [255, 170, 90, 0.12], sunY: 0.36, sun: '#ffd27a', night: 0, dark: 0 },
+    { p: 1.0, top: '#3a8ae6', bot: '#a9d6f7', tint: [255, 255, 255, 0],   sunY: 0.24, sun: '#fff0a0', night: 0, dark: 0 },
+    { p: 2.5, top: '#1e90ff', bot: '#87ceeb', tint: [255, 255, 255, 0],   sunY: 0.14, sun: '#ffd700', night: 0, dark: 0 },
+    { p: 3.0, top: '#3a82d6', bot: '#b8d8f2', tint: [255, 200, 120, 0.06], sunY: 0.22, sun: '#ffd54a', night: 0, dark: 0 },
+    { p: 3.7, top: '#4c4a96', bot: '#ff9a58', tint: [255, 120, 60, 0.2], sunY: 0.40, sun: '#ff6a2a', night: 0, dark: 0.1 },
+    { p: 4.1, top: '#23285e', bot: '#b8607a', tint: [60, 40, 110, 0.38],  sunY: 0.53, sun: '#ff4a2a', night: 0.45, dark: 0.55 },
+    { p: 4.5, top: '#060722', bot: '#141846', tint: [10, 14, 48, 0.62],   sunY: 0.70, sun: '#ff4a2a', night: 1, dark: 1 },
+    { p: 9.0, top: '#060722', bot: '#141846', tint: [10, 14, 48, 0.62],   sunY: 0.70, sun: '#ff4a2a', night: 1, dark: 1 }
+];
+function timeOfDay(P) {
+    let i = 0;
+    while (i < TOD.length - 2 && P > TOD[i + 1].p) i++;
+    const a = TOD[i], b = TOD[i + 1], t = Math.max(0, Math.min(1, (P - a.p) / (b.p - a.p)));
+    const L = (x, y) => x + (y - x) * t;
+    return {
+        top: rgbStr(mixRgb(a.top, b.top, t)), bot: rgbStr(mixRgb(a.bot, b.bot, t)), sun: rgbStr(mixRgb(a.sun, b.sun, t)),
+        tint: a.tint.map((v, k) => k < 3 ? Math.round(L(v, b.tint[k])) : L(v, b.tint[k])),
+        sunY: L(a.sunY, b.sunY), night: L(a.night, b.night), dark: L(a.dark, b.dark)
+    };
 }
 
-// Zieltor: zwei Pfosten neben der Straße, Banner mit Schachbrettkante und „ZIEL“
-function drawGate(x, y, w) {
+// Hintergrund: ferne Berge der Landschaft (im Übergang zwei überblendet), wachsen vor dem Gebirge
+let bgOffset = 0;
+function drawMountains(seg, W, H) {
+    const hz = H / 2, ahead = segAt(seg.p1.world.z + 150 * segmentLength);
+    const msc = Math.max(0.6, ((seg.msc || 1) + (ahead.msc || 1)) / 2);
+    ctx.imageSmoothingEnabled = false;
+    const keys = [[LANDS[seg.land].mount, 1]];
+    if (seg.mix > 0.01 && LANDS[seg.land2].mount !== keys[0][0]) keys.push([LANDS[seg.land2].mount, seg.mix]);
+    for (const [li, par, sc] of [['far', 0.5, msc], ['near', 1, 1 + (msc - 1) * 0.4]]) {
+        for (const [key, alpha] of keys) {
+            const layer = getMountains(key, W, H)[li];
+            ctx.globalAlpha = alpha;
+            const lw = layer.width * MOUNT_PX, lh = layer.height * MOUNT_PX * sc;
+            const off = ((bgOffset * par * W) % lw + lw) % lw;
+            for (let x0 = -off; x0 < W; x0 += lw) ctx.drawImage(layer, Math.floor(x0), Math.ceil(hz + 1 - lh), lw, lh);
+        }
+    }
+    ctx.globalAlpha = 1;
+}
+// Himmel wird HINTER die fertige Landschaft gemalt (destination-over): zuerst das Vorderste
+function drawSky(tod, W, H) {
+    const hz = H / 2, px = Math.max(-2, Math.min(2, playerX));
+    if (tod.night > 0.3) {                             // Mond
+        ctx.fillStyle = 'rgba(238,238,238,' + Math.min(1, (tod.night - 0.3) * 2).toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(W * 0.22 - px * 60, H * 0.14, Math.min(28, W * 0.07), 0, Math.PI * 2); ctx.fill();
+    }
+    if (tod.night > 0) {                               // Sterne: feste, gestreute Positionen
+        ctx.fillStyle = 'rgba(255,255,255,' + tod.night.toFixed(2) + ')';
+        for (let i = 0; i < 40; i++) {
+            const fx = ((i * 0.618034) % 1), fy = ((i * i * 0.137 + i * 0.29) % 1);
+            ctx.fillRect(fx * W, fy * H * 0.42, i % 7 ? 1.5 : 2.5, i % 7 ? 1.5 : 2.5);
+        }
+    }
+    if (tod.sunY < 0.62) {                             // Sonne mit Hof
+        const sx = W * 0.8 - px * 100, sy = H * tod.sunY, sr = Math.min(50, W * 0.12);
+        ctx.fillStyle = tod.sun;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+        const g = ctx.createRadialGradient(sx, sy, sr, sx, sy, sr * 3);
+        g.addColorStop(0, 'rgba(255,240,200,0.35)'); g.addColorStop(1, 'rgba(255,240,200,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, sr * 3, 0, Math.PI * 2); ctx.fill();
+    }
+    const sky = ctx.createLinearGradient(0, 0, 0, hz);
+    sky.addColorStop(0, tod.top);
+    sky.addColorStop(1, tod.bot);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+}
+
+// Tore: zwei Pfosten neben der Fahrbahn, Banner. kind: start, cp (Checkpoint), tor (Gabel, mit Name der nächsten Etappe), ziel
+function drawGate(x, y, w, g) {
     const pw = Math.max(2, w * 0.05), h = w * 1.0, xl = x - w * 1.2, xr = x + w * 1.2;
+    const st = g.id && STAGES[g.id];
+    const col = g.kind === 'cp' ? '#ff8c00' : g.kind === 'tor' ? COL_COLOR[st.col] : '#c00000';
+    const txt = g.kind === 'cp' ? 'CHECKPOINT' : g.kind === 'tor' ? st.short : g.kind === 'start' ? 'START' : 'ZIEL';
     ctx.fillStyle = '#d9d9d9';
     ctx.fillRect(xl - pw / 2, y - h, pw, h);
     ctx.fillRect(xr - pw / 2, y - h, pw, h);
     const bh = w * 0.22, by = y - h;
-    ctx.fillStyle = '#c00000';
+    ctx.fillStyle = col;
     ctx.fillRect(xl, by, xr - xl, bh);
     const sq = (xr - xl) / 16;                       // Schachbrettkante oben und unten
     for (let k = 0; k < 16; k++) {
@@ -1113,10 +1367,56 @@ function drawGate(x, y, w) {
         ctx.fillRect(xl + k * sq, by + bh * 0.82, sq, bh * 0.18);
     }
     if (w > 12) {
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold ' + Math.round(bh * 0.55) + "px 'Courier New', monospace";
+        ctx.fillStyle = g.kind === 'tor' && st.col === 2 ? '#1b2430' : '#fff';
+        let fs = Math.round(bh * 0.55);
+        ctx.font = 'bold ' + fs + "px 'Courier New', monospace";
+        const tw = ctx.measureText(txt).width;
+        if (tw > (xr - xl) * 0.92) { fs = Math.floor(fs * (xr - xl) * 0.92 / tw); ctx.font = 'bold ' + fs + "px 'Courier New', monospace"; }
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('ZIEL', x, by + bh * 0.52);
+        ctx.fillText(txt, x, by + bh * 0.52);
+    }
+}
+// Schilderbrücke vor der Gabel: je Ast ein Feld mit Pfeil, Richtung, Name und Schwierigkeit (1–3 Punkte)
+const SIGN_BG = ['#1f6fb2', '#2f8a2f', '#e8edf3'], SIGN_INK = ['#fff', '#fff', '#1b2430'];
+function drawSign(x, y, w, branches) {
+    const nb = branches.length, xl = x - w * 1.4, xr = x + w * 1.4, pw = Math.max(2, w * 0.05);
+    const top = y - w * 1.75, bh = w * 0.9;
+    ctx.fillStyle = '#8a929e';
+    ctx.fillRect(xl - pw / 2, top, pw, y - top);
+    ctx.fillRect(xr - pw / 2, top, pw, y - top);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(xl - pw, top - pw * 0.5, xr - xl + pw * 2, bh + pw);
+    const cw = (xr - xl) / nb, arrows = nb === 3 ? ['←', '↑', '→'] : ['↖', '↗'];
+    for (let j = 0; j < nb; j++) {
+        const s = STAGES[branches[j]], px = xl + j * cw, ins = Math.max(1, cw * 0.03);
+        ctx.fillStyle = SIGN_BG[s.col];
+        ctx.fillRect(px + ins, top + ins, cw - ins * 2, bh - ins * 2);
+        if (w < 12) continue;
+        ctx.fillStyle = SIGN_INK[s.col];
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const cx = px + cw / 2, fit = (txt, fs, yy) => {
+            ctx.font = 'bold ' + fs + 'px sans-serif';
+            const tw = ctx.measureText(txt).width, maxW = cw * 0.86;
+            if (tw > maxW) ctx.font = 'bold ' + Math.floor(fs * maxW / tw) + 'px sans-serif';
+            ctx.fillText(txt, cx, yy);
+        };
+        fit(arrows[j] + ' ' + COL_NAME[s.col], Math.round(bh * 0.2), top + bh * 0.2);
+        fit(s.short, Math.round(bh * 0.24), top + bh * 0.5);
+        fit('●'.repeat(s.col + 1) + '○'.repeat(2 - s.col), Math.round(bh * 0.2), top + bh * 0.8);
+    }
+}
+// Spitze des Trenndreiecks: gelbe Warnbake mit Pfeilen nach beiden Seiten
+function drawTip(x, y, w) {
+    const bw = w * 0.45, bh = w * 0.22, top = y - w * 0.42;
+    ctx.fillStyle = '#666'; ctx.fillRect(x - Math.max(1, w * 0.02), top, Math.max(2, w * 0.04), y - top);
+    ctx.fillStyle = '#ffd200'; ctx.fillRect(x - bw / 2, top, bw, bh);
+    ctx.fillStyle = '#111';
+    for (const s of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(x + s * bw * 0.42, top + bh / 2);
+        ctx.lineTo(x + s * bw * 0.12, top + bh * 0.15);
+        ctx.lineTo(x + s * bw * 0.12, top + bh * 0.85);
+        ctx.closePath(); ctx.fill();
     }
 }
 
@@ -1142,37 +1442,35 @@ function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
     ctx.fill();
 }
 
+let glows = [], curDark = 0;                           // Lichtpunkte, die nach dem Abdunkeln leuchten
 function render() {
-    const baseSegment = Math.floor(position / segmentLength);
+    const W = canvas.width, H = canvas.height, hz = H / 2;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, W, H);
+    const baseSegment = Math.max(0, Math.min(segments.length - 1, Math.floor(position / segmentLength)));
     const basePercent = (position % segmentLength) / segmentLength;
     const playerSegment = segments[baseSegment];
-    drawBackground(playerSegment.theme);
-    // Boden unter dem Horizont
-    ctx.fillStyle = THEMES[playerSegment.theme].base;
-    ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
-    
-    // Spieler X-Position relativ zur Straße
-    const playerZ = position;
-    
-    let maxy = canvas.height;
+    const tod = timeOfDay(dayPos());
+    curDark = tod.dark;
+    glows = [];
+    drawMountains(playerSegment, W, H);
+    ctx.fillStyle = playerSegment.base;                // Boden unter dem Horizont
+    ctx.fillRect(0, hz, W, H - hz);
+
+    let maxy = H;
     let x = 0;
     let dx = -(playerSegment.curve * basePercent);
+    const cameraY = cameraHeight + (playerSegment.p1.world.y || 0);
 
     // Straße zeichnen
-    for(let n = 0; n < drawDistance; n++) {
-        const segment = segments[(baseSegment + n) % segments.length];
-        segment.looped = segment.index < baseSegment;
+    for (let n = 0; n < drawDistance; n++) {
+        const idx = baseSegment + n;
+        if (idx >= segments.length) break;
+        const segment = segments[idx];
         segment.clip = maxy;
-        segment.fog = 1 - (n / drawDistance);
-        
         const cameraX = playerX * roadWidth - x;
-        const cameraY = cameraHeight + (playerSegment.p1.world.y || 0); // Vereinfachte Kamera-Y
-        // Segmente vom Streckenanfang, die am Rundenende schon sichtbar sind, liegen eine Runde weiter vorn
-        const cameraZ = position - (segment.looped ? trackLength : 0);
-
-        project(segment.p1, cameraX, cameraY, cameraZ);
-        project(segment.p2, cameraX - dx, cameraY, cameraZ);
-
+        project(segment.p1, cameraX, cameraY, position);
+        project(segment.p2, cameraX - dx, cameraY, position);
         x += dx;
         dx += segment.curve;
 
@@ -1181,29 +1479,27 @@ function render() {
 
         const p1 = segment.p1.screen;
         const p2 = segment.p2.screen;
-
-        // Gras / Rumble
-        let grassColor = THEMES[segment.theme].grass[segment.color === 'light' ? 0 : 1];
-        let rumbleColor = segment.color === 'light' ? '#ff0000' : '#ffffff';
-        let roadColor = segment.color === 'light' ? '#555555' : '#666666';
+        const light = segment.color === 'light';
+        let rumbleColor = light ? '#ff0000' : '#ffffff';
+        let roadColor = light ? '#555555' : '#666666';
         if (segment.gravel) {                          // Schotter: braungrau, Rand aus groberem Kies
-            roadColor = segment.color === 'light' ? '#8a7c69' : '#7f725f';
-            rumbleColor = segment.color === 'light' ? '#6b5f4e' : '#5f5444';
+            roadColor = light ? '#8a7c69' : '#7f725f';
+            rumbleColor = light ? '#6b5f4e' : '#5f5444';
         }
+        ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
+        ctx.fillRect(0, p2.y, W, p1.y - p2.y);
 
-        // Gras
-        ctx.fillStyle = grassColor;
-        ctx.fillRect(0, p2.y, canvas.width, p1.y - p2.y);
-
-        // Rumble Strips
-        const r1 = p1.w / 5;
-        const r2 = p2.w / 5;
-        drawPolygon(p1.x - p1.w - r1, p1.y, p1.x - p1.w, p1.y, p2.x - p2.w, p2.y, p2.x - p2.w - r2, p2.y, rumbleColor); // Links
-        drawPolygon(p1.x + p1.w + r1, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x + p2.w + r2, p2.y, rumbleColor); // Rechts
-
-        // Straße
-        drawPolygon(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, roadColor);
-        if (segment.index < 2) {                       // Zielstrich: Schachbrett über die ganze Breite
+        const R1 = segment.roads, R2 = segment.roads2, r1 = p1.w / 5, r2 = p2.w / 5;
+        for (let j = 0; j < R1.length; j++) {          // Rumble Strips (erst alle, damit Fahrbahnen sie überdecken)
+            const a = p1.x + p1.w * R1[j], b = p2.x + p2.w * R2[j];
+            drawPolygon(a - p1.w - r1, p1.y, a - p1.w, p1.y, b - p2.w, p2.y, b - p2.w - r2, p2.y, rumbleColor);
+            drawPolygon(a + p1.w + r1, p1.y, a + p1.w, p1.y, b + p2.w, p2.y, b + p2.w + r2, p2.y, rumbleColor);
+        }
+        for (let j = 0; j < R1.length; j++) {          // Fahrbahnen
+            const a = p1.x + p1.w * R1[j], b = p2.x + p2.w * R2[j];
+            drawPolygon(a - p1.w, p1.y, a + p1.w, p1.y, b + p2.w, p2.y, b - p2.w, p2.y, roadColor);
+        }
+        if (segment.checker) {                         // Start-/Zielstrich: Schachbrett über die ganze Breite
             for (let k = 0; k < 8; k++) {
                 const f0 = -1 + k * 0.25, f1 = f0 + 0.25;
                 drawPolygon(p1.x + p1.w * f0, p1.y, p1.x + p1.w * f1, p1.y, p2.x + p2.w * f1, p2.y, p2.x + p2.w * f0, p2.y,
@@ -1212,11 +1508,8 @@ function render() {
             maxy = p2.y;
             continue;
         }
-
-        // Ölfleck auf diesem Segment: dunkle Lache mit Regenbogenschimmer
-        for (const oil of oils) {
-            if (oil.seg !== segment.index) continue;
-            const ox = (p1.x + p2.x) / 2 + (p1.w + p2.w) / 2 * oil.offset, oy = (p1.y + p2.y) / 2;
+        if (segment.oil !== undefined) {               // Ölfleck: dunkle Lache mit Regenbogenschimmer
+            const ox = (p1.x + p2.x) / 2 + (p1.w + p2.w) / 2 * segment.oil, oy = (p1.y + p2.y) / 2;
             const rx = (p1.w + p2.w) / 2 * 0.2, ry = Math.max(1, (p1.y - p2.y) * 1.6);
             ctx.fillStyle = 'rgba(10,10,14,0.85)';
             ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
@@ -1227,91 +1520,100 @@ function render() {
                 ctx.beginPath(); ctx.ellipse(ox + rx * 0.1, oy, rx * 0.35, ry * 0.3, 0, 0, Math.PI * 2); ctx.stroke();
             }
         }
-
-        // Fahrspuren (nicht auf Schotter)
-        if (segment.color === 'light' && !segment.gravel) {
-            const l1 = p1.w / 3;                       // Spurgrenzen bei 1/3 der halben Breite = drei Spuren
-            const l2 = p2.w / 3;
-            const lw1 = p1.w / 60;
-            const lw2 = p2.w / 60;
-            // Linke Spur
-            drawPolygon(p1.x - l1 - lw1, p1.y, p1.x - l1 + lw1, p1.y, p2.x - l2 + lw2, p2.y, p2.x - l2 - lw2, p2.y, '#ffffff');
-            // Rechte Spur
-            drawPolygon(p1.x + l1 - lw1, p1.y, p1.x + l1 + lw1, p1.y, p2.x + l2 + lw2, p2.y, p2.x + l2 - lw2, p2.y, '#ffffff');
+        // Fahrspuren (nicht auf Schotter, nicht wo sich die Äste der Gabel noch überlappen)
+        const overlap = R1.length > 1 && Math.abs(R1[1] - R1[0]) < 2.2;
+        if (light && !segment.gravel && !overlap) {
+            const l1 = p1.w / 3, l2 = p2.w / 3, lw1 = p1.w / 60, lw2 = p2.w / 60;
+            for (let j = 0; j < R1.length; j++) {
+                const a = p1.x + p1.w * R1[j], b = p2.x + p2.w * R2[j];
+                drawPolygon(a - l1 - lw1, p1.y, a - l1 + lw1, p1.y, b - l2 + lw2, p2.y, b - l2 - lw2, p2.y, '#ffffff');
+                drawPolygon(a + l1 - lw1, p1.y, a + l1 + lw1, p1.y, b + l2 + lw2, p2.y, b + l2 - lw2, p2.y, '#ffffff');
+            }
         }
-
         maxy = p2.y;
     }
 
-    // Gegner zeichnen: von hinten nach vorn, abgeschnitten an Kuppen
+    // Gegner, Randobjekte, Tore und Schilder: von hinten nach vorn, abgeschnitten an Kuppen
     const vis = [];
     for (const o of opponents) {
-        let rel = o.z - position;
-        if (rel < 0) rel += trackLength;
+        const rel = o.z - position;
         if (rel < cameraDepth * 2 || rel >= (drawDistance - 1) * segmentLength) continue;
-        const idx = Math.floor(o.z / segmentLength) % segments.length;
-        const n = (idx - baseSegment + segments.length) % segments.length; // wie weit vor uns (Segmente)
-        if (n >= drawDistance) continue;
+        const idx = Math.floor(o.z / segmentLength);
+        if (idx >= segments.length) continue;
         const seg = segments[idx];
         if (seg.p1.camera.z <= cameraDepth) continue;                       // hinter der Kamera
         vis.push({ o, rel, seg });
     }
-    // Randobjekte der sichtbaren Segmente dazu, damit Nahes Fernes verdeckt
     for (let n = 1; n < drawDistance; n++) {
-        const seg = segments[(baseSegment + n) % segments.length];
-        if (!seg.sprites.length || seg.p1.camera.z <= cameraDepth) continue;
+        const idx = baseSegment + n;
+        if (idx >= segments.length) break;
+        const seg = segments[idx];
+        if (seg.p1.camera.z <= cameraDepth) continue;
         const rel = n * segmentLength - (position % segmentLength);
         if (rel < PLAYER_Z) continue;                   // näher als das eigene Auto: würde das halbe Bild zudecken
         for (const sp of seg.sprites) vis.push({ sp, rel, seg });
-    }
-    {                                                  // Zieltor über Segment 0
-        const n = (segments.length - baseSegment) % segments.length;
-        const rel = n * segmentLength - (position % segmentLength);
-        if (n >= 1 && n < drawDistance && rel >= 500 && segments[0].p1.camera.z > cameraDepth) vis.push({ gate: true, rel, seg: segments[0] });
+        if (seg.gates) for (const g of seg.gates) vis.push({ gate: g, rel, seg });
+        if (seg.sign) vis.push({ sign: seg.sign, rel, seg });
+        if (seg.tip) for (let j = 0; j + 1 < seg.roads.length; j++) vis.push({ tip: (seg.roads[j] + seg.roads[j + 1]) / 2, rel, seg });
     }
     vis.sort((a, b) => b.rel - a.rel);
-    for (const { o, sp, seg, gate } of vis) {
-        if (gate) {
-            const a = seg.p1.screen;
-            if (a.w < 2) continue;
+    for (const v of vis) {
+        const { o, sp, seg } = v;
+        const a = seg.p1.screen;
+        if (!o) {
+            if (a.w < 2 || a.y - a.w * 1.6 >= seg.clip) continue;
             ctx.save();
-            ctx.beginPath(); ctx.rect(0, 0, canvas.width, seg.clip); ctx.clip();
-            drawGate(a.x, a.y, a.w);
-            ctx.restore();
-            continue;
-        }
-        if (sp) {
-            const a = seg.p1.screen;
-            if (a.w < 2 || a.y - a.w * 1.4 >= seg.clip) continue;
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(0, 0, canvas.width, seg.clip);
-            ctx.clip();
-            drawSprite(sp, a.x + a.w * sp.offset, a.y, a.w);
+            ctx.beginPath(); ctx.rect(0, 0, W, seg.clip); ctx.clip();
+            if (sp) drawSprite(sp, a.x + a.w * sp.offset, a.y, a.w);
+            else if (v.gate) drawGate(a.x + a.w * v.gate.o, a.y, a.w, v.gate);
+            else if (v.sign) drawSign(a.x, a.y, a.w, v.sign);
+            else drawTip(a.x + a.w * v.tip, a.y, a.w);
             ctx.restore();
             continue;
         }
         const t = (o.z % segmentLength) / segmentLength;
-        const a = seg.p1.screen, b = seg.p2.screen;
+        const b = seg.p2.screen;
         if (!(a.scale > 0)) continue;
+        const lat = oppLat(o, seg, t);
+        if (lat === null) continue;
         const sy = a.y + (b.y - a.y) * t;
         const sw = a.w + (b.w - a.w) * t;              // halbe Straßenbreite in Pixeln
-        const sx = a.x + (b.x - a.x) * t + sw * o.offset;
+        const sx = a.x + (b.x - a.x) * t + sw * lat;
         const w = sw * CAR_WORLD_W / roadWidth;
         const h = w * 0.6;
         if (w < 2 || sy - h >= seg.clip) continue;      // zu klein oder ganz hinter der Kuppe
         ctx.save();
         ctx.beginPath();
-        ctx.rect(0, 0, canvas.width, seg.clip);
+        ctx.rect(0, 0, W, seg.clip);
         ctx.clip();
         drawCar(sx, sy, w, h, o.color);
         ctx.restore();
+        if (curDark > 0.3 && sy - h * 0.15 < seg.clip) for (const s of [-1, 1]) glows.push({ x: sx + s * w * 0.3, y: sy - h * 0.13, r: Math.max(2, w * 0.18), c: '255,40,40' });
     }
 
-    // Schneefall im Gebirge
-    if (THEMES[playerSegment.theme].snow) {
+    // Tageslicht: Lichtfarbe über die Landschaft legen, dann den Himmel dahinter malen
+    if (tod.tint[3] > 0.005) {
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.fillStyle = 'rgba(' + tod.tint[0] + ',' + tod.tint[1] + ',' + tod.tint[2] + ',' + tod.tint[3].toFixed(3) + ')';
+        ctx.fillRect(0, 0, W, H);
+    }
+    ctx.globalCompositeOperation = 'destination-over';
+    drawSky(tod, W, H);
+    ctx.globalCompositeOperation = 'source-over';
+    for (const g of glows) {                           // Laternen und Rücklichter im Dunkeln
+        const gr = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+        gr.addColorStop(0, 'rgba(' + (g.c || '255,230,150') + ',' + (0.6 * curDark).toFixed(2) + ')');
+        gr.addColorStop(1, 'rgba(' + (g.c || '255,230,150') + ',0)');
+        ctx.fillStyle = gr;
+        ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Schneefall: Menge nach Landschaft (im Übergang gemischt)
+    const snowAmt = (LANDS[playerSegment.land].snow ? 1 - playerSegment.mix : 0) + (LANDS[playerSegment.land2].snow ? playerSegment.mix : 0);
+    if (snowAmt > 0.02) {
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        for (const f of flakes) ctx.fillRect(f.x * canvas.width, f.y * canvas.height, f.s, f.s);
+        const nf = Math.round(flakes.length * snowAmt);
+        for (let i = 0; i < nf; i++) { const f = flakes[i]; ctx.fillRect(f.x * W, f.y * H, f.s, f.s); }
     }
 
     // Turbo: Geschwindigkeitsstreifen
@@ -1319,7 +1621,7 @@ function render() {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.lineWidth = 2;
         for (let i = 0; i < 10; i++) {
-            const lx = Math.random() * canvas.width, ly = Math.random() * canvas.height;
+            const lx = Math.random() * W, ly = Math.random() * H;
             ctx.beginPath();
             ctx.moveTo(lx, ly);
             ctx.lineTo(lx, ly + 100 + Math.random() * 200);
@@ -1327,30 +1629,203 @@ function render() {
         }
     }
 
-    // Spieler-Auto: gleiche Zeichnung wie die Gegner, nur rot und vorn; wackelt im Turbo
-    const carW = canvas.width * 0.2;              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
-    const onGravel = segments[Math.floor((position + PLAYER_Z) / segmentLength) % segments.length].gravel && speed > maxSpeed * 0.1;
+    // Spieler-Auto: steht mittig unten; wackelt im Turbo und auf Schotter
+    const carW = W * 0.2;                              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
+    const onGravel = segAt(position + PLAYER_Z).gravel && speed > maxSpeed * 0.1;
     const shake = isTurbo ? (Math.random() - 0.5) * 5 : (onGravel ? (Math.random() - 0.5) * 2.5 : 0);
     drawDust();
     if (slipTime > 0) {                                // auf Öl: Auto schlingert sichtbar
         const ang = Math.sin(slipTime * 14) * 0.18 * Math.min(1, slipTime * 2);
-        ctx.save(); ctx.translate(canvas.width / 2, canvas.height - 60); ctx.rotate(ang); ctx.translate(-canvas.width / 2, -(canvas.height - 60));
-        drawCar(canvas.width / 2, canvas.height - 50, carW, carW * 0.6, '#D40000', true);
+        ctx.save(); ctx.translate(W / 2, H - 60); ctx.rotate(ang); ctx.translate(-W / 2, -(H - 60));
+        drawCar(W / 2, H - 50, carW, carW * 0.6, '#D40000', true);
         ctx.restore();
-    } else drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000', true);
+    } else drawCar(W / 2 + shake, H - 50 + shake, carW, carW * 0.6, '#D40000', true);
 }
 
-// --- START, ETAPPEN, ZEIT UND NEUSTART ---
-// Jede Runde ist eine Etappe mit eigener Zeit. Wer vor Ablauf durchs Ziel fährt, bekommt die Hälfte der
-// Restzeit auf die nächste Etappe gutgeschrieben. Die Grundzeit sinkt je Etappe um 1 s (bis STAGE_MIN).
+// --- FAHRT, TORE, ZEIT ---
+// Eine Fahrt = 5 Etappen vom Morgen (Start) bis zu einem der drei Ziele in der Nacht. Jede Etappe hat zwei
+// Checkpoints (bei 1/3 und 2/3) und am Ende das Gabeltor. Jedes Tor schreibt die Zeit für das nächste Drittel gut,
+// von der Restzeit geht nur die Hälfte mit (schwere Variante). Game Over = von vorn.
 const BONUS_SHARE = 0.5;
-function stageTime(n) { return Math.max(STAGE_MIN, STAGE_BASE - (n - 1)); }
-const STAGE_BASE = 32, STAGE_MIN = 23;   // gemessen: fehlerfreie Runde ≈ 21 s, erste ≈ 23,5 s
-let stage = 1, dist = 0;                               // dist: gefahrene Strecke seit dem Start
-let timeLeft = stageTime(1), isGameOver = false, started = false;
-let record = 0;
-try { record = parseInt(localStorage.getItem('autorennen.rekord') || '0', 10) || 0; } catch (_) {}
-const stageDisplay = document.getElementById('stageDisplay');
+const KM_PER_UNIT = (300 / 3.6) / maxSpeed / 1000;    // Tacho: maxSpeed = 300 km/h
+let phase = 'menu';                                    // menu, race, over (Zeit abgelaufen), done (Ziel erreicht)
+let mode = 'rennen';
+try { if (localStorage.getItem('autorennen.modus') === 'training') mode = 'training'; } catch (_) {}
+let cur = null, trip = null, raceTime = 0, dist = 0, timeLeft = 0;
+
+// Physik eines Zeitschritts (vom Spiel und von der Bot-Fahrt benutzt)
+function physicsStep(st, segs, gas, brk, s, turbo, dt) {
+    const nS = segs.length, at = (z) => segs[Math.max(0, Math.min(nS - 1, Math.floor(z / segmentLength)))];
+    const carSeg = at(st.position + PLAYER_Z);
+    st.speed += accel * gas * dt;
+    st.speed -= decel * brk * dt;
+    st.speed -= accel * 0.35 * (1 - gas) * dt;         // Ausrollen / Motorbremse
+    // Steigung: bergauf zieht die Schwerkraft, bergab schiebt sie (Steigung = Höhe pro Weg)
+    const slope = (carSeg.p2.world.y - carSeg.p1.world.y) / segmentLength;
+    st.speed -= accel * 2.5 * slope * dt;
+    const off = roadDist(carSeg, st.playerX) > 1;
+    if (off && st.speed > offRoadLimit) st.speed -= offRoadDecel * dt;   // Gras bremst
+    if (turbo) st.speed += accel * dt;                 // zusätzlicher Schub
+    // Höchsttempo: bergauf weniger (Steigung 0,15 -> 76 %), bergab etwas mehr (bis +12 %), Schotter 85 %
+    const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope)) * (carSeg.gravel ? 0.85 : 1);
+    const topSpeed = (turbo ? maxSpeed * TURBO_FACTOR : maxSpeed) * hill;
+    if (st.speed > topSpeed) st.speed = Math.max(topSpeed, st.speed - accel * dt * 2);
+    if (st.speed < 0) st.speed = 0;
+    st.position += st.speed * dt;
+    // Lenken und Fliehkraft
+    const pSeg = at(st.position), sp = st.speed / maxSpeed, dx = dt * 2 * sp;
+    st.playerX += dx * s;
+    st.playerX -= dx * sp * pSeg.curve * centrifugal * (carSeg.gravel ? 1.7 : 1);
+    // Trenndreieck der Gabel: Leitplanke streifen kostet Tempo und schiebt auf die nähere Fahrbahn
+    // Vor dem Gabeltor sind die Fahrbahnen links → rechts sortiert; danach zählt nur noch die gewählte (roads[0])
+    const R = carSeg.roads, lo = R[0], hi = carSeg.fork ? R[R.length - 1] : R[0];
+    if (carSeg.fork && off && st.playerX > lo && st.playerX < hi) {
+        const k = nearestRoad(carSeg, st.playerX);
+        st.speed = Math.max(0, st.speed - offRoadDecel * 1.5 * dt);
+        st.playerX += Math.sign(R[k] - st.playerX || 1) * dt * 2.5;
+        st.hitRail = true;
+    }
+    st.playerX = Math.max(lo - 2, Math.min(hi + 2, st.playerX));
+    return { carSeg, pSeg, off, sp };
+}
+
+// Bot-Fahrt: fährt eine Etappe fehlerfrei (Vollgas, kein Turbo, ohne Gegner) und misst die Zeit je Drittel.
+// Daraus die Zeitgutschrift: Bot-Zeit × Faktor der Spalte, aufgerundet.
+const CAL = {};
+function calibrate(id) {
+    if (CAL[id]) return CAL[id];
+    const keepS = segments, keepO = opponents;
+    segments = []; opponents = [];
+    const S = appendStage(id, STAGES[id].land, null, true);
+    const segs = segments;
+    segments = keepS; opponents = keepO;
+    const st = { position: 0, playerX: 0, speed: STAGES[id].row === 0 ? 0 : maxSpeed * 0.95 };
+    const marks = [S.cps[0], S.cps[1], S.endSeg], times = [], dt = 1 / 60;
+    let t = 0;
+    while (times.length < 3 && t < 400) {
+        const cs = (st.position + PLAYER_Z) / segmentLength;
+        while (times.length < 3 && cs >= marks[times.length]) times.push(t);
+        const carSeg = segs[Math.min(segs.length - 1, Math.floor(cs))], pSeg = segs[Math.floor(st.position / segmentLength)];
+        const sp = st.speed / maxSpeed, target = carSeg.roads[nearestRoad(carSeg, st.playerX)];
+        const s = Math.max(-1, Math.min(1, sp * pSeg.curve * centrifugal * (carSeg.gravel ? 1.7 : 1) + (target - st.playerX) * 3));
+        physicsStep(st, segs, 1, 0, s, false, dt);
+        t += dt;
+    }
+    const parts = [times[0], times[1] - times[0], times[2] - times[1]];
+    const f = TIME_FACTOR[STAGES[id].col];
+    return (CAL[id] = { G: parts.map(p => Math.ceil(p * f)), bot: parts, total: times[2] });
+}
+
+function carSegF() { return (position + PLAYER_Z) / segmentLength; }
+function stageProgress() { return cur ? Math.max(0, Math.min(1, (carSegF() - cur.startSeg) / (cur.endSeg - cur.startSeg))) : 0; }
+function dayPos() { return cur ? cur.row + stageProgress() : 0; }
+
+function setupTrip(id) {
+    segments = []; opponents = [];
+    dustParticles.length = 0;
+    position = 0; playerX = 0; speed = 0; dist = 0; raceTime = 0;
+    turboEnergy = 1; slipTime = 0; bgOffset = 0;
+    cur = appendStage(id, STAGES[id].land, null);
+    cur.t0 = 0; cur.G = calibrate(id).G;
+    trip = { route: [id], times: [], training: mode === 'training' };
+    timeLeft = cur.G[0];
+    updateHud(true);
+}
+function startRace() {
+    initAudio();
+    if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
+    setPhase('race');
+    startScreen.hidden = true;
+    gameOverScreen.hidden = true;
+    modeScreen.hidden = true;
+    const st = STAGES[cur.id];
+    showMsg((st.row + 1) + '/5 ' + st.short, ROW_NAME[st.row] + ' · ' + COL_NAME[st.col] + ' · ' + cur.G[0] + ' s bis zum Checkpoint', 3);
+}
+// Restzeit am Tor: nur die Hälfte geht mit (im Training kann sie negativ sein, dann geht nichts mit)
+function carry() { return Math.max(0, timeLeft) * BONUS_SHARE; }
+function passCheckpoint() {
+    const k = cur.nextCp++, g = cur.G[k + 1], keep = carry(), rest = Math.max(0, timeLeft);
+    timeLeft = g + keep;
+    showMsg('CHECKPOINT  +' + g + ' s', 'Rest ' + rest.toFixed(1).replace('.', ',') + ' s, davon ' + keep.toFixed(1).replace('.', ',') + ' s mitgenommen');
+    if (navigator.vibrate) navigator.vibrate(30);
+}
+// Am Gabeltor: gewählte Fahrbahn wird zur Mitte, Strecke vorn abschneiden, nächste Etappe anhängen
+function commitFork(i) {
+    const nb = cur.branches.length, order = [i];
+    for (let j = 0; j < nb; j++) if (j !== i) order.push(j);
+    const base = Math.floor(position / segmentLength);
+    const C = cur.cs[i] * SPLIT_D, cc = cur.cc[i];
+    for (let s = base; s < segments.length; s++) {
+        const seg = segments[s], tail = seg.tailK !== undefined;
+        const sh1 = tail ? seg.roads[i] : C, sh2 = tail ? seg.roads2[i] : C;
+        if (tail) seg.curve = cc;                      // die gewählte Fahrbahn biegt ab, die anderen laufen weg
+        if (seg.roads.length > 1) {
+            const r1 = seg.roads, r2 = seg.roads2;
+            seg.roads = order.map(j => r1[j] - sh1); seg.roads2 = order.map(j => r2[j] - sh2);
+        } else { seg.roads = [-sh1]; seg.roads2 = [-sh2]; }
+        delete seg.fork; delete seg.tip;
+        for (const sp of seg.sprites) sp.offset -= sh1;
+        if (seg.gates) for (const g of seg.gates) g.o -= sh1;
+        if (seg.sign) delete seg.sign;
+    }
+    playerX -= C;
+    for (const o of opponents) if (o.road !== undefined) o.road = order.indexOf(o.road);
+    const startSeg = cur.endSeg - base, prevId = cur.id, nextId = cur.branches[i];
+    rebase(base);
+    const keep = carry(), rest = Math.max(0, timeLeft);
+    trip.times.push(raceTime - cur.t0);
+    trip.route.push(nextId);
+    cur = appendStage(nextId, STAGES[prevId].land, startSeg);
+    cur.t0 = raceTime; cur.G = calibrate(nextId).G;
+    timeLeft = cur.G[0] + keep;
+    const st = STAGES[nextId];
+    showMsg((st.row + 1) + '/5 ' + st.short + '  +' + cur.G[0] + ' s',
+            'Etappe ' + trip.times.length + ' in ' + fmtTime(trip.times[trip.times.length - 1]) + ' · Rest ' + Math.round(rest) + ' s → ' + keep.toFixed(1).replace('.', ',') + ' s', 3);
+    updateHud(true);
+}
+function fmtTime(s) { const m = Math.floor(s / 60), r = s - m * 60; return m + ':' + (r < 10 ? '0' : '') + r.toFixed(1).replace('.', ','); }
+
+// --- SAMMLUNG (localStorage): gefahrene Routen mit Bestzeit, erreichte Ziele ---
+const SAVE_KEY = 'autorennen.sammlung';
+let save = { routes: {}, ziele: {} };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s && s.routes) save = { routes: s.routes, ziele: s.ziele || {} }; } catch (_) {}
+function storeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {} }
+function collectionText() {
+    const nR = Object.keys(save.routes).length, nZ = Object.keys(save.ziele).length;
+    const best = Object.values(save.routes).reduce((m, v) => Math.min(m, v), Infinity);
+    return 'Ziele ' + nZ + '/3 · Routen ' + nR + '/41' + (isFinite(best) ? ' · Bestzeit ' + fmtTime(best) : '');
+}
+
+// --- KARTE als SVG: Spalten Küste/Land/Gebirge, Reihen Morgen bis Nacht ---
+function mapSVG(route, clickable) {
+    const X = [52, 150, 248], Y = (r) => 22 + r * 62, on = new Set(route || []);
+    const edgeOn = new Set();
+    for (let k = 1; k < (route || []).length; k++) edgeOn.add(route[k - 1] + '>' + route[k]);
+    let s = '<svg viewBox="0 0 300 294" xmlns="http://www.w3.org/2000/svg" style="text-shadow:none">';
+    for (const id in STAGES) for (const nx of nextStages(id)) {
+        const a = STAGES[id], b = STAGES[nx];
+        s += '<line x1="' + X[a.col] + '" y1="' + (Y(a.row) + 16) + '" x2="' + X[b.col] + '" y2="' + (Y(b.row) - 16) +
+             '" stroke="rgba(255,255,255,0.28)" stroke-width="2"/>';
+    }
+    if (route && route.length > 1) {
+        const pts = route.map(id => X[STAGES[id].col] + ',' + Y(STAGES[id].row)).join(' ');
+        s += '<polyline points="' + pts + '" fill="none" stroke="rgba(255,216,74,0.35)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>';
+        s += '<polyline points="' + pts + '" fill="none" stroke="#ffd84a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    for (const id in STAGES) {
+        const st = STAGES[id], x = X[st.col], y = Y(st.row), hit = on.has(id);
+        s += '<g' + (clickable ? ' data-id="' + id + '" style="cursor:pointer"' : '') + '>';
+        s += '<rect x="' + (x - 46) + '" y="' + (y - 17) + '" width="92" height="34" rx="8" fill="' + COL_COLOR[st.col] + '" fill-opacity="' +
+             (hit || clickable || !route ? 1 : 0.55) + '" stroke="' + (hit ? '#ffd84a' : '#1b1730') + '" stroke-width="' + (hit ? 3 : 1.5) + '"/>';
+        s += '<text x="' + x + '" y="' + (y - 1) + '" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="11" fill="#14121c">' + st.name.split(' ')[0] + '</text>';
+        s += '<text x="' + x + '" y="' + (y + 11) + '" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#14121c">' +
+             '●'.repeat(st.col + 1) + '○'.repeat(2 - st.col) + (st.row === ROWS - 1 && save.ziele[id] ? ' ★' : '') + '</text>';
+        s += '</g>';
+    }
+    return s + '</svg>';
+}
+
+// --- BILDSCHIRME ---
 const msgEl = document.getElementById('msg');
 let msgTimer = null;
 function showMsg(t, sub, secs = 2.5) {
@@ -1360,47 +1835,116 @@ function showMsg(t, sub, secs = 2.5) {
     clearTimeout(msgTimer);
     msgTimer = setTimeout(() => msgEl.classList.remove('an'), secs * 1000);
 }
-function showRecord() {
-    document.getElementById('recordStart').textContent = record ? 'Rekord: ' + record + (record === 1 ? ' Etappe' : ' Etappen') + ' geschafft' : '';
-}
-showRecord();
-function stageDone() {
-    const bonus = Math.round(timeLeft * BONUS_SHARE);
-    const rest = Math.round(timeLeft);
-    if (stage > record) { record = stage; try { localStorage.setItem('autorennen.rekord', String(record)); } catch (_) {} showRecord(); }
-    showMsg('ETAPPE ' + stage + ' GESCHAFFT', 'Rest ' + rest + ' s → +' + bonus + ' s gutgeschrieben');
-    stage++;
-    timeLeft = stageTime(stage) + bonus;
-    buildTrack(stage % 2 === 0);                       // neue Landschaftsdeko, gerade Etappen gespiegelt
-    resetOpponents(stage);
-    stageDisplay.textContent = 'ETAPPE ' + stage;
-}
 const timeDisplay = document.getElementById('timeDisplay');
 const gameOverScreen = document.getElementById('gameOver');
 const startScreen = document.getElementById('startScreen');
+const modeScreen = document.getElementById('modeScreen');
 const btnAgain = document.getElementById('btnAgain');
-function resetGame() {
-    buildTrack();
-    resetOpponents();
-    position = 0; playerX = 0; speed = 0;
-    stage = 1; dist = 0;
-    stageDisplay.textContent = 'ETAPPE 1';
-    timeLeft = stageTime(1); isGameOver = false;
-    turboEnergy = 1;
-    dustParticles.length = 0;
-    gameOverScreen.hidden = true;
+const startMap = document.getElementById('startMap');
+function setPhase(p) { phase = p; document.body.classList.toggle('menu', p !== 'race'); }
+function showStart() {
+    setPhase('menu');
+    gameOverScreen.hidden = true; modeScreen.hidden = true; startScreen.hidden = false;
+    const tr = mode === 'training';
+    document.getElementById('startTitle').textContent = tr ? 'TRAINING' : 'AUTORENNEN';
+    document.getElementById('btnStart').hidden = tr;
+    document.getElementById('sammlung').textContent = tr ? 'Etappe auf der Karte antippen' : collectionText();
+    document.getElementById('startHelp').hidden = tr;
+    document.getElementById('trainHelp').hidden = !tr;
+    startMap.innerHTML = mapSVG(null, tr);
+    setupTrip('S');
 }
-// Start: der Tipp auf den Knopf gibt gleichzeitig den Ton frei (iOS verlangt dafür eine Nutzeraktion)
-function startRace() {
-    initAudio();
-    if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
-    started = true;
-    startScreen.hidden = true;
-    gameOverScreen.hidden = true;
+startMap.addEventListener('click', (e) => {
+    const g = e.target.closest && e.target.closest('[data-id]');
+    if (!g || mode !== 'training' || phase !== 'menu') return;
+    setupTrip(g.getAttribute('data-id'));
+    startRace();
+});
+function showEnd(title, lines) {
+    msgEl.classList.remove('an');
+    document.getElementById('endTitle').textContent = title;
+    document.getElementById('endMap').innerHTML = mapSVG(trip.route, false);
+    document.getElementById('goInfo').innerHTML = lines.join('<br>');
+    btnAgain.textContent = trip.training ? 'KARTE' : 'NOCHMAL';
+    gameOverScreen.hidden = false;
+    btnAgain.disabled = true;                          // kurz sperren, damit ein Lenkfinger nicht sofort neu startet
+    setTimeout(() => { btnAgain.disabled = false; }, 800);
 }
-document.getElementById('btnStart').addEventListener('click', startRace);
-btnAgain.addEventListener('click', () => { resetGame(); startRace(); });
-for (const b of [document.getElementById('btnStart'), btnAgain]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
+function stageLines() {
+    return trip.times.map((t, k) => (k + 1) + ' ' + STAGES[trip.route[k]].short + ' ' + fmtTime(t)).join(' · ');
+}
+function gameOver() {
+    setPhase('over');
+    timeLeft = 0; speed = 0;
+    const st = STAGES[cur.id];
+    showEnd('GAME OVER', [
+        'Etappe ' + (st.row + 1) + ' · ' + st.name + ' nicht geschafft',
+        'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · ' + fmtTime(raceTime),
+        trip.times.length ? stageLines() : '',
+        collectionText()
+    ].filter(Boolean));
+}
+function finishTrip() {
+    setPhase('done');
+    trip.times.push(raceTime - cur.t0);
+    const st = STAGES[cur.id], key = trip.route.join('-');
+    let note = '';
+    if (!trip.training && trip.route[0] === 'S') {
+        const prev = save.routes[key];
+        if (prev === undefined) note = 'Neue Route entdeckt!';
+        else if (raceTime < prev) note = 'Bestzeit auf dieser Route! (vorher ' + fmtTime(prev) + ')';
+        else note = 'Bestzeit dieser Route: ' + fmtTime(prev);
+        if (prev === undefined || raceTime < prev) save.routes[key] = raceTime;
+        save.ziele[cur.id] = true;
+        storeSave();
+    }
+    showEnd('ZIEL: ' + st.short, [
+        note || (trip.training ? 'Training – zählt nicht für die Sammlung' : ''),
+        'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · Gesamtzeit ' + fmtTime(raceTime),
+        stageLines(),
+        trip.training ? '' : collectionText()
+    ].filter(Boolean));
+}
+document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') startRace(); });
+btnAgain.addEventListener('click', () => {
+    if (trip.training) { showStart(); return; }
+    setupTrip('S'); startRace();
+});
+// Versteckter Modus-Wechsel: Versionsnummer auf dem Startbildschirm 2 s halten
+function openModeScreen() { modeScreen.hidden = false; }
+function setMode(m) {
+    mode = m;
+    try { localStorage.setItem('autorennen.modus', m); } catch (_) {}
+    showStart();
+}
+document.getElementById('btnRennen').addEventListener('click', () => setMode('rennen'));
+document.getElementById('btnTraining').addEventListener('click', () => setMode('training'));
+for (const b of [document.getElementById('btnStart'), btnAgain, document.getElementById('btnRennen'), document.getElementById('btnTraining')])
+    b.addEventListener('pointerdown', (e) => e.stopPropagation());
+// Im Training: Tipp auf die Leiste oben führt zurück zur Karte
+document.getElementById('bar').addEventListener('click', () => { if (trip && trip.training && phase === 'race') showStart(); });
+
+// Leiste oben: Etappe, Fortschritt mit Checkpoint-Marken, km
+const barName = document.getElementById('barName'), barKm = document.getElementById('barKm'), barFill = document.getElementById('barFill');
+const barMode = document.getElementById('barMode'), barEl = document.getElementById('bar');
+let hudCache = '';
+function updateHud(force) {
+    if (!cur) return;
+    const st = STAGES[cur.id];
+    const name = (st.row + 1) + '/5 ' + st.short, km = 'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',');
+    const tr = trip && trip.training;
+    const key = name + km + tr;
+    if (force || key !== hudCache) {
+        hudCache = key;
+        barName.textContent = name; barKm.textContent = km;
+        barMode.textContent = tr ? 'TRAINING' : '';
+        barEl.classList.toggle('tr', !!tr);
+    }
+    barFill.style.width = (stageProgress() * 100).toFixed(1) + '%';
+    const tl = Math.ceil(timeLeft);
+    timeDisplay.textContent = 'TIME: ' + tl;
+    timeDisplay.style.color = timeLeft < 0 ? '#ff9a3c' : '';
+}
 
 // Schneeflocken: Anteile der Bildgröße, fallen und treiben in Kurven seitlich
 const flakes = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), s: 1 + Math.floor(Math.random() * 3), v: 0.15 + Math.random() * 0.2 }));
@@ -1415,131 +1959,101 @@ function updateFlakes(dt, curve, sp) {
 
 // --- SPIEL-LOGIK ---
 function update(dt) {
-    if (!started || isGameOver) {
-        speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; slipTime = 0;
-        speedDisplay.innerText = 0;
+    if (phase !== 'race') {
+        if (phase === 'done' && speed > 0) {           // nach dem Ziel ausrollen (gebremst)
+            const st = { position, playerX, speed };
+            physicsStep(st, segments, 0, 0.8, 0, false, dt);
+            dist += st.position - position;
+            position = st.position; playerX = st.playerX; speed = st.speed;
+        } else speed = 0;
+        isTurbo = false; squealAmt = 0; gravelAmt = 0; slipTime = 0;
+        speedDisplay.innerText = Math.floor(speed / maxSpeed * 300);
         updateDust(dt);
         updateAudio();
         return;
     }
+    raceTime += dt;
     timeLeft -= dt;
-    if (timeLeft <= 0) {
-        timeLeft = 0;
-        isGameOver = true;
-        document.getElementById('goInfo').textContent = 'Etappe ' + stage + ' nicht geschafft · ' +
-            (stage - 1) + (stage - 1 === 1 ? ' Etappe' : ' Etappen') + ' im Ziel · Rekord: ' + record;
-        gameOverScreen.hidden = false;
-        btnAgain.disabled = true;                      // kurz sperren, damit ein Lenkfinger nicht sofort neu startet
-        setTimeout(() => { btnAgain.disabled = false; }, 800);
-        speed = 0;
-    }
-    timeDisplay.innerText = 'TIME: ' + Math.ceil(timeLeft);
+    if (timeLeft <= 0 && !trip.training) { gameOver(); updateHud(); return; }
 
-    // Geschwindigkeit: Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
+    // Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
     const gas = Math.max(throttle, keys.up ? 1 : 0), brk = Math.max(brake, keys.down ? 1 : 0);
-    speed += accel * gas * dt;
-    speed -= decel * brk * dt;
-    speed -= accel * 0.35 * (1 - gas) * dt;            // Ausrollen / Motorbremse
-    // Steigung: bergauf zieht die Schwerkraft, bergab schiebt sie (Steigung = Höhe pro Weg)
-    const carSeg = segments[Math.floor((position + PLAYER_Z) / segmentLength) % segments.length];
-    const slope = (carSeg.p2.world.y - carSeg.p1.world.y) / segmentLength;
-    speed -= accel * 2.5 * slope * dt;
-    
-    // Abbremsen auf Gras (off-road)
-    if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
-        speed -= offRoadDecel * dt;
-    }
-
     // Turbo: nur mit Vorrat und erst ab etwas Tempo
     isTurbo = turboHeld && turboEnergy > 0 && speed > maxSpeed * 0.3;
-    if (isTurbo) {
-        speed += accel * dt;                             // zusätzlicher Schub
-        turboEnergy = Math.max(0, turboEnergy - dt / 3);
-    } else if (!turboHeld) {
-        turboEnergy = Math.min(1, turboEnergy + dt / 10);
-    }
+    if (isTurbo) turboEnergy = Math.max(0, turboEnergy - dt / 3);
+    else if (!turboHeld) turboEnergy = Math.min(1, turboEnergy + dt / 10);
     turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
     turboBtn.classList.toggle('an', isTurbo);
-    // Höchsttempo: bergauf weniger (Steigung 0,15 -> 76 %), bergab etwas mehr (bis +12 %)
-    const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope)) * (carSeg.gravel ? 0.85 : 1);   // Schotter: 85 %
-    const topSpeed = (isTurbo ? maxSpeed * TURBO_FACTOR : maxSpeed) * hill;
-
-    // Limits: über dem Höchsttempo (nach dem Turbo) sanft abbremsen statt springen
-    if (speed > topSpeed) speed = Math.max(topSpeed, speed - accel * dt * 2);
-    if (speed < 0) speed = 0;
-
-    // Position updaten
-    position += speed * dt;
-    dist += speed * dt;
-    while (position >= trackLength) {
-        position -= trackLength;
-    }
-    // Ziel: das Auto (PLAYER_Z vor der Kamera) überquert den Zielstrich bei z = 0, trackLength, 2·trackLength …
-    if (dist + PLAYER_Z >= stage * trackLength) stageDone();
-
-    // Gegner fahren mit eigenem Tempo; Auffahren bremst uns auf deren Tempo
-    const myZ = (position + PLAYER_Z) % trackLength;
-    for (const o of opponents) {
-        o.z += o.speed * dt;
-        while (o.z >= trackLength) o.z -= trackLength;
-        let dz = o.z - myZ;
-        if (dz < -trackLength / 2) dz += trackLength;
-        if (dz > trackLength / 2) dz -= trackLength;
-        // Abstand der Mitten < Autobreite (in Einheiten von playerX: 1 = halbe Straße = roadWidth)
-        if (dz > -50 && dz < 250 && Math.abs(playerX - o.offset) < CAR_WORLD_W / roadWidth && speed > o.speed) {
-            speed = o.speed * 0.8;
-            const before = position;
-            position = (o.z - PLAYER_Z - 400 + trackLength) % trackLength; // hinter den Gegner zurücksetzen
-            let back = before - position;
-            if (back < 0) back += trackLength;
-            if (back < trackLength / 2) dist -= back;                       // Strecke um den Rücksetzer kürzen
-            if (navigator.vibrate) navigator.vibrate(60);
-        }
-    }
-
-    // Lenken
-    const playerSegment = segments[Math.floor(position / segmentLength) % segments.length];
-    const speedPercent = speed / maxSpeed;
-    const dx = dt * 2 * speedPercent; // Lenkgeschwindigkeit
-    bgOffset += playerSegment.curve * speedPercent * dt * 0.02;  // Berge wandern in Kurven
 
     let s = steer;
     if (keys.left) s = -1;
     else if (keys.right) s = 1;
     // Öl: 1,2 s kaum Lenkwirkung, das Auto schlingert und verliert etwas Tempo
-    const carIdx = Math.floor((position + PLAYER_Z) / segmentLength) % segments.length;
-    if (slipTime <= 0) for (const oil of oils) {
-        if (oil.seg === carIdx && Math.abs(playerX - oil.offset) < 0.28 && speed > maxSpeed * 0.2) { slipTime = 1.2; playOilSlide(); break; }
-    }
+    const carSeg0 = segAt(position + PLAYER_Z);
+    if (slipTime <= 0 && carSeg0.oil !== undefined && Math.abs(playerX - carSeg0.oil) < 0.28 && speed > maxSpeed * 0.2) { slipTime = 1.2; playOilSlide(); }
     if (slipTime > 0) {
         slipTime -= dt;
         s *= 0.15;
-        playerX += Math.sin(slipTime * 14) * dt * 1.1 * speedPercent;
+        playerX += Math.sin(slipTime * 14) * dt * 1.1 * (speed / maxSpeed);
         speed -= accel * 0.6 * dt;
     }
-    const grip = segments[carIdx].gravel ? 1.7 : 1;    // Schotter: Kurven drücken stärker nach außen
-    playerX += dx * s;
-    
-    // Zentrifugalkraft (zieht dich in Kurven nach außen)
-    playerX -= (dx * speedPercent * playerSegment.curve * centrifugal * grip);
+    const st = { position, playerX, speed };
+    const ph = physicsStep(st, segments, gas, brk, s, isTurbo, dt);
+    dist += st.position - position;
+    position = st.position; playerX = st.playerX; speed = st.speed;
+    if (st.hitRail && navigator.vibrate && Math.random() < 0.1) navigator.vibrate(20);
+    bgOffset += ph.pSeg.curve * ph.sp * dt * 0.02;     // Berge wandern in Kurven
 
-    // Begrenzung der X-Position
-    if (playerX < -2) playerX = -2;
-    if (playerX > 2) playerX = 2;
+    // Tore
+    const cs = carSegF();
+    if (cur.nextCp < 2 && cs >= cur.cps[cur.nextCp]) passCheckpoint();
+    if (!cur.final && !cur.signShown && cs >= cur.preSeg + 30) {
+        cur.signShown = true;
+        showMsg('GABELUNG', cur.branches.map(b => STAGES[b].short).join(' · '), 3);
+    }
+    if (cs >= cur.endSeg) {
+        if (cur.final) { finishTrip(); updateHud(); return; }
+        commitFork(nearestRoad(segments[Math.floor(cs)], playerX));
+    }
+
+    // Gegner fahren mit eigenem Tempo; Auffahren bremst uns auf deren Tempo
+    const myZ = position + PLAYER_Z;
+    for (let i = opponents.length - 1; i >= 0; i--) {
+        const o = opponents[i];
+        o.z += o.speed * dt;
+        const si = Math.floor(o.z / segmentLength);
+        if (si >= segments.length || o.z < position - 30 * segmentLength) { opponents.splice(i, 1); continue; }
+        const seg = segments[si];
+        if (seg.fork && o.road === undefined) {        // an der Gabel: Ast passend zur Spur
+            o.road = seg.roads.length === 3 ? (o.offset < -0.3 ? 0 : o.offset > 0.3 ? 2 : 1) : (o.offset < 0 ? 0 : 1);
+        }
+        const lat = oppLat(o, seg);
+        if (lat === null) { opponents.splice(i, 1); continue; }
+        const dz = o.z - myZ;
+        // Abstand der Mitten < Autobreite (in Einheiten von playerX: 1 = halbe Straße = roadWidth)
+        if (dz > -50 && dz < 250 && Math.abs(playerX - lat) < CAR_WORLD_W / roadWidth && speed > o.speed) {
+            speed = o.speed * 0.8;
+            const back = position - Math.max(0, o.z - PLAYER_Z - 400);
+            position -= back; dist -= back;            // hinter den Gegner zurücksetzen
+            if (navigator.vibrate) navigator.vibrate(60);
+        }
+    }
 
     // Reifenquietschen: schnell in die Kurve oder hart lenken, oder Vollbremsung aus hohem Tempo
-    const offRoadNow = playerX < -1 || playerX > 1;
-    const lat = speedPercent * speedPercent * (Math.abs(s) * 0.7 + Math.abs(playerSegment.curve) / 6 * 0.7);
+    const speedPercent = speed / maxSpeed;
+    const carSeg = segAt(position + PLAYER_Z);
+    const offRoadNow = roadDist(carSeg, playerX) > 1;
+    const lat = speedPercent * speedPercent * (Math.abs(s) * 0.7 + Math.abs(ph.pSeg.curve) / 6 * 0.7);
     const sqCurve = Math.max(0, Math.min(1, (lat - 0.55) / 0.35));
     const sqBrake = brk * Math.max(0, Math.min(1, (speedPercent - 0.5) / 0.5)) * 0.8;
-    const onGravelNow = segments[carIdx].gravel;
+    const onGravelNow = carSeg.gravel;
     squealAmt = offRoadNow || onGravelNow || slipTime > 0 ? 0 : Math.max(sqCurve, sqBrake);
-    squealType = { 0: 'B', 1: 'B', 2: 'C', 3: 'A', 4: 'C' }[segments[carIdx].theme] || 'B';
+    squealType = curDark > 0.6 ? 'A' : LANDS[carSeg.mix < 0.5 ? carSeg.land : carSeg.land2].sq;
     gravelAmt = onGravelNow && !offRoadNow ? Math.min(1, speedPercent * 1.1) * (0.6 + 0.4 * Math.max(sqCurve, Math.abs(s))) : 0;
-    updateFlakes(dt, playerSegment.curve, speedPercent);
+    updateFlakes(dt, ph.pSeg.curve, speedPercent);
 
-    // UI Update
     speedDisplay.innerText = Math.floor(speed / maxSpeed * 300); // Fake km/h
+    updateHud();
     updateDust(dt);
     updateAudio();
 }
@@ -1556,6 +2070,7 @@ function gameLoop(time) {
     requestAnimationFrame(gameLoop);
 }
 
+showStart();
 requestAnimationFrame(gameLoop);
 
 // --- UPDATE-PRÜFUNG ---
@@ -1617,8 +2132,15 @@ window.addEventListener('pageshow', () => setTimeout(checkForUpdate, 800));
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkForUpdate();
 });
-verEl.addEventListener('pointerdown', (e) => e.stopPropagation()); // Tipp auf die Nummer lenkt nicht
-verEl.addEventListener('click', () => checkForUpdate(true));
+// Tipp auf die Nummer: Update prüfen. 2 s halten auf dem Startbildschirm: Wahl RENNEN/TRAINING
+let pressTimer = null, longPressed = false;
+verEl.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();                               // lenkt nicht
+    longPressed = false; clearTimeout(pressTimer);
+    if (phase === 'menu' && !startScreen.hidden) pressTimer = setTimeout(() => { longPressed = true; openModeScreen(); }, 2000);
+});
+for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) verEl.addEventListener(ev, () => clearTimeout(pressTimer));
+verEl.addEventListener('click', () => { if (longPressed) { longPressed = false; return; } checkForUpdate(true); });
 
 // Nach einem Update einmal sagen, welche Fassung jetzt läuft
 {
