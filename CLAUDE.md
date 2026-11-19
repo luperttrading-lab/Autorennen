@@ -19,6 +19,13 @@ Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach A
 seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten, Turbo Shift/Leertaste.
 
+## Spielablauf
+
+Jede Runde ist eine Etappe mit Zieltor (Schachbrett auf Segment 0/1). Grundzeit 25 s, je Etappe 1 s weniger (min. 16 s).
+Durchs Ziel vor Ablauf: 50 % der Restzeit werden gutgeschrieben (`BONUS_SHARE`), neue Deko, gerade Etappen gespiegelt,
+Gegner je Etappe 3 Prozentpunkte schneller. Rekord (geschaffte Etappen) im localStorage. Messung 19.11.: fehlerfreie
+Runde ≈ 15 s, erste Etappe ≈ 20 s (Anfahren).
+
 ## Eingefügter HTML-Code aus anderen Chats
 
 Schickt der Nutzer eine komplette HTML-Fassung des Spiels (z. B. aus einem anderen Chat), nicht übernehmen, sondern
