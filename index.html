@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.33';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.34';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -936,7 +936,7 @@ let segments = [];
 // Landschaften. Bodenfarbe, Berge, Randobjekte und Staub werden pro Segment zwischen zwei Landschaften gemischt.
 // msc = Höhe der fernen Berge, sq = Reifenquietschen (A Arcade, B Gummi, C tief schleifend), lamps = Laterne alle n Segmente
 const LANDS = {
-    feld:   { grass: ['#00b300', '#00cc00'], base: '#004d00', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B',
+    feld:   { grass: ['#5aa83c', '#529c36'], base: '#2f6a24', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B',
               spr: { every: 4, chance: 0.55, types: ['tree', 'tree', 'tree', 'bush', 'bush'] } },
     dorf:   { grass: ['#33a83a', '#2b9a33'], base: '#1d5a20', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B', lamps: 12,
               spr: { every: 4, chance: 0.5, types: ['tree', 'tree', 'bush'] } },
@@ -1022,10 +1022,13 @@ const STAGES = {
     // edge = { L, R } Leitplanke/Felswand/…, tunnel, gallery (Seite der Bergwand), kehren, cobble, wind, flat, straight,
     // span = [von, bis] Teil des Drittels für Bauwerke, lights = Lichterketten
     S:  { row: 0, col: 1, name: 'Morgenland',              short: 'MORGENLAND',    land: 'feld',
-          zones: [{ name: 'Rapsfelder', farms: true, grass: ['#f0d62a', '#e3c81e'], every: 5, chance: 0.5, types: ['tree', 'bush', 'bush'] },
-                  { name: 'Allee', allee: true },
-                  { name: 'Dorf mit Kirchturm', houses: { types: ['house', 'house2', 'house'], every: 4 }, cobble: false,
-                    marks: [{ type: 'church', at: 0.45, side: 1, d: 2.4 }], every: 6, chance: 0.5, types: ['tree', 'bush'] }] },
+          zones: [{ name: 'Rapsfelder', farms: true, grass: ['#5aa83c', '#529c36'], fields: { s: 1.55, crops: ['raps', 'raps', 'raps', 'korn', 'acker', 'wiese'] },
+                    every: 9, chance: 0.5, types: ['bush', 'bush', 'tree'] },
+                  { name: 'Allee', allee: true, grass: ['#5aa83c', '#529c36'], fields: { s: 2.0, crops: ['korn', 'wiese', 'acker', 'raps'] } },
+                  { name: 'Dorf mit Kirchturm', village: { core: [0.1, 0.9], plaza: 0.45, name: 'LINDENAU' },
+                    houses: { types: ['house', 'house2', 'house', 'house3', 'fachwerk2'], every: 4 }, grass: ['#5aa83c', '#529c36'],
+                    fields: { s: 1.55, crops: ['korn', 'wiese', 'raps', 'acker'] },
+                    marks: [{ type: 'church', at: 0.45, side: 1, d: 3.1 }], every: 6, chance: 0.5, types: ['tree', 'bush'] }] },
     K2: { row: 1, col: 0, name: 'Küstenstraße',            short: 'KÜSTENSTRASSE', land: 'strand',
           zones: [{ name: 'Sandstrand mit Palmen', umbrellas: true, water: { t: 'meer', side: -1, s: 2.1 }, every: 4, chance: 0.6, types: ['palm', 'palm', 'bush', 'rock'], boats: 140 },
                   { name: 'Felsküste', grass: ['#8d8572', '#837b69'], edge: { L: 'rail', R: 'rock' }, water: { t: 'meer', side: -1, s: 1.42, sheer: true }, flat: true, span: [0.08, 0.92] },
@@ -1259,18 +1262,36 @@ function decorate(a, b, r) {
         if (seg.tunnel) continue;                       // im Tunnel nichts
         if (z0.lampsOn && seg.bridge && i % z0.lampsOn === 0)   // Laternen auf der Brücke, abwechselnd links/rechts
             seg.sprites.push({ type: 'lamp', offset: (i % (2 * z0.lampsOn) === 0 ? -1.36 : 1.36), scale: 1 });
+        if (z0.village && seg.zone && (seg.vL || seg.vR)) {   // Dorf: Zaun und Gartenbäume in den Lücken, Laternen am Gehweg
+            for (const sd of [-1, 1]) {
+                const v = sd < 0 ? seg.vL : seg.vR;
+                if (v === 'gap') {
+                    if (i % 2 === 0) seg.sprites.push({ type: 'fence', offset: sd * 1.9, scale: 1, v: 0 });
+                    if (i % 9 === 4 && r() < 0.8) seg.sprites.push({ type: r() < 0.7 ? 'tree' : 'bush', offset: sd * (2.5 + r() * 1.2), scale: 0.9 + r() * 0.3, v: Math.floor(r() * 3) });
+                }
+                if (v === 'plaza' && i % 11 === 0) seg.sprites.push({ type: 'tree', offset: sd * 4.4, scale: 1.1, v: i % 3 });
+            }
+            if (i % 14 === 0) seg.sprites.push({ type: 'lamp', offset: (i % 28 === 0 ? -1.7 : 1.7), scale: 1 });
+        }
         if (z0.houses && seg.zone) {                    // Häuserzeile direkt neben der Straße
             const H = z0.houses, ev = H.every || 4;
             for (const sd of [-1, 1]) {
                 if (H.side && H.side !== sd) continue;
+                if (z0.village && (sd < 0 ? seg.vL : seg.vR) !== 'house') continue;
                 if ((i + (sd > 0 ? ev >> 1 : 0)) % ev !== 0) continue;
                 const type = H.types[Math.floor(r() * H.types.length)];
                 seg.sprites.push({ type, offset: sd * (2.05 + r() * 0.15), scale: 0.95 + r() * 0.15, v: Math.floor(r() * 3) });
             }
         }
         if (seg.noDeco) continue;
-        if (z0.farms && seg.zone && i % 37 === 0 && r() < 0.8)   // Raps: Höfe und Baumgruppen weiter draußen
-            seg.sprites.push({ type: r() < 0.5 ? 'house' : 'tree', offset: (r() < 0.5 ? -1 : 1) * (3.5 + r() * 4), scale: 0.9 + r() * 0.4, v: Math.floor(r() * 3) });
+        if (z0.farms && seg.zone && i % 37 === 0 && r() < 0.8 && segments[i + 4]) {   // Raps: Höfe (Haus, Scheune, Bäume) und Baumgruppen
+            const sd = r() < 0.5 ? -1 : 1, d = 3.6 + r() * 4;
+            if (r() < 0.55) {
+                seg.sprites.push({ type: 'house', offset: sd * d, scale: 1, v: Math.floor(r() * 3) });
+                segments[i + 3].sprites.push({ type: 'barn', offset: sd * (d + 1.3), scale: 1, v: Math.floor(r() * 2) });
+                segments[i + 4].sprites.push({ type: 'tree', offset: sd * (d - 0.9), scale: 1.2, v: i % 3 });
+            } else for (let q = 0; q < 3; q++) segments[i + q * 2].sprites.push({ type: 'tree', offset: sd * (d + (q - 1) * 0.7), scale: 0.9 + r() * 0.4, v: (i + q) % 3 });
+        }
         if (z0.pylons && seg.bridge && i % z0.pylons === 0) seg.sprites.push({ type: 'pylon', offset: -1.5, scale: 1 }, { type: 'pylon', offset: 1.5, scale: 1 });
         for (const lw of [seg.water, seg.water2]) if (lw && lw.T.hot && lw.s < 3 && i % 23 === (lw.side > 0 ? 7 : 0) && r() < 0.7)   // Lavafontänen
             seg.sprites.push({ type: 'spout', offset: lw.side * (lw.s + 0.4 + r() * (Math.min(lw.w, 4) - 0.8)), scale: 0.8 + r() * 0.6, v: i % 2 });
@@ -1427,6 +1448,48 @@ function applyZone(st, z, startSeg, len, k, r) {
         for (let j = 0; j < n && i + j < b; j++) segments[i + j].ice = { o, w: wide ? 1.05 : 0.38 };
         i += n + 50 + Math.floor(r() * 60);
     }
+    let vil = null;
+    if (z.village) {                                   // Dorf (v3.34): Kern mit Häusern und Lücken, Gehweg, Dorfplatz an der Kirche
+        const V = z.village, fr = rng(hashStr(st.name) + 31 * k), n = b - a;
+        vil = { ca: a + Math.round(n * V.core[0]), cb: a + Math.round(n * V.core[1]), pc: a + Math.round(n * V.plaza) };
+        for (const sd of [-1, 1]) {
+            let i = vil.ca;
+            while (i < vil.cb) {
+                const nh = 30 + Math.floor(fr() * 60), ng = 10 + Math.floor(fr() * 18);
+                for (let j = i; j < Math.min(vil.cb, i + nh + ng); j++) segments[j][sd < 0 ? 'vL' : 'vR'] = j < i + nh ? 'house' : 'gap';
+                i += nh + ng;
+            }
+        }
+        for (let j = vil.pc - 22; j <= vil.pc + 22; j++) segments[j].vR = 'plaza';
+        for (let j = vil.ca; j < vil.cb; j++) {
+            const g = segments[j]; g.bands = g.bands || [];
+            for (const sd of [-1, 1]) {
+                const v = sd < 0 ? g.vL : g.vR;
+                g.bands.push({ side: sd, s: 1.2, w: v === 'plaza' ? 3.4 : 0.62, t: v === 'plaza' ? 'plaza' : 'pave' });
+                if (v === 'house') g[sd < 0 ? 'edgeL' : 'edgeR'] = { k: 'house', d: EDGE_D.house, r: 1 };
+            }
+        }
+        segments[vil.pc - 16].sprites.push({ type: 'maibaum', offset: 2.6, scale: 1, v: 0 });
+        segments[vil.ca - 8].sprites.push({ type: 'ortsschild', offset: 1.5, scale: 1, v: 0 });
+        segments[vil.cb + 8].sprites.push({ type: 'ortsschild', offset: 1.5, scale: 1, v: 1 });
+    }
+    if (z.fields) {                                    // Felder neben der Straße (v3.34): Schläge mit Reihen, Feldwege dazwischen
+        const F = z.fields, fr = rng(hashStr(st.name) + 977 * k + 5);
+        for (const sd of [-1, 1]) {
+            let i = a, last = '';
+            while (i < b) {
+                const nb = 45 + Math.floor(fr() * 70);
+                let t = F.crops[Math.floor(fr() * F.crops.length)];
+                if (t === last) t = F.crops[(F.crops.indexOf(t) + 1) % F.crops.length];
+                last = t;
+                for (let j = i; j < Math.min(b, i + nb); j++) {
+                    if (vil && j >= vil.ca - 4 && j < vil.cb + 4) continue;
+                    const g = segments[j]; (g.bands = g.bands || []).push({ side: sd, s: F.s, w: Infinity, t, edge: j - i < 2 });
+                }
+                i += nb;
+            }
+        }
+    }
     if (z.span) { const n = b - a; b = a + Math.round(n * z.span[1]); a = a + Math.round(n * z.span[0]); }
     const ramp = (i) => { const e = Math.min(1, (i - a) / 45, (b - 1 - i) / 45); return Math.max(0.04, e * e * (3 - 2 * e)); };   // Wände wachsen aus dem Boden
     let curI = a;
@@ -1440,7 +1503,7 @@ function applyZone(st, z, startSeg, len, k, r) {
             edge(g, -1, 'rail'); edge(g, 1, 'rail');
         }
         if (z.edge) { if (z.edge.L) edge(g, -1, z.edge.L); if (z.edge.R) edge(g, 1, z.edge.R); }
-        if (z.houses) { const sd = z.houses.side; if (!sd || sd < 0) edge(g, -1, 'house'); if (!sd || sd > 0) edge(g, 1, 'house'); }
+        if (z.houses && !z.village) { const sd = z.houses.side; if (!sd || sd < 0) edge(g, -1, 'house'); if (!sd || sd > 0) edge(g, 1, 'house'); }
         if (z.tunnel) { g.tunnel = true; edge(g, -1, 'tunnel'); edge(g, 1, 'tunnel'); }
         if (z.gallery) {                               // Galerie: Bergwand auf einer Seite, Pfeiler und Tal auf der anderen
             g.gallery = z.gallery; edge(g, z.gallery, 'rock'); edge(g, -z.gallery, 'pillar');
@@ -1833,6 +1896,33 @@ function spriteHouse(seed, wall, roof) {               // Dorfhaus 48 x 48: Satt
         R(20, 34, 8, 14, '#5a3a22'); R(9, 38, 8, 6, '#4a6b8a');
     }, '#2a1c16', 0.05, seed);
 }
+function spriteBarn(seed, wall) {                      // Scheune 56 x 40: breites Tor, Holzwand, flaches Satteldach
+    return sprite(56, 40, (g, R, P) => {
+        R(3, 14, 50, 26, wall); P([[0, 16], [28, 2], [56, 16]], '#6e3a2a');
+        for (let x = 6; x < 52; x += 5) R(x, 16, 1, 24, 'rgba(0,0,0,0.18)');
+        R(19, 20, 18, 20, '#5a3a22'); g.strokeStyle = '#d8c8a0'; g.lineWidth = 2; g.beginPath(); g.moveTo(20, 21); g.lineTo(36, 39); g.moveTo(36, 21); g.lineTo(20, 39); g.stroke();
+        R(26, 7, 4, 4, '#2a1c16');
+    }, '#2a1c16', 0.06, seed);
+}
+function spriteFence() {                               // Gartenzaun 40 x 12: weiße Latten mit Querbrett
+    return sprite(40, 12, (g, R) => { for (let x = 1; x < 40; x += 5) R(x, 1, 3, 11, '#f2efe6'); R(0, 4, 40, 2, '#dcd6c8'); R(0, 8, 40, 2, '#dcd6c8'); }, '#6a6258', 0.03, 2);
+}
+function spriteOrtsschild(exit) {                      // Ortstafel 34 x 30: gelb, schwarzer Rand, Name; Ortsende rot durchgestrichen
+    return sprite(34, 30, (g, R) => {
+        R(5, 16, 2, 14, '#7d8288'); R(27, 16, 2, 14, '#7d8288');
+        R(0, 0, 34, 18, '#1c1c1c'); R(2, 2, 30, 14, '#f4cc1c');
+        R(6, 6, 22, 3, '#1c1c1c'); R(9, 11, 16, 2, '#1c1c1c');
+        if (exit) { g.strokeStyle = '#d42020'; g.lineWidth = 3; g.beginPath(); g.moveTo(3, 15); g.lineTo(31, 3); g.stroke(); }
+    }, '#1a1a1a', 0.02, exit ? 2 : 1);
+}
+function spriteMaibaum() {                             // Maibaum 20 x 120: weiß-blau gedrehter Stamm, Kranz, Zunftschilder, Fichtenkrone
+    return sprite(20, 120, (g, R, P) => {
+        R(9, 14, 3, 106, '#f2f2ee'); for (let y = 16; y < 120; y += 8) R(9, y, 3, 4, '#3a6fc0');
+        P([[10, 0], [4, 12], [16, 12]], '#2f6a2a'); P([[10, 4], [2, 18], [18, 18]], '#3b7d33');
+        R(3, 30, 14, 3, '#3b7d33'); R(4, 33, 1, 4, '#c0392b'); R(15, 33, 1, 4, '#c0392b');
+        for (const [y, sd] of [[44, -1], [58, 1], [72, -1], [86, 1]]) R(sd < 0 ? 1 : 12, y, 7, 5, ['#e8d9b0', '#c9e0f0'][y % 2]);
+    }, '#3a3a40', 0.02, 4);
+}
 function spriteFachwerk(seed, wall) {                  // Fachwerkhaus 44 x 56: dunkle Balken, überstehendes Geschoss
     return sprite(44, 56, (g, R, P, r) => {
         R(4, 26, 36, 30, wall); R(2, 12, 40, 16, wall); P([[0, 14], [22, 0], [44, 14]], '#8e3b2a');
@@ -1975,6 +2065,11 @@ const SPR = {
     palm: [spritePalm(1), spritePalm(2)],
     house: [spriteHouse(1, '#efe3c8', '#a4442e'), spriteHouse(2, '#f2d8a8', '#8e3b2a'), spriteHouse(3, '#e8e8e2', '#5a4a44')],
     house2: [spriteHouse(4, '#d9e8d0', '#8e3b2a'), spriteHouse(5, '#f0c8b0', '#6e3a2a')],
+    house3: [spriteHouse(6, '#f6f1e4', '#3e4a5a'), spriteHouse(7, '#e6d2e0', '#a4442e'), spriteHouse(8, '#d8e4ee', '#7a3a2a')],
+    barn: [spriteBarn(1, '#9a6a44'), spriteBarn(2, '#b07a4a')],
+    fence: [spriteFence()],
+    maibaum: [spriteMaibaum()],
+    ortsschild: [spriteOrtsschild(false), spriteOrtsschild(true)],
     fachwerk: [spriteFachwerk(1, '#f2ead6'), spriteFachwerk(2, '#f4e2b8')],
     fachwerk2: [spriteFachwerk(3, '#efe0d0'), spriteFachwerk(4, '#e8ecd8')],
     church: [spriteChurch()],
@@ -2010,7 +2105,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -2449,6 +2544,33 @@ function drawWater(seg, nx, p1, p2, W, key) {
         glows.push({ x: X1(d), y: p1.y, r: Math.max(3, p1.w * 0.09 * fl), sy: 2.5, c: h % 3 ? '255,200,110' : '140,210,255' });
     }
 }
+// Bodenbänder (v3.34): Felder mit Reihen (laufen perspektivisch zusammen), Feldwege, Gehweg und Dorfplatz
+const CROP = {
+    raps:  { c: ['#f2d32c', '#e9c824'], row: '#c9a815', rs: 0.3 },
+    korn:  { c: ['#8cbd4c', '#83b145'], row: '#6c9c38', rs: 0.26 },
+    acker: { c: ['#9b7149', '#916842'], row: '#74512f', rs: 0.2 },
+    wiese: { c: ['#62ad44', '#5aa13e'] },
+    pave:  { c: ['#bdb7ab', '#b4aea2'], kerb: '#8e8a82' },
+    plaza: { c: ['#c9bea9', '#c1b6a1'], kerb: '#8e8a82' }
+};
+function drawBands(seg, p1, p2, W, light) {
+    const c1 = p1.x + p1.w * seg.roads[0], c2 = p2.x + p2.w * seg.roads2[0];
+    for (const b of seg.bands) {
+        const C = CROP[b.t], sd = b.side, X1 = (d) => c1 + sd * p1.w * d, X2 = (d) => c2 + sd * p2.w * d;
+        const out = (x) => sd < 0 ? x < -20 : x > W + 20;
+        const open = b.w === Infinity, o1 = open ? (sd < 0 ? -20 : W + 20) : X1(b.s + b.w), o2 = open ? (sd < 0 ? -20 : W + 20) : X2(b.s + b.w);
+        if (out(X1(b.s)) && out(X2(b.s))) continue;
+        drawPolygon(X1(b.s), p1.y, X2(b.s), p2.y, o2, p2.y, o1, p1.y, b.edge ? (light ? '#b39b6c' : '#aa9264') : light ? C.c[0] : C.c[1]);
+        if (C.kerb && p1.w > 20) drawPolygon(X1(b.s), p1.y, X2(b.s), p2.y, X2(b.s + 0.04), p2.y, X1(b.s + 0.04), p1.y, C.kerb);
+        if (!C.row || b.edge || p1.w * C.rs < 3) continue;
+        const t = 0.035;
+        for (let m = 0; m < 16; m++) {
+            const d = b.s + C.rs * (m + 0.6);
+            if (out(X1(d - t)) && out(X2(d - t))) break;
+            drawPolygon(X1(d - t), p1.y, X2(d - t), p2.y, X2(d + t), p2.y, X1(d + t), p1.y, C.row);
+        }
+    }
+}
 // Bauwerke eines Segments (von hinten nach vorn gemalt): Leitplanke, Felswand, Schneewand, Tunnel, Galerie, Portal
 const STRUCT_C = { rock: ['#8d8473', '#7f7666'], canyon: ['#bd5d31', '#aa522a'], snow: ['#c6d6e6', '#b4c7da'], tunnel: ['#64615b', '#5a5752'] };
 function wallH(k, i) {                                 // Wandhöhe: weich wellig (keine Zacken je Segment)
@@ -2567,6 +2689,7 @@ function render() {
             roadColor = (segment.index & 1) ? '#857c72' : '#776f66';
             rumbleColor = '#a8a7a2';
         }
+        if (segment.vL) rumbleColor = light ? '#a9a7a1' : '#9f9d97';   // im Dorf Bordstein statt Rüttelstreifen
         if ((segment.wx === 'rain' || segment.wx === 'storm') && segment.wxA > 0.3) roadColor = light ? '#3d4047' : '#44474e';   // nasse Straße
         if (segment.tunnel || segment.gallery) {       // im Tunnel dunkler, in der Galerie Schattenstreifen der Pfeiler
             roadColor = light ? '#4b4b4f' : '#545458';
@@ -2574,6 +2697,7 @@ function render() {
         }
         ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
         ctx.fillRect(0, p2.y, W, p1.y - p2.y);
+        if (segment.bands) drawBands(segment, p1, p2, W, light);
         if (segment.water) drawWater(segment, segments[idx + 1], p1, p2, W, 'water');
         if (segment.water2) drawWater(segment, segments[idx + 1], p1, p2, W, 'water2');
 

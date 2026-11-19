@@ -63,7 +63,7 @@ Kurven, Heu-Rundballen/Strohballen/Kühe; seit v3.22 nur in Abschnitten (`STAGES
 
 ## Stand und offene Punkte (Übergabe 19.11.)
 
-Stand v3.33 (live). Schritt 1 (v3.0), Schritt 2 (v3.28–v3.29, Feinschliff v3.32–v3.33) und Schritt 3 (v3.31) sind gebaut,
+Stand v3.34 (live). Neuer Auftrag (19.11. abends): linke Route Etappe für Etappe sorgfältig nacharbeiten (Morgenland, dann K2–K5, je Etappe eine Version). v3.34 Morgenland: Bodenbänder `seg.bands` (`CROP`, `drawBands`: Feldschläge Raps/Korn/Acker/Wiese mit Reihen und Feldwegen, Gehweg, Dorfplatz), Höfe mit Scheune, Dorf `zones.village` (Kern mit Häuserblöcken und Gartenlücken mit Zaun, `vL/vR`, Hauswand nur wo Häuser stehen, Bordstein statt Rüttelstreifen, Ortstafeln, Maibaum, Kirche am Platz), Wiese aller Feld-Landschaften weniger grell. Vorher: Schritt 1 (v3.0), Schritt 2 (v3.28–v3.29, Feinschliff v3.32–v3.33) und Schritt 3 (v3.31) sind gebaut,
 vom Nutzer aber nur die linke Route (S → K2 → K3 → K4 → K5) gefahren. Abschnitte je Etappe (`STAGES[id].zones[k].name`):
 - S Morgenland: Rapsfelder mit Höfen · Allee · Dorf mit Kirchturm.
 - K2 Küstenstraße: Sandstrand mit Palmen, Schirmen, Meer links · Felsküste (Felswand rechts, Leitplanke + Meer links) · Fischerdorf mit Leuchtturm, Booten.
