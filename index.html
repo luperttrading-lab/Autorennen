@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.36';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.37';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1049,7 +1049,7 @@ const STAGES = {
     K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand',
           zones: [{ name: 'Insel mit Hafen', umbrellas: true, water: { t: 'meer', side: -1, s: 2.0 }, every: 4, chance: 0.6, types: ['palm', 'palm', 'bush', 'tree'], boats: 60,
                     marks: [{ type: 'fisher2', at: 0.5, side: 1, d: 2.2 }, { type: 'fisher', at: 0.56, side: 1, d: 2.3 }] },
-                  { name: 'Meeresbrücke', bridge: 'meer', flat: true, span: [0.06, 0.94], boats: 90, pylons: 220 },
+                  { name: 'Meeresbrücke', bridge: 'meer', flat: true, span: [0.06, 0.94], pylons: 220, high: 4300 },
                   { name: 'Insel mit Dünen', water: { t: 'meer', side: 1, s: 1.8 }, every: 4, chance: 0.6, types: ['dune', 'dune', 'palm', 'bush'], boats: 160 }] },
     L3: { row: 2, col: 1, name: 'Weinland und Talbrücke',  short: 'WEINLAND',      land: 'wein',
           zones: [{ name: 'Weinberg-Terrassen', grass: ['#7fae3c', '#5e8a2a'], rows: true, every: 7, chance: 0.4, types: ['tree', 'bush'] },
@@ -1527,6 +1527,15 @@ function applyZone(st, z, startSeg, len, k, r) {
         } else if (z.kehren && g.hair) g.kehre = true;
     }
     if (z.tunnel) { segments[a].portal = 1; segments[b - 1].portal = -1; }
+    if (z.high && z.bridge) {                          // Hochbrücke (v3.37): Rampe hinauf, Fahrbahn ≈ 30 m über dem Meer, Rampe hinunter
+        const Hh = z.high, R = 200, sm = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+        const f = (i) => i < a ? sm((i - (a - R)) / R) : i >= b ? sm((b + R - i) / R) : 1;
+        for (let i = a - R; i < b + R; i++) {
+            const g = segments[i]; if (!g) continue;
+            g.p1.world.y += Hh * f(i); g.p2.world.y += Hh * f(i + 1);
+            if (i >= a && i < b) { g.drop = Hh; g.drop2 = Hh; }
+        }
+    }
     if (z.pylons && z.bridge) {                        // Hängebrücke (v3.35): Pylon-Portale, Tragseil hängt dazwischen durch, Hänger zur Fahrbahn
         const P = z.pylons, f = Math.ceil((a + 20) / P) * P, l = Math.floor((b - 21) / P) * P, TOP = 3.3;
         for (let i = a; i < b; i++) {
@@ -2726,6 +2735,53 @@ function render() {
     let dx = -(playerSegment.curve * basePercent);
     const cameraY = cameraHeight + (playerSegment.p1.world.y || 0);
 
+    // Hochbrücke (v3.37): das Meer liegt tief unter der Fahrbahn. Erst alle Brückensegmente projizieren und das Meer
+    // von hinten nach vorn malen (mit Brückenschatten und Pfeilerfüßen), danach die Straße wie gewohnt darüber.
+    let anyDrop = false;
+    for (let n = 0; n < drawDistance && baseSegment + n < segments.length; n++) if (segments[baseSegment + n].drop) { anyDrop = true; break; }
+    if (anyDrop) {
+        const sea = [];
+        let sx = 0, sdx = dx;
+        for (let n = 0; n < drawDistance; n++) {
+            const idx = baseSegment + n;
+            if (idx >= segments.length) break;
+            const g = segments[idx];
+            const cX = playerX * roadWidth - sx;
+            project(g.p1, cX, cameraY, position); project(g.p2, cX - sdx, cameraY, position);
+            sx += sdx; sdx += g.curve;
+            if (!g.drop || g.p1.camera.z <= cameraDepth) continue;
+            const q1 = g.p1.screen, q2 = g.p2.screen, k = H / (roadWidth * W);
+            sea.push({ g, x1: q1.x + q1.w * g.roads[0], x2: q2.x + q2.w * g.roads2[0], w1: q1.w, w2: q2.w,
+                       y1: q1.y + g.drop * q1.w * k, y2: q2.y + g.drop2 * q2.w * k, dy1: g.drop * q1.w * k, z: g.p1.camera.z });
+        }
+        if (sea.length) { ctx.fillStyle = '#5f9cc8'; ctx.fillRect(0, hz, W, H - hz); }   // Meer bis zum Horizont (im Dunst)
+        for (let m = sea.length - 1; m >= 0; m--) {
+            const e = sea[m], g = e.g, light = g.color === 'light';
+            if (e.y2 >= e.y1) continue;
+            const T = WATER.meer, wp = ((g.index + Math.floor(waveT * T.flow)) % 6 + 6) % 6;
+            ctx.fillStyle = wp < 3 ? T.depth[2][0] : T.depth[2][1]; ctx.fillRect(0, e.y2, W, e.y1 - e.y2 + 1);
+            if (wp === 0) {                                // Wellenkämme
+                const h0 = (g.index * 2246822519) >>> 0; ctx.fillStyle = T.crest;
+                for (let q = 0; q < 9; q++) { const d = -9 + q * 2.1 + ((h0 >>> (q * 3)) % 100) / 60, ln = 0.3 + ((h0 >>> (q + 4)) % 100) / 200;
+                    const xa = e.x1 + e.w1 * d, xb = e.x1 + e.w1 * (d + ln); if (xb < 0 || xa > W) continue;
+                    ctx.fillRect(xa, e.y1 - Math.max(1, (e.y1 - e.y2) * 0.5), xb - xa, Math.max(1, (e.y1 - e.y2) * 0.5)); }
+            }
+            drawPolygon(e.x1 - 1.1 * e.w1 + e.w1 * 0.6, e.y1, e.x2 - 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x2 + 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x1 + 1.1 * e.w1 + e.w1 * 0.6, e.y1, 'rgba(10,40,80,0.35)');   // Schatten der Brücke
+            const fz = Math.min(1, e.z / (drawDistance * segmentLength));
+            if (fz > 0.08) { ctx.fillStyle = 'rgba(176,212,236,' + (0.65 * (fz - 0.08)).toFixed(3) + ')'; ctx.fillRect(0, e.y2, W, e.y1 - e.y2 + 1); }
+            if (g.pylon) {                                 // Pfeilerfüße bis hinunter ins Wasser
+                const lw = e.w1 * 0.13;
+                for (const sd of [-1, 1]) {
+                    const lx = e.x1 + sd * 1.5 * e.w1;
+                    ctx.fillStyle = '#c8402f'; ctx.fillRect(lx - lw / 2, e.y1 - e.dy1, lw, e.dy1);
+                    ctx.fillStyle = '#9a2f22'; ctx.fillRect(lx + (sd > 0 ? -lw / 2 : lw * 0.1), e.y1 - e.dy1, lw * 0.4, e.dy1);
+                    ctx.fillStyle = '#8f9399'; ctx.fillRect(lx - lw * 1.3, e.y1 - e.w1 * 0.25, lw * 2.6, e.w1 * 0.25);
+                }
+                ctx.fillStyle = '#b8392a'; ctx.fillRect(e.x1 - 1.5 * e.w1, e.y1 - e.dy1 * 0.45, e.w1 * 3, e.w1 * 0.12);
+            }
+        }
+    }
+
     // Straße zeichnen
     for (let n = 0; n < drawDistance; n++) {
         const idx = baseSegment + n;
@@ -2760,11 +2816,16 @@ function render() {
             roadColor = light ? '#4b4b4f' : '#545458';
             if (segment.gallery && segment.index % 6 < 2) roadColor = '#3a3a3d';
         }
-        ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
-        ctx.fillRect(0, p2.y, W, p1.y - p2.y);
+        if (segment.drop) {                            // Hochbrücke: nur die Fahrbahnplatte, darunter liegt das Meer
+            const c1 = p1.x + p1.w * segment.roads[0], c2 = p2.x + p2.w * segment.roads2[0];
+            drawPolygon(c1 - 1.5 * p1.w, p1.y, c2 - 1.5 * p2.w, p2.y, c2 + 1.5 * p2.w, p2.y, c1 + 1.5 * p1.w, p1.y, light ? segment.gL : segment.gD);
+        } else {
+            ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
+            ctx.fillRect(0, p2.y, W, p1.y - p2.y);
+        }
         if (segment.bands) drawBands(segment, p1, p2, W, light);
-        if (segment.water) drawWater(segment, segments[idx + 1], p1, p2, W, 'water');
-        if (segment.water2) drawWater(segment, segments[idx + 1], p1, p2, W, 'water2');
+        if (segment.water && !segment.drop) drawWater(segment, segments[idx + 1], p1, p2, W, 'water');
+        if (segment.water2 && !segment.drop) drawWater(segment, segments[idx + 1], p1, p2, W, 'water2');
 
         const R1 = segment.roads, R2 = segment.roads2, r1 = p1.w / 5, r2 = p2.w / 5;
         for (let j = 0; j < R1.length; j++) {          // Rumble Strips (erst alle, damit Fahrbahnen sie überdecken)
