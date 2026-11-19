@@ -93,9 +93,15 @@ als Vollgas); Tunnel dunkel, Motor hallt (`echoGain`), Blendung beim Ausfahren. 
 house2, fachwerk(2), church, fisher(2), lighthouse, boathouse, dune, smoke, mesa, gas, crane, container, tower(2), neon(2),
 cube, dome, willow, boat, reed. Offen (spätere Schritte): Eisplatten/Steinschlag (4), Nebel/Sandsturm (3).
 Öl (v3.30, Nutzer-Idee): Wirkung nach Tempo beim Überfahren: < 55 % kurz schlingern, 55–80 % Heck bricht aus und driftet
-zur Kurvenaußenseite (≈ 2 s Verlust), > 80 % Dreher (ganze Umdrehung, „SCHLEUDERN!“, Gas/Lenken wirkungslos, von der Fahrbahn,
+zur Kurvenaußenseite (≈ 2 s Verlust), > 85 % Dreher (seit v3.31, Nutzer) (ganze Umdrehung, „SCHLEUDERN!“, Gas/Lenken wirkungslos, von der Fahrbahn,
 ≈ 4 s Verlust). Flecken liegen bevorzugt 6–20 Segmente vor einer Kurve (manchmal schon darin), nie hinter einer Kuppe, im
 Tunnel oder am Tor. Der Bot ist davon nicht betroffen (Öl nur in update()), Zeiten unverändert.
+Schritt 3 Wetter (v3.31, Nutzer: „weiter mit Schritt 3“, noch nicht abgenommen): `zones[k].weather` = rain | storm | fog |
+sand → Segment `wx`/`wxA` (blendet über 150 Segmente ein/aus); `zones[k].ice` → Eisplatten `seg.ice = { o, w }`.
+Hafenstadt 2/3 Gewitter (Regen + Blitze + Donner `playThunder`), 3/3 Regen; Sternwarte 2/3 Nebel; Canyon 3/3 Sandsturm (+ Wind);
+Gletscher 3/3 Eisplatten. Regen: nasse dunkle Straße, Lichter spiegeln sich, Gischt hinter Gegnern, Bremse 70 %, Kurve drückt
+1,3-fach (Bot rechnet mit). Eis: Lenken 30 %, Kurve 1,7-fach. Nebel/Sand: Dunstverlauf zum Horizont vor dem Tageslicht-Tint.
+Regen-/Sandgeräusch (`rainGain`/`sandGain`). Bot-Zeiten unverändert. Tageslauf gab es schon (Schritt 1).
 Training: Etappe antippen → Startpunkt wählen (Anfang oder Abschnitt 2/3, `startAt`), Start kurz vor dem Checkpoint.
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
