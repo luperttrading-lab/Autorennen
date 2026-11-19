@@ -15,6 +15,9 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
   Himmelsfarbe (folgt dem Tageslauf, `setEdgeColor`), unten Farbe des Bedienfelds. Bekannter iOS-26-Fehler (Home-Bildschirm-App mit viewport-fit=cover + black-translucent: Höhe um die Statusleiste zu kurz). Seit v3.10 macht `fitScreen()` das DOKUMENT höher (html + body in Pixeln), ein nur fest positioniertes Element (v3.8/3.9) half auf dem Gerät nicht. Seit v3.11 KEINE automatische Erkennung mehr (griff auf dem Gerät des Nutzers nicht): Knöpfe ▼/▲ rechts oben auf Start-/Endbildschirm verschieben das untere Ende in 10-px-Schritten (`autorennen.tiefpx`, 0–160, Standard 0; seit v3.13 im Einstellmodus der Knöpfe). Veraltet: Seit v3.8 `fitScreen()`: in der
   Home-Bildschirm-App endet das Layout ≈ 60 pt über dem unteren Rand; body wird um (screen.height − innerHeight)/2 nach
   unten verlängert, Knopf ▲/▼ im Bedienfeld schaltet das ab (`autorennen.tief`). Kleine Diagnosezeile auf dem Startbildschirm.
+- v3.14 (Experiment): viewport-fit=cover und status-bar-style black-translucent entfernt (→ "black"), weil genau diese
+  Kombination den iOS-26-Fehler auslöst (Screenshot: oben ≈ 60 pt Statusleiste, unten ≈ 62 pt gesperrt, Seite nur 752 pt
+  von 874 pt). Home-Bildschirm-Symbol muss danach evtl. neu angelegt werden. Knöpfe lassen sich nicht in den abgeschnittenen Bereich ziehen.
 - Pages braucht nach dem Push 1–2 Minuten. Vorher zeigt die App noch die alte Version an; das ist kein Fehler.
 
 ## Kostenzeile

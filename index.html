@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <!-- Diese Tags machen es zur Vollbild-App auf dem iPhone -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- v3.14: nicht mehr black-translucent + viewport-fit=cover, das löst in iOS 26 den Fehler aus, dass unten
+         ≈ 62 pt der Home-Bildschirm-App gesperrt bleiben (Nutzer 19.11.) -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Autorennen</title>
     <meta name="apple-mobile-web-app-title" content="Autorennen">
     <meta name="theme-color" content="#1b1550">
@@ -298,7 +300,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.13';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.14';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -396,10 +398,11 @@ function defaultKnoepfe() {
 }
 function placeKnoepfe() {
     const k = knoepfe[orientKey()] || defaultKnoepfe();
-    const W = window.innerWidth, H = document.documentElement.getBoundingClientRect().height || window.innerHeight;
-    const cx = (v) => Math.max(20, Math.min(W - 20, v)), cy = (v) => Math.max(20, Math.min(H - 20, v));
-    steerZone.style.left = cx(k.sx) + 'px'; steerZone.style.top = cy(k.sy) + 'px';
-    turboBtn.style.left = cx(k.tx) + 'px'; turboBtn.style.top = cy(k.ty) + 'px';
+    // nur so weit, dass der Knopf ganz sichtbar bleibt (unterhalb davon schneidet iOS ab)
+    const W = window.innerWidth, H = Math.max(window.innerHeight, document.documentElement.clientHeight);
+    const cx = (v, r) => Math.max(r, Math.min(W - r, v)), cy = (v, r) => Math.max(r, Math.min(H - r, v));
+    steerZone.style.left = cx(k.sx, 50) + 'px'; steerZone.style.top = cy(k.sy, 52) + 'px';
+    turboBtn.style.left = cx(k.tx, 38) + 'px'; turboBtn.style.top = cy(k.ty, 38) + 'px';
 }
 function setEdit(on) {
     editMode = on;
