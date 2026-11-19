@@ -38,7 +38,9 @@ Seit v3.16: Pause-Knopf ❚❚ rechts unter dem Lautsprecher (auch automatisch, 
 WEITER / EINSTELLUNGEN / AUFGEBEN. Einstellungen (⚙ auf dem Startbildschirm oder aus der Pause): Knöpfe ziehen,
 Lenken KNÜPPEL oder HANDY NEIGEN (`autorennen.lenken`; Schwerkraft aus devicemotion in die Bildschirmebene gedreht,
 wie ein Lenkrad, voll bei 25°, Nullstellung bei LOS und nach der Pause; iPhone-Freigabe per requestPermission beim
-Tipp). Gas/Bremse bleiben am Knüppel. Knopf-Positionen als Anteile von Breite/Höhe.
+Tipp). Seit v3.17 optional Gas/Bremse durch Kippen (`autorennen.kippen`): oben vom Körper weg = Gas, zu sich her = Bremse,
+voll nach 20°, 4° tote Zone, Nullstellung bei LOS. Knopf-Positionen als Anteile von Breite/Höhe, nie in die oberen 70 px
+(oben rechts öffnet iOS das Kontrollzentrum); alte Pixelwerte werden beim Laden verworfen.
 
 ## Spielablauf (seit v3.0: Konzept Schritt 1)
 

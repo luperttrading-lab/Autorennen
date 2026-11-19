@@ -312,6 +312,8 @@
     <div><b>Einstellungen</b><br>Knüppel und Turbo mit dem Finger dorthin ziehen, wo du sie haben willst.</div>
     <div class="row" style="align-items:center;font-size:13px">Lenken:
         <button id="tiltOff" type="button">KNÜPPEL</button><button id="tiltOn" type="button">HANDY NEIGEN</button></div>
+    <div class="row" style="align-items:center;font-size:13px">Gas/Bremse:
+        <button id="pitchOff" type="button">KNÜPPEL</button><button id="pitchOn" type="button">HANDY KIPPEN</button></div>
     <div id="tiltInfo" style="font-size:12px;opacity:.85"></div>
     <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button></div>
     <div class="row" style="align-items:center;font-size:13px">Seite unten:
@@ -324,7 +326,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.16';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.17';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -410,6 +412,8 @@ for (const [id, d] of [['lowerDown', 10], ['lowerUp', -10]]) {
 // als Bildschirmkoordinaten der Knopfmitten.
 let knoepfe = {};
 try { knoepfe = JSON.parse(localStorage.getItem('autorennen.knoepfe') || '{}') || {}; } catch (_) {}
+// alte Pixelwerte (v3.13–3.15) verwerfen: im Querformat landete der Turbo damit oben rechts im Kontrollzentrum
+for (const o in knoepfe) if (Object.values(knoepfe[o] || {}).some(v => v > 1.5)) delete knoepfe[o];
 let editMode = false, dragWhat = null, dragPtr = null;
 const panelEl = document.getElementById('panel');
 function orientKey() { return window.innerWidth > window.innerHeight ? 'l' : 'p'; }
@@ -423,9 +427,8 @@ function defaultKnoepfe() {
 function placeKnoepfe() {
     const k = knoepfe[orientKey()] || defaultKnoepfe();
     const [W, H] = viewWH();
-    const px = (v, L) => (v <= 1.5 ? v * L : v);       // Werte > 1,5 stammen aus v3.13/3.14 (Pixel)
-    // nur so weit, dass der Knopf ganz sichtbar bleibt
-    const cx = (v, r) => Math.max(r, Math.min(W - r, px(v, W))), cy = (v, r) => Math.max(r, Math.min(H - r, px(v, H)));
+    // ganz sichtbar bleiben und nicht in die oberen 70 px: oben rechts öffnet iOS das Kontrollzentrum, oben links die Mitteilungen
+    const cx = (v, r) => Math.max(r, Math.min(W - r, v * W)), cy = (v, r) => Math.max(r + 70, Math.min(H - r, v * H));
     steerZone.style.left = cx(k.sx, 50) + 'px'; steerZone.style.top = cy(k.sy, 52) + 'px';
     turboBtn.style.left = cx(k.tx, 38) + 'px'; turboBtn.style.top = cy(k.ty, 38) + 'px';
 }
@@ -467,23 +470,41 @@ function tiltAngle() {                                 // Richtung der Schwerkra
     if (Math.hypot(x, y) < 2) return null;             // Handy liegt flach: keine Richtung
     return Math.atan2(tiltSign * x, -tiltSign * y) * 180 / Math.PI;
 }
+// 0° = Handy steht senkrecht, 90° = liegt flach mit dem Bildschirm nach oben; oben vom Körper weg kippen = Wert steigt
+function tiltPitch() {
+    if (!tiltRaw) return null;
+    const a = screenAngle() * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const x = c * tiltRaw.x - s * tiltRaw.y, y = s * tiltRaw.x + c * tiltRaw.y;
+    return Math.atan2(-tiltSign * tiltRaw.z, Math.hypot(x, y)) * 180 / Math.PI;
+}
+let pitchOn = false, pitchZero = 0, tiltGas = 0, tiltBrake = 0;
+const PITCH_FULL = 20, PITCH_DEAD = 4;
+try { pitchOn = localStorage.getItem('autorennen.kippen') === 'ja'; } catch (_) {}
 function tiltCalibrate() {
-    if (!tiltOn || !tiltRaw) return;
+    if (!(tiltOn || pitchOn) || !tiltRaw) return;
     const a = screenAngle() * Math.PI / 180;
     const y = Math.sin(a) * tiltRaw.x + Math.cos(a) * tiltRaw.y;
     tiltSign = y < 0 ? 1 : -1;                         // iOS und Android melden die Schwerkraft mit verschiedenen Vorzeichen
     const ang = tiltAngle();
     tiltZero = ang === null ? 0 : ang;
     tiltSteer = 0;
+    const pa = tiltPitch(); pitchZero = pa === null ? 0 : pa; tiltGas = 0; tiltBrake = 0;
 }
 function onMotion(e) {
     const g = e.accelerationIncludingGravity;
     if (!g || g.x === null) return;
     tiltSeen = true;
-    if (!tiltRaw) tiltRaw = { x: g.x, y: g.y };
-    tiltRaw.x += (g.x - tiltRaw.x) * 0.3; tiltRaw.y += (g.y - tiltRaw.y) * 0.3;   // glätten
+    if (!tiltRaw) tiltRaw = { x: g.x, y: g.y, z: g.z || 0 };
+    tiltRaw.x += (g.x - tiltRaw.x) * 0.3; tiltRaw.y += (g.y - tiltRaw.y) * 0.3; tiltRaw.z += ((g.z || 0) - tiltRaw.z) * 0.3;   // glätten
+    // Kippen vor/zurück: Winkel zwischen Bildschirmebene und Schwerkraft, gegenüber der Haltung bei LOS
+    const pa = tiltPitch();
+    if (pitchOn && pa !== null) {
+        const d = pa - pitchZero, m = Math.max(0, Math.abs(d) - PITCH_DEAD) / (PITCH_FULL - PITCH_DEAD);
+        const v = Math.min(1, m);
+        tiltGas = d > 0 ? v : 0; tiltBrake = d < 0 ? v : 0;
+    } else { tiltGas = 0; tiltBrake = 0; }
     const ang = tiltAngle();
-    if (ang === null) { tiltSteer = 0; return; }
+    if (ang === null || !tiltOn) { tiltSteer = 0; return; }
     let d = ang - tiltZero;
     if (d > 180) d -= 360; else if (d < -180) d += 360;
     const m = Math.max(0, Math.abs(d) - 2) / (TILT_FULL - 2);
@@ -502,9 +523,17 @@ function requestTilt() {                               // muss aus einem Tipp he
 function showTiltButtons() {
     document.getElementById('tiltOn').classList.toggle('aus', !tiltOn);
     document.getElementById('tiltOff').classList.toggle('aus', tiltOn);
+    document.getElementById('pitchOn').classList.toggle('aus', !pitchOn);
+    document.getElementById('pitchOff').classList.toggle('aus', pitchOn);
     document.getElementById('tiltInfo').textContent = tiltOn
-        ? 'Handy wie ein Lenkrad drehen. Die Haltung beim LOS ist geradeaus. Gas und Bremse weiter mit dem Knüppel.'
-        : 'Lenken mit dem Knüppel (links/rechts).';
+        ? 'Handy wie ein Lenkrad drehen. Die Haltung beim LOS ist geradeaus.' : 'Lenken mit dem Knüppel (links/rechts).';
+    document.getElementById('tiltInfo').textContent += pitchOn
+        ? ' Gas: oben vom Körper weg kippen, Bremse: zu dir her (voll nach 20°).' : ' Gas und Bremse mit dem Knüppel.';
+}
+function setPitch(on) {
+    if (!on) { pitchOn = false; savePitch(); return; }
+    requestTilt().then((ok) => { pitchOn = ok; savePitch(); });
+    function savePitch() { try { localStorage.setItem('autorennen.kippen', pitchOn ? 'ja' : 'nein'); } catch (_) {} showTiltButtons(); }
 }
 function setTilt(on) {
     if (!on) { tiltOn = false; save(); return; }
@@ -1956,7 +1985,7 @@ function setupTrip(id) {
     updateHud(true);
 }
 function startRace() {
-    if (tiltOn) requestTilt();
+    if (tiltOn || pitchOn) requestTilt();
     initAudio();
     if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
     setPhase('count');                                 // erst Countdown 3 – 2 – 1 – LOS
@@ -2220,7 +2249,9 @@ document.getElementById('btnWeiter').addEventListener('click', resumeGame);
 document.getElementById('btnEinst').addEventListener('click', () => setEdit(true));
 document.getElementById('btnAufgeben').addEventListener('click', () => { document.getElementById('pauseScreen').hidden = true; showStart(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') pauseGame(); });   // App im Hintergrund = Pause
-for (const id of ['pauseBtn', 'btnWeiter', 'btnEinst', 'btnAufgeben', 'tiltOn', 'tiltOff']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
+document.getElementById('pitchOn').addEventListener('click', () => setPitch(true));
+document.getElementById('pitchOff').addEventListener('click', () => setPitch(false));
+for (const id of ['pauseBtn', 'btnWeiter', 'btnEinst', 'btnAufgeben', 'tiltOn', 'tiltOff', 'pitchOn', 'pitchOff']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
 document.getElementById('tiltOn').addEventListener('click', () => setTilt(true));
 document.getElementById('tiltOff').addEventListener('click', () => setTilt(false));
 document.getElementById('editReset').addEventListener('click', () => { delete knoepfe[orientKey()]; placeKnoepfe(); });
@@ -2311,7 +2342,7 @@ function update(dt) {
     if (timeLeft <= 0 && !trip.training) { gameOver(); updateHud(); return; }
 
     // Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
-    const gas = Math.max(throttle, keys.up ? 1 : 0), brk = Math.max(brake, keys.down ? 1 : 0);
+    const gas = Math.max(throttle, keys.up ? 1 : 0, tiltGas), brk = Math.max(brake, keys.down ? 1 : 0, tiltBrake);
     // Turbo: nur mit Vorrat und erst ab etwas Tempo
     isTurbo = turboHeld && turboEnergy > 0 && speed > maxSpeed * 0.3;
     if (isTurbo) turboEnergy = Math.max(0, turboEnergy - dt / 3);
