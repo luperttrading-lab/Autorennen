@@ -46,7 +46,7 @@
         .update button { padding: 8px 14px; font: 600 15px sans-serif; border: 0; border-radius: 9px; background: #06240e; color: #fff; cursor: pointer; }
         /* Ränder außerhalb des Spiels (Statusleiste, Home-Leiste): oben Himmelsfarbe, unten Farbe des Bedienfelds.
            Die obere Farbe folgt dem Tageslauf (setEdgeColor). */
-        html { height: 100%; background: linear-gradient(to bottom, #7fb2e0 0 50%, #242833 50% 100%) #242833; }
+        html { height: 100%; overflow: hidden; background: linear-gradient(to bottom, #7fb2e0 0 50%, #242833 50% 100%) #242833; }
         body {
             margin: 0;
             padding: 0;
@@ -59,7 +59,7 @@
             font-family: sans-serif;
             /* füllt den ganzen sichtbaren Bereich, ohne vh/dvh: die rechnen in der iPhone-Home-Bildschirm-App zu kurz
                (unten blieb ein Streifen frei, Nutzer 19.11.) */
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            position: absolute; top: 0; left: 0; right: 0; height: 100%;   /* Höhe setzt fitScreen() in Pixeln */
             display: flex;
             flex-direction: column;
         }
@@ -291,7 +291,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.9';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.10';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -318,7 +318,10 @@ function fitScreen() {
         else if (standalone && shh - ih > 60 && shh - ih < 170) extra = Math.round((shh - ih) / 2);
     }
     lowerExtra = extra;
-    document.body.style.bottom = (lowerOn ? -extra : 0) + 'px';
+    // Dokument selbst höher machen (nicht nur ein fest positioniertes Element): erst dann zeigt iOS den Bereich an
+    const H = ch + (lowerOn ? extra : 0);
+    de.style.height = H + 'px';
+    document.body.style.height = H + 'px';
     const lb = document.getElementById('lower'), dg = document.getElementById('diag');
     if (lb) { lb.hidden = !extra; lb.textContent = lowerOn ? '▲' : '▼'; }
     if (dg) dg.textContent = 'Bild ' + window.innerWidth + '×' + ih + ' · Layout ' + ch + ' · Gerät ' + shh + ' · tiefer ' + (lowerOn ? extra : 0) + (standalone ? ' · App' : '');
