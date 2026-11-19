@@ -57,7 +57,9 @@ Sammlung im localStorage `autorennen.sammlung` (Routen mit Bestzeit, Ziele). Ver
 auf dem Startbildschirm 2 s halten → RENNEN/TRAINING (`autorennen.modus`); Training: Etappe auf der Karte antippen,
 kein Game Over, keine Rekorde, Tipp auf die Leiste oben = zurück zur Karte. Landschaften (`LANDS`) bisher nur aus den
 alten Bausteinen gefärbt (Wiese, Wald, Schnee, Wüste, Stadt-Laternen, Schotter in Voralpen, Öl); Brücken, Tunnel,
-Meer, Vulkan- und Stadtelemente folgen ab Schritt 2.
+Meer, Vulkan- und Stadtelemente folgen ab Schritt 2. Seit v3.21: Kurvenwarntafeln (schwarz, orange Pfeile) außen in
+Kurven ab Stärke 4, Heu-Rundballen/Strohballen/Kühe (Wiese, Dorf, Wald = Voralpen, Weinland), lange Auf- und Abfahrten
+(`addLongRamp`: Küste 1 sanfte, Land/Gebirge 2 je Etappe, 260–400 Segmente mit Kurven).
 
 ## Eingefügter HTML-Code aus anderen Chats
 

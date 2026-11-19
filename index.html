@@ -336,7 +336,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.20';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.21';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -879,15 +879,15 @@ let segments = [];
 // msc = Höhe der fernen Berge, sq = Reifenquietschen (A Arcade, B Gummi, C tief schleifend), lamps = Laterne alle n Segmente
 const LANDS = {
     feld:   { grass: ['#00b300', '#00cc00'], base: '#004d00', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B',
-              spr: { every: 4, chance: 0.55, types: ['tree', 'tree', 'tree', 'bush', 'bush'] } },
+              spr: { every: 4, chance: 0.55, types: ['tree', 'tree', 'tree', 'bush', 'bush', 'bale', 'bale', 'straw', 'cow'] } },
     dorf:   { grass: ['#33a83a', '#2b9a33'], base: '#1d5a20', mount: 'feld',   msc: 1.0, dust: '150,140,110', sq: 'B', lamps: 12,
-              spr: { every: 4, chance: 0.5, types: ['tree', 'tree', 'bush'] } },
+              spr: { every: 4, chance: 0.5, types: ['tree', 'tree', 'bush', 'cow'] } },
     strand: { grass: ['#e4d39a', '#d8c68a'], base: '#bba970', mount: 'strand', msc: 0.8, dust: '215,195,150', sq: 'B',
               spr: { every: 5, chance: 0.5, types: ['bush', 'bush', 'rock', 'tree'] } },
     wein:   { grass: ['#8dbd3e', '#80b036'], base: '#56761f', mount: 'feld',   msc: 1.1, dust: '160,140,100', sq: 'B', rows: true,
-              spr: { every: 6, chance: 0.5, types: ['tree', 'bush'] } },
+              spr: { every: 6, chance: 0.5, types: ['tree', 'bush', 'straw'] } },
     wald:   { grass: ['#004400', '#003300'], base: '#002a00', mount: 'wald',   msc: 1.3, dust: '120,110,85',  sq: 'B',
-              spr: { every: 3, chance: 0.85, types: ['fir', 'fir', 'fir', 'fir', 'bush'] } },
+              spr: { every: 3, chance: 0.85, types: ['fir', 'fir', 'fir', 'fir', 'bush', 'cow'] } },
     fels:   { grass: ['#8c8676', '#817b6b'], base: '#5d584a', mount: 'fels',   msc: 1.6, dust: '150,145,135', sq: 'C',
               spr: { every: 4, chance: 0.6, types: ['rock', 'rock', 'fir'] } },
     schnee: { grass: ['#eef3f7', '#dfe7ee'], base: '#d0dae3', mount: 'schnee', msc: 2.0, dust: '240,245,250', sq: 'C', snow: true,
@@ -1001,6 +1001,8 @@ function genBody(st, n, r, conn = false) {
     const k0 = conn ? 0.6 : 1;                         // Verbindungsstücke: sanftere Kurven
     const cMax = [3.5, 5, 6][c] * k0, cMin = [1.5, 2.5, 3.5][c] * k0, hillMax = [300, 600, 900][c];
     const gravelAt = st.gravel && !conn ? [Math.floor(n * 0.3), Math.floor(n * 0.65)] : [];
+    // lange Auf- und Abfahrten (v3.21, Nutzer: mehr Abwechslung als nur kurze Kuppen); Küste eine sanfte, sonst zwei
+    const longAt = conn ? [] : (c === 0 ? [Math.floor(n * 0.4)] : [Math.floor(n * 0.15), Math.floor(n * 0.6)]);
     while (left() > 0) {
         const L0 = left();
         if (L0 < 40) { addRoad(L0); break; }
@@ -1011,6 +1013,13 @@ function genBody(st, n, r, conn = false) {
             addRoad(h, sgn() * R(1.5, 3), 0, R(-150, 150)); addRoad(len - h, sgn() * R(1.5, 3));
             gravelOn = false; continue;
         }
+        if (longAt.length && segments.length - start >= longAt[0] && L0 > 260) {
+            longAt.shift();
+            const len = Math.min(L0 - 20, I(260, 400)), y0 = lastY();
+            const dh = (y0 < 1000 ? 1 : -1) * [R(900, 1400), R(1800, 2600), R(2600, 3600)][c];
+            addLongRamp(len, dh, cMin * 0.7, cMax * 0.8, r);
+            continue;
+        }
         const k = r(), y = lastY();
         if (c === 2 && !conn && k < 0.35) {             // Gebirge: Auffahrt oder Abfahrt in Kehren
             const up = y < 1500 ? 1 : y > 5000 ? -1 : sgn(), s = sgn();
@@ -1019,6 +1028,19 @@ function genBody(st, n, r, conn = false) {
         else if (k < 0.65) addRoad(m(50, 110), sgn() * R(cMin, cMax), 0, r() < 0.5 ? R(-1, 1) * hillMax : 0);
         else if (k < 0.85) { const s = sgn(); addRoad(m(40, 70), s * R(cMin, cMax)); if (left() > 40) addRoad(Math.min(left(), I(40, 70)), -s * R(cMin, cMax)); }
         else addRoad(m(60, 120), 0, (y > 2500 ? -1 : y < -500 ? 1 : sgn()) * R(200, hillMax) * (conn && c === 2 ? 1.5 : 1));
+    }
+}
+// Lange Rampe: eine durchgehende Höhenänderung (weich ein- und auslaufend) mit mehreren Kurven darin
+function addLongRamp(n, dh, cMin, cMax, r) {
+    const y0 = lastY(), plan = [];
+    for (let k = 0; k < n;) {                          // Abschnitte von 40–90 Segmenten, mal Kurve, mal gerade
+        const len = Math.min(n - k, 40 + Math.floor(r() * 50)), c = r() < 0.3 ? 0 : (r() < 0.5 ? -1 : 1) * (cMin + r() * (cMax - cMin));
+        plan.push([k, len, c]); k += len;
+    }
+    for (const [k0, len, c] of plan) for (let i = 0; i < len; i++) {
+        const f = (k0 + i + 1) / n, e = f * f * (3 - 2 * f);
+        const ramp = Math.min(1, (i + 0.5) / (len * 0.2), (len - i - 0.5) / (len * 0.2));
+        addSegment(c * ramp, y0 + dh * e);
     }
 }
 // Verbindungsstück: Landschaft A geht über die Zwischenstufen der Klima-Regel Segment für Segment in B über
@@ -1081,11 +1103,17 @@ function decorate(a, b, r) {
         if (D.rows && i % 3 === 0) {                   // Weinreben in Reihen beidseits
             seg.sprites.push({ type: 'bush', offset: lo - 1.3, scale: 0.75, v: i % 2 }, { type: 'bush', offset: hi + 1.3, scale: 0.75, v: (i + 1) % 2 });
         }
+        // Warnschilder in scharfen Kurven: außen, Pfeile zeigen in Kurvenrichtung (v3.21)
+        if (Math.abs(seg.curve) >= 4 && seg.roads.length === 1 && !seg.gates && i % 6 === 0) {
+            seg.sprites.push({ type: 'chevron', offset: seg.curve > 0 ? lo - 1.3 : hi + 1.3, scale: 1, flip: seg.curve < 0 });
+            continue;
+        }
         const sp = D.spr;
         if (!sp || i % sp.every !== 0 || r() > sp.chance) continue;
         const side = r() > 0.5 ? 1 : -1;
         const type = sp.types[Math.floor(r() * sp.types.length)];
-        const near = (type === 'bush' || type === 'rock' || type === 'snowrock' ? 1.3 : 1.45) + (D.rows ? 0.4 : 0);
+        const near = (type === 'bush' || type === 'rock' || type === 'snowrock' || type === 'bale' || type === 'straw' ? 1.35
+                    : type === 'cow' ? 1.6 : 1.45) + (D.rows ? 0.4 : 0);
         const off = near + r() * 0.5;
         seg.sprites.push({ type, offset: side > 0 ? hi + off : lo - off, scale: 0.8 + r() * 0.5, v: Math.floor(r() * 3) });
     }
@@ -1408,7 +1436,53 @@ function spriteLamp() {                                // Laterne 16 x 64, Arm z
     g.fillStyle = '#3a4048'; g.fillRect(10, 60, 6, 4);
     return pixelize(c, '#15171b', 0.04, 7);
 }
+function spriteChevron() {                           // Kurvenwarntafel 48 x 34: schwarz, drei orange Pfeile nach rechts, zwei Pfosten
+    const c = makeCanvas(48, 34), g = c.getContext('2d');
+    g.fillStyle = '#7a7f87'; g.fillRect(9, 18, 3, 16); g.fillRect(36, 18, 3, 16);
+    g.fillStyle = '#16181c'; g.fillRect(1, 1, 46, 19);
+    g.fillStyle = '#ff6a1a';
+    for (let k = 0; k < 3; k++) {
+        const x = 7 + k * 13;
+        g.beginPath(); g.moveTo(x, 4); g.lineTo(x + 7, 10.5); g.lineTo(x, 17); g.lineTo(x + 4, 17); g.lineTo(x + 11, 10.5); g.lineTo(x + 4, 4); g.closePath(); g.fill();
+    }
+    return pixelize(c, '#050506', 0.03, 3);
+}
+function spriteBale(seed) {                            // Rundballen Heu 26 x 22, Stirnseite mit Spirale
+    const c = makeCanvas(26, 22), g = c.getContext('2d');
+    g.fillStyle = '#c99a3a'; g.beginPath(); g.ellipse(13, 12, 12, 10, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e2b955'; g.beginPath(); g.ellipse(11, 11, 9, 8, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#a77a26'; g.lineWidth = 1;
+    for (let rr = 2; rr < 8; rr += 2.5) { g.beginPath(); g.ellipse(11, 11, rr, rr * 0.9, 0, 0, Math.PI * 2); g.stroke(); }
+    return pixelize(c, '#5e4313', 0.12, seed);
+}
+function spriteStraw(seed) {                           // zwei gestapelte Strohballen (eckig) 30 x 22
+    const c = makeCanvas(30, 22), g = c.getContext('2d'), r = rng(seed);
+    const bale = (x, y, w, h) => {
+        g.fillStyle = '#e8cf6e'; g.fillRect(x, y, w, h);
+        g.fillStyle = '#c9ad4c'; g.fillRect(x, y + h - 2, w, 2); g.fillRect(x + w - 2, y, 2, h);
+        g.fillStyle = '#8a6d20'; g.fillRect(x + w * 0.3, y, 1, h); g.fillRect(x + w * 0.7, y, 1, h);   // Schnüre
+        g.fillStyle = '#fff1a8'; for (let i = 0; i < 6; i++) g.fillRect(x + 1 + r() * (w - 3), y + 1 + r() * (h - 3), 1, 1);
+    };
+    bale(1, 12, 28, 10); bale(6, 3, 18, 9);
+    return pixelize(c, '#5a4510', 0.08, seed);
+}
+function spriteCow(seed) {                             // Kuh von der Seite 40 x 26: weiß mit braunen Flecken
+    const c = makeCanvas(40, 26), g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = '#3a2a20'; for (const x of [9, 13, 27, 31]) g.fillRect(x, 16, 3, 9);           // Beine
+    g.fillStyle = '#f4f1ea'; g.beginPath(); g.ellipse(20, 12, 14, 7, 0, 0, Math.PI * 2); g.fill(); // Rumpf
+    g.fillStyle = '#7a3f1d'; for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(12 + r() * 16, 9 + r() * 6, 3 + r() * 2, 2 + r() * 2, 0, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#f4f1ea'; g.beginPath(); g.ellipse(35, 9, 5, 4, -0.3, 0, Math.PI * 2); g.fill(); // Kopf
+    g.fillStyle = '#e8a5a0'; g.fillRect(37, 10, 3, 3);                                            // Maul
+    g.fillStyle = '#111'; g.fillRect(35, 7, 1, 1);
+    g.fillStyle = '#d8d0c0'; g.fillRect(31, 4, 2, 2); g.fillRect(36, 3, 2, 2);                    // Hörner
+    g.fillStyle = '#3a2a20'; g.fillRect(5, 9, 2, 6);                                              // Schwanz
+    return pixelize(c, '#2a1d14', 0.05, seed);
+}
 const SPR = {
+    chevron: [spriteChevron()],
+    bale: [spriteBale(2), spriteBale(7)],
+    straw: [spriteStraw(4)],
+    cow: [spriteCow(3), spriteCow(9)],
     tree: [spriteTree(11), spriteTree(23), spriteTree(37)],
     bush: [spriteBush(5), spriteBush(9)],
     fir: [spriteFir(3), spriteFir(17)],
@@ -1418,7 +1492,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { chevron: 0.55, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -1430,7 +1504,8 @@ function drawSprite(sp, x, y, size) {
     ctx.fillStyle = 'rgba(0,0,0,0.22)';                 // Fußschatten
     ctx.beginPath(); ctx.ellipse(x, y, w * 0.4, w * 0.1, 0, 0, Math.PI * 2); ctx.fill();
     ctx.imageSmoothingEnabled = false;
-    const flip = sp.type === 'lamp' && sp.offset < 0;   // Laternenarm zeigt immer zur Straße
+    // Laternenarm zeigt immer zur Straße; Kurventafel nach Kurvenrichtung; Kühe schauen mal so, mal so
+    const flip = (sp.type === 'lamp' && sp.offset < 0) || (sp.type === 'chevron' && sp.flip) || (sp.type === 'cow' && sp.offset < 0);
     if (flip) {
         ctx.save(); ctx.translate(x, 0); ctx.scale(-1, 1);
         ctx.drawImage(img, -w / 2, y - h, w, h);
