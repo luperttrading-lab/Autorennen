@@ -58,7 +58,7 @@ auf dem Startbildschirm 2 s halten → RENNEN/TRAINING (`autorennen.modus`); Tra
 kein Game Over, keine Rekorde, Tipp auf die Leiste oben = zurück zur Karte. Landschaften (`LANDS`) bisher nur aus den
 alten Bausteinen gefärbt (Wiese, Wald, Schnee, Wüste, Stadt-Laternen, Schotter in Voralpen, Öl); Brücken, Tunnel,
 Meer, Vulkan- und Stadtelemente folgen ab Schritt 2. Seit v3.21: Kurvenwarntafeln (schwarz, orange Pfeile) außen in
-Kurven ab Stärke 4, Heu-Rundballen/Strohballen/Kühe (Wiese, Dorf, Wald = Voralpen, Weinland), lange Auf- und Abfahrten
+Kurven ab Stärke 4, Heu-Rundballen/Strohballen/Kühe; seit v3.22 nur in Abschnitten (`STAGES[id].zones`, je Drittel der Etappe eigene Randobjekte): Morgenland 1. Drittel Felder mit Heu/Stroh, 2. Allee; Voralpen 1. Drittel Alm mit Kühen. Weitere Abschnitte je Etappe in Schritt 5, lange Auf- und Abfahrten
 (`addLongRamp`: Küste 1 sanfte, Land/Gebirge 2 je Etappe, 260–400 Segmente mit Kurven).
 
 ## Eingefügter HTML-Code aus anderen Chats
