@@ -46,7 +46,7 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Entscheidungen des Nutzers (19.11.) in Abschnitt 0: Gabelung per Lenken mit großen
 Schildern, an jedem Tor nur halbe Restzeit, Game Over = von vorn, versteckter Trainingsmodus (Versionsnummer auf dem
 Startbildschirm 2 s halten → RENNEN/TRAINING, Etappe frei wählbar, kein Game Over, keine Rekorde), Tageslauf ja,
-maximale Abwechslung inkl. Vulkan und Stadt. Offen: 4 oder 5 Etappen pro Fahrt (Empfehlung 5, Abschnitt 2a). Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
+maximale Abwechslung inkl. Vulkan und Stadt. Gewählt: 5 Etappen pro Fahrt (Abschnitt 2a: 13 Etappen, 41 Routen). Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
 Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
 je Schritt eine frische Sitzung. `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
 im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
