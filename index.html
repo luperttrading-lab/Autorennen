@@ -51,6 +51,12 @@
             display: flex;
             flex-direction: column;
         }
+        .red { color: #ff3333; }
+        #gameOver {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font: bold 40px 'Courier New', Courier, monospace; text-shadow: 3px 3px 0 #000;
+            text-align: center; display: none; pointer-events: none; white-space: nowrap;
+        }
         /* Oben das Spielbild, unten das Bedienfeld (wie bei Passfahrt) */
         #game {
             position: relative;
@@ -166,8 +172,10 @@
 </head>
 <body>
 
-<div id="game"><canvas id="gameCanvas"></canvas></div>
-<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h</div>
+<div id="game"><canvas id="gameCanvas"></canvas>
+    <div id="gameOver">GAME OVER<br><span style="font-size:20px">Tippe zum Neustarten</span></div>
+</div>
+<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 60</span></div>
 
 <!-- Bedienfeld unten: links/Mitte lenken, rechts Turbo -->
 <div id="panel">
@@ -184,7 +192,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.7';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '1.8';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -295,7 +303,7 @@ turboBtn.addEventListener('lostpointercapture', turboEnd);
 
 // --- MOTORSOUND (Web Audio) ---
 // Startet erst bei der ersten Berührung: iOS spielt Ton nur nach einer Nutzeraktion.
-let audioCtx = null, engineOsc = null, engineGain = null;
+let audioCtx = null, engineOsc1 = null, engineOsc2 = null, engineGain = null, engineFilter = null, noiseGain = null;
 let muted = false;
 try { muted = localStorage.getItem('autorennen.ton') === 'aus'; } catch (_) {}
 const muteBtn = document.getElementById('mute');
@@ -305,17 +313,41 @@ function initAudio() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     audioCtx = new AC();
-    engineOsc = audioCtx.createOscillator();
-    engineOsc.type = 'sawtooth';
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 800;
+    // Motor: Sägezahn + Rechteck eine Oktave tiefer, leicht verstimmt = vollerer Klang
+    engineOsc1 = audioCtx.createOscillator();
+    engineOsc2 = audioCtx.createOscillator();
+    engineOsc1.type = 'sawtooth';
+    engineOsc2.type = 'square';
+    engineOsc2.detune.value = 15;
+    engineFilter = audioCtx.createBiquadFilter();
+    engineFilter.type = 'lowpass';
+    engineFilter.frequency.value = 400;
+    engineFilter.Q.value = 5;
     engineGain = audioCtx.createGain();
     engineGain.gain.value = 0;
-    engineOsc.connect(filter);
-    filter.connect(engineGain);
+    engineOsc1.connect(engineFilter);
+    engineOsc2.connect(engineFilter);
+    engineFilter.connect(engineGain);
     engineGain.connect(audioCtx.destination);
-    engineOsc.start();
+    // Fahrtwind: Rauschen durch einen Bandpass, nur bei hohem Tempo hörbar
+    const len = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const noiseSrc = audioCtx.createBufferSource();
+    noiseSrc.buffer = buf;
+    noiseSrc.loop = true;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 1000;
+    noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0;
+    noiseSrc.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+    noiseSrc.start();
+    engineOsc1.start();
+    engineOsc2.start();
 }
 document.addEventListener('pointerdown', initAudio, true);
 muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -330,10 +362,14 @@ document.addEventListener('visibilitychange', () => {
 });
 function updateAudio() {
     if (!audioCtx) return;
-    const sp = speed / maxSpeed;                       // 0 .. 1,4
-    const freq = 50 + sp * 450 + (isTurbo ? 100 : 0);
-    engineOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
-    engineGain.gain.setTargetAtTime(muted ? 0 : (isTurbo ? 0.1 : 0.05), audioCtx.currentTime, 0.1);
+    const t = audioCtx.currentTime;
+    const s = speed / maxSpeed * 250;                  // auf die Skala der Vorlage umgerechnet (0..250, Turbo 350)
+    const base = 40 + s * 0.6 + (isTurbo ? 30 : 0);
+    engineOsc1.frequency.setTargetAtTime(base, t, 0.1);
+    engineOsc2.frequency.setTargetAtTime(base * 0.5, t, 0.1);
+    engineFilter.frequency.setTargetAtTime(200 + s * 1.5, t, 0.1);
+    engineGain.gain.setTargetAtTime(muted ? 0 : (isTurbo ? 0.08 : 0.04), t, 0.1);
+    noiseGain.gain.setTargetAtTime(muted ? 0 : Math.max(0, (s - 100) / 300) * 0.05, t, 0.1);
 }
 
 // Tastatur-Steuerung (für den PC-Test)
@@ -359,6 +395,14 @@ const lanes = 3;
 let trackLength = 0;
 let segments = [];
 
+// Landschaften: 0 Wiese, 1 Wald, 2 Wüste, 3 Nacht
+const THEMES = [
+    { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#3a6ea5', grass: ['#00b300', '#00cc00'], base: '#004d00' },
+    { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#2f5d50', grass: ['#004400', '#003300'], base: '#002a00' },
+    { sky: ['#ffaa00', '#ffdd88'], sun: '#ff4500', mount: '#b5653a', grass: ['#d2b48c', '#c2a47c'], base: '#a88a60' },
+    { sky: ['#050520', '#0b0b30'], sun: '#eeeeee', mount: '#16163a', grass: ['#111111', '#000000'], base: '#000000', night: true }
+];
+let currentTheme = 0;
 function addSegment(curve, y) {
     const n = segments.length;
     segments.push({
@@ -366,7 +410,9 @@ function addSegment(curve, y) {
         p1: { world: { y: lastY(), z: n * segmentLength }, camera: {}, screen: {} },
         p2: { world: { y: y, z: (n + 1) * segmentLength }, camera: {}, screen: {} },
         curve: curve,
-        color: Math.floor(n / rumbleLength) % 2 ? 'dark' : 'light'
+        theme: currentTheme,
+        color: Math.floor(n / rumbleLength) % 2 ? 'dark' : 'light',
+        sprites: []
     });
 }
 function lastY() { return (segments.length === 0) ? 0 : segments[segments.length - 1].p2.world.y; }
@@ -374,10 +420,26 @@ function lastY() { return (segments.length === 0) ? 0 : segments[segments.length
 // Strecke bauen
 function buildTrack() {
     segments = [];
-    addStraight(50); addCurve(50, 4); addHill(50, 200);
-    addStraight(50); addCurve(50, -4); addHill(50, -200);
-    addCurve(100, 6); addStraight(100); addCurve(100, -6);
+    currentTheme = 0;
+    addStraight(50); addCurve(50, 4); addHill(50, 200); addStraight(50);
+    currentTheme = 1;
+    addCurve(100, -5); addStraight(50); addHill(50, -100); addStraight(50);
+    currentTheme = 2;
+    addCurve(50, 6); addStraight(100); addCurve(50, -6); addStraight(50);
+    currentTheme = 3;
+    addCurve(100, 4); addStraight(100);
     trackLength = segments.length * segmentLength;
+    // Randobjekte: jedes 5. Segment mit 40 % Wahrscheinlichkeit, links oder rechts neben der Straße
+    for (let i = 10; i < segments.length - 10; i += 5) {
+        if (Math.random() > 0.6) {
+            const side = Math.random() > 0.5 ? -1.2 : 1.2;
+            const th = segments[i].theme;
+            segments[i].sprites.push({
+                offset: side + Math.sign(side) * Math.random() * 0.2,
+                type: th === 1 ? 'palm' : (th === 2 ? 'rock' : 'tree')
+            });
+        }
+    }
 }
 function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
 function addCurve(num, curve) { for(let i=0; i<num; i++) addSegment(curve, lastY()); }
@@ -415,7 +477,8 @@ function resetOpponents() {
 resetOpponents();
 
 // Sportwagen von hinten; x = Mitte, y = Unterkante, w = Breite in Pixeln
-function drawCar(x, y, w, h, color) {
+function drawCar(x, y, w, h, color, player = false) {
+    if (player) { drawPlayerCar(x, y, w, h, color); return; }
     const l = x - w / 2, top = y - h;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';                         // Schatten
     ctx.beginPath();
@@ -445,23 +508,121 @@ function drawCar(x, y, w, h, color) {
     ctx.fillRect(l + w * 0.92, top + h * 0.6, w * 0.12, h * 0.4);
 }
 
+// Eigenes Auto: schmalerer Unterbau, Heckflügel, Fahrer und Beifahrerin, 3 Kühlerschlitze
+function drawPlayerCar(x, y, w, h, color) {
+    const l = x - w / 2, top = y - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';                         // Schatten
+    ctx.beginPath();
+    ctx.ellipse(x, y, w / 2, h * 0.17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = color;                                     // Karosserie
+    ctx.beginPath();
+    ctx.moveTo(l + w * 0.15, y);
+    ctx.lineTo(l + w * 0.85, y);
+    ctx.lineTo(l + w, top + h * 0.4);
+    ctx.lineTo(l + w * 0.8, top);
+    ctx.lineTo(l + w * 0.2, top);
+    ctx.lineTo(l, top + h * 0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#a00000';                                 // Heckflügel
+    ctx.fillRect(l + w * 0.1, top + h * 0.85, w * 0.8, h * 0.09);
+    ctx.fillStyle = '#222';                                    // Heckscheibe
+    ctx.fillRect(l + w * 0.25, top + h * 0.1, w * 0.5, h * 0.3);
+    const head = w * 0.11;
+    ctx.fillStyle = '#8B4513';                                 // Fahrer (braune Haare)
+    ctx.fillRect(l + w * 0.35, top + h * 0.15, head, head);
+    ctx.fillStyle = '#FFD700';                                 // Beifahrerin (gelbe Haare)
+    ctx.fillRect(l + w * 0.55, top + h * 0.15, head, head);
+    ctx.fillStyle = '#111';                                    // Kühlerschlitze
+    for (let i = 0; i < 3; i++) ctx.fillRect(l + w * 0.15, top + h * (0.55 + i * 0.07), w * 0.7, h * 0.045);
+    ctx.fillStyle = '#ff0000';                                 // Rückleuchten
+    ctx.fillRect(l + w * 0.1, top + h * 0.8, w * 0.2, h * 0.12);
+    ctx.fillRect(l + w * 0.7, top + h * 0.8, w * 0.2, h * 0.12);
+    ctx.fillStyle = '#000';                                    // Räder
+    ctx.fillRect(l - w * 0.03, top + h * 0.6, w * 0.08, h * 0.4);
+    ctx.fillRect(l + w * 0.95, top + h * 0.6, w * 0.08, h * 0.4);
+}
+
+// Randobjekte; size = halbe Straßenbreite in Pixeln an dieser Stelle
+function drawSprite(sprite, x, y, size) {
+    if (sprite.type === 'palm' || sprite.type === 'tree') {
+        ctx.fillStyle = sprite.type === 'palm' ? '#8B4513' : '#5c3a21';
+        ctx.fillRect(x - size * 0.02, y - size * 0.5, size * 0.04, size * 0.5);
+        ctx.fillStyle = sprite.type === 'palm' ? '#228B22' : '#006400';
+        ctx.beginPath();
+        ctx.arc(x, y - size * 0.5, size * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (sprite.type === 'rock') {
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(x - size * 0.1, y);
+        ctx.lineTo(x, y - size * 0.15);
+        ctx.lineTo(x + size * 0.1, y);
+        ctx.fill();
+    }
+}
+
+// Staubwolken hinter dem eigenen Auto (Werte in Pixeln pro Bild bei 60 Bildern/s, mit dt umgerechnet)
+const dustParticles = [];
+function updateDust(dt) {
+    const k = dt * 60;
+    for (let i = dustParticles.length - 1; i >= 0; i--) {
+        const p = dustParticles[i];
+        p.x += p.vx * k;
+        p.y += p.vy * k;
+        p.vy -= 0.05 * k;     // steigt auf
+        p.size += 0.1 * k;    // wächst
+        p.alpha -= 0.02 * k;  // verblasst
+        if (p.alpha <= 0) dustParticles.splice(i, 1);
+    }
+    if (speed > maxSpeed * 0.04 && dustParticles.length < 200) {
+        const carW = canvas.width * 0.2, carH = carW * 0.6;
+        const left = canvas.width / 2 - carW / 2, y = canvas.height - 50 - carH * 0.1;
+        const chance = Math.min(1, 0.5 * k);
+        if (Math.random() < chance) dustParticles.push({ x: left - 5, y, vx: -1 - Math.random() * 2, vy: -1 - Math.random() * 2, size: 5 + Math.random() * 10, alpha: 0.8 });
+        if (Math.random() < chance) dustParticles.push({ x: left + carW + 5, y, vx: 1 + Math.random() * 2, vy: -1 - Math.random() * 2, size: 5 + Math.random() * 10, alpha: 0.8 });
+    }
+}
+function drawDust() {
+    for (const p of dustParticles) {
+        ctx.fillStyle = 'rgba(200, 200, 200, ' + Math.max(0, p.alpha).toFixed(3) + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
 // Hintergrund: Himmelsverlauf, Sonne, Berge (wandern in Kurven seitlich mit)
 let bgOffset = 0;
-function drawBackground() {
+function drawBackground(theme) {
+    const T = THEMES[theme];
     const W = canvas.width, H = canvas.height, hz = H / 2;
     const sky = ctx.createLinearGradient(0, 0, 0, hz);
-    sky.addColorStop(0, '#1E90FF');
-    sky.addColorStop(1, '#87CEEB');
+    sky.addColorStop(0, T.sky[0]);
+    sky.addColorStop(1, T.sky[1]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, hz + 2);
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.arc(W * 0.8, H * 0.3, Math.min(50, W * 0.12), 0, Math.PI * 2);
-    ctx.fill();
+    if (T.night) {                                     // Sterne und Mond
+        ctx.fillStyle = 'white';
+        for (let i = 0; i < 20; i++) {                 // feste, gestreute Positionen (keine Diagonale)
+            const fx = ((i * 0.618034) % 1), fy = ((i * i * 0.137 + i * 0.29) % 1);
+            ctx.fillRect(fx * W, fy * H * 0.4, 2, 2);
+        }
+        ctx.fillStyle = T.sun;
+        ctx.beginPath();
+        ctx.arc(W * 0.8 - playerX * 80, H * 0.2, Math.min(40, W * 0.1), 0, Math.PI * 2);
+        ctx.fill();
+    } else {                                           // Sonne, wandert beim Lenken leicht gegen
+        ctx.fillStyle = T.sun;
+        ctx.beginPath();
+        ctx.arc(W * 0.8 - playerX * 100, H * 0.3, Math.min(50, W * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+    }
     const peaks = [0, 0.35, 0.12, 0.6, 0.25, 0.8, 0.4, 0.5, 0.15, 0.7, 0];  // Höhen relativ
     const span = W * 1.5, step = span / (peaks.length - 1);
     const off = ((bgOffset * W) % span + span) % span;
-    ctx.fillStyle = '#3a6ea5';
+    ctx.fillStyle = T.mount;
     for (let k = -1; k <= 1; k++) {
         ctx.beginPath();
         ctx.moveTo(k * span - off, hz + 1);
@@ -495,14 +656,13 @@ function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
 }
 
 function render() {
-    drawBackground();
-    // Gras
-    ctx.fillStyle = '#004d00';
-    ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
-
     const baseSegment = Math.floor(position / segmentLength);
     const basePercent = (position % segmentLength) / segmentLength;
     const playerSegment = segments[baseSegment];
+    drawBackground(playerSegment.theme);
+    // Boden unter dem Horizont
+    ctx.fillStyle = THEMES[playerSegment.theme].base;
+    ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
     
     // Spieler X-Position relativ zur Straße
     const playerZ = position;
@@ -536,7 +696,7 @@ function render() {
         const p2 = segment.p2.screen;
 
         // Gras / Rumble
-        let grassColor = segment.color === 'light' ? '#00b300' : '#00cc00';
+        let grassColor = THEMES[segment.theme].grass[segment.color === 'light' ? 0 : 1];
         let rumbleColor = segment.color === 'light' ? '#ff0000' : '#ffffff';
         let roadColor = segment.color === 'light' ? '#555555' : '#666666';
 
@@ -581,8 +741,26 @@ function render() {
         if (seg.p1.camera.z <= cameraDepth) continue;                       // hinter der Kamera
         vis.push({ o, rel, seg });
     }
+    // Randobjekte der sichtbaren Segmente dazu, damit Nahes Fernes verdeckt
+    for (let n = 1; n < drawDistance; n++) {
+        const seg = segments[(baseSegment + n) % segments.length];
+        if (!seg.sprites.length || seg.p1.camera.z <= cameraDepth) continue;
+        const rel = n * segmentLength - (position % segmentLength);
+        for (const sp of seg.sprites) vis.push({ sp, rel, seg });
+    }
     vis.sort((a, b) => b.rel - a.rel);
-    for (const { o, seg } of vis) {
+    for (const { o, sp, seg } of vis) {
+        if (sp) {
+            const a = seg.p1.screen;
+            if (a.w < 2 || a.y - a.w * 0.7 >= seg.clip) continue;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width, seg.clip);
+            ctx.clip();
+            drawSprite(sp, a.x + a.w * sp.offset, a.y, a.w);
+            ctx.restore();
+            continue;
+        }
         const t = (o.z % segmentLength) / segmentLength;
         const a = seg.p1.screen, b = seg.p2.screen;
         if (!(a.scale > 0)) continue;
@@ -616,11 +794,50 @@ function render() {
     // Spieler-Auto: gleiche Zeichnung wie die Gegner, nur rot und vorn; wackelt im Turbo
     const carW = canvas.width * 0.2;              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
     const shake = isTurbo ? (Math.random() - 0.5) * 5 : 0;
-    drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000');
+    drawDust();
+    drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000', true);
 }
+
+// --- ZEIT UND NEUSTART ---
+const TIME_LIMIT = 60;
+let timeLeft = TIME_LIMIT, isGameOver = false, gameOverAt = 0;
+const timeDisplay = document.getElementById('timeDisplay');
+const gameOverScreen = document.getElementById('gameOver');
+function resetGame() {
+    buildTrack();
+    resetOpponents();
+    position = 0; playerX = 0; speed = 0;
+    timeLeft = TIME_LIMIT; isGameOver = false;
+    turboEnergy = 1;
+    dustParticles.length = 0;
+    gameOverScreen.style.display = 'none';
+}
+// Tippen nach Spielende startet neu (1 s Sperre, damit ein Lenkfinger nicht sofort neu startet)
+document.addEventListener('pointerdown', (e) => {
+    if (!isGameOver || performance.now() - gameOverAt < 1000) return;
+    if (e.target.closest && e.target.closest('#ver, #mute, #update')) return;
+    resetGame();
+}, true);
 
 // --- SPIEL-LOGIK ---
 function update(dt) {
+    if (isGameOver) {
+        speed = 0; isTurbo = false;
+        speedDisplay.innerText = 0;
+        updateDust(dt);
+        updateAudio();
+        return;
+    }
+    timeLeft -= dt;
+    if (timeLeft <= 0) {
+        timeLeft = 0;
+        isGameOver = true;
+        gameOverAt = performance.now();
+        gameOverScreen.style.display = 'block';
+        speed = 0;
+    }
+    timeDisplay.innerText = 'TIME: ' + Math.ceil(timeLeft);
+
     // Geschwindigkeit
     if (keys.up) {
         speed += accel * dt;
@@ -693,6 +910,7 @@ function update(dt) {
 
     // UI Update
     speedDisplay.innerText = Math.floor(speed / maxSpeed * 300); // Fake km/h
+    updateDust(dt);
     updateAudio();
 }
 
