@@ -105,7 +105,7 @@ Regen-/Sandgeräusch (`rainGain`/`sandGain`). Bot-Zeiten unverändert. Tageslauf
 v3.32 Feinschliff linke Route (Nutzer: „mehr auf Details achten“, Felswand baute sich komisch auf, Lava sah schlecht aus):
 Wände wachsen über 45 Segmente aus dem Boden (`edge.r`, Nachbar `nxL/nxR`), Fels ohne Streifenmuster (Farbe je Segment), Gras
 auf der Klippe, Dunst in der Ferne; Lava/Krater = dunkle Kruste mit glühenden, sich schlängelnden Adern (`drawVeins`) und
-Lavafontänen (`spout`); Pylone der Meeresbrücke (`pylon`), Sonnenschirme am Strand (`umbrella`), größere Dünen, Höfe im Raps.
+Lavafontänen (`spout`); v3.33 Meer/See mit Tiefenstufen (`depth`: türkis am Ufer → tiefblau), Wellenkämmen (`crest`) und Dunst zum Horizont; Pylone der Meeresbrücke (`pylon`), Sonnenschirme am Strand (`umbrella`), größere Dünen, Höfe im Raps.
 Training: Etappe antippen → Startpunkt wählen (Anfang oder Abschnitt 2/3, `startAt`), Start kurz vor dem Checkpoint.
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
