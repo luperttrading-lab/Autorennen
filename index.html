@@ -52,11 +52,24 @@
             flex-direction: column;
         }
         .red { color: #ff3333; }
-        #gameOver {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; font: bold 40px 'Courier New', Courier, monospace; text-shadow: 3px 3px 0 #000;
-            text-align: center; display: none; pointer-events: none; white-space: nowrap;
+        /* Start- und Ende-Bildschirm über dem Spielbild */
+        .overlay {
+            position: absolute; inset: 0; z-index: 15;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+            background: rgba(0, 0, 0, 0.35);
+            color: white; font-family: 'Courier New', Courier, monospace; text-shadow: 3px 3px 0 #000; text-align: center;
         }
+        .overlay[hidden] { display: none; }
+        .overlay .big { font-size: 40px; font-weight: bold; line-height: 1.1; }
+        .overlay .small { font-size: 15px; opacity: .9; text-shadow: 1px 1px 0 #000; }
+        .startBtn {
+            font: bold 30px 'Courier New', Courier, monospace; letter-spacing: .08em;
+            color: #fff; background: #d40000; border: 4px solid #fff; border-radius: 18px;
+            padding: 14px 40px; box-shadow: 0 6px 0 #7a0000, 0 10px 20px rgba(0,0,0,.4);
+            cursor: pointer; touch-action: manipulation;
+        }
+        .startBtn:active { transform: translateY(4px); box-shadow: 0 2px 0 #7a0000; }
+        .startBtn:disabled { opacity: .5; }
         /* Oben das Spielbild, unten das Bedienfeld (wie bei Passfahrt) */
         #game {
             position: relative;
@@ -173,7 +186,15 @@
 <body>
 
 <div id="game"><canvas id="gameCanvas"></canvas>
-    <div id="gameOver">GAME OVER<br><span style="font-size:20px">Tippe zum Neustarten</span></div>
+    <div class="overlay" id="startScreen">
+        <div class="big">AUTORENNEN</div>
+        <button class="startBtn" id="btnStart" type="button">START</button>
+        <div class="small">Unten Knüppel seitlich = lenken · TURBO halten = schneller</div>
+    </div>
+    <div class="overlay" id="gameOver" hidden>
+        <div class="big">GAME OVER</div>
+        <button class="startBtn" id="btnAgain" type="button">NOCHMAL</button>
+    </div>
 </div>
 <div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 60</span></div>
 
@@ -192,7 +213,7 @@
 </div>
 
 <script>
-const APP_VERSION = '2.1';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.2';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -708,6 +729,7 @@ function drawSprite(sp, x, y, size) {
 // nach außen, werden schnell größer und blasser. Auf Asphalt nur ein Hauch, im Gras/Sand kräftig.
 // Werte in Pixeln pro Bild bei 60 Bildern/s, mit dt umgerechnet.
 const dustParticles = [];
+let prevDustSpeed = 0;
 const DUST_RGB = ['150,140,110', '120,110,85', '215,185,140', '110,110,110'];   // je Landschaft
 function updateDust(dt) {
     const k = dt * 60;
@@ -721,13 +743,18 @@ function updateDust(dt) {
         if (p.alpha <= 0 || p.y - p.size > canvas.height) dustParticles.splice(i, 1);
     }
     const sp = speed / maxSpeed;
-    if (sp < 0.15 || dustParticles.length > 160) return;     // stehend oder langsam: kein neuer Staub
+    const accelerating = speed > prevDustSpeed + 1;
+    prevDustSpeed = speed;
     const offRoad = playerX < -1 || playerX > 1;
+    // Asphalt: nur beim Anfahren (Tempo steigt und liegt unter 60 %), am stärksten direkt nach dem Start.
+    // Gras/Sand: immer ab 15 % Tempo.
+    const launch = !offRoad && accelerating && sp > 0.01 && sp < 0.6;
+    if (dustParticles.length > 160 || !(launch || (offRoad && sp >= 0.15))) return;
     const seg = segments[Math.floor(position / segmentLength) % segments.length];
     const rgb = DUST_RGB[seg.theme];
     const carW = canvas.width * 0.2;
     const wheelY = canvas.height - 50;
-    const rate = (offRoad ? 1.2 : 0.6) * sp * k;            // Teilchen je Rad und Bild
+    const rate = (offRoad ? 1.2 * sp : 1.6 * (1 - sp / 0.6)) * k;   // Teilchen je Rad und Bild
     for (const side of [-1, 1]) {
         let n = rate;
         while (n > 0) {
@@ -745,8 +772,8 @@ function updateDust(dt) {
                 } : {                                           // Asphalt: kleine Wölkchen, fliegen nach hinten weg
                     x: canvas.width / 2 + side * carW * (0.46 + Math.random() * 0.06),
                     y: wheelY,
-                    vx: side * (0.2 + Math.random() * 0.7) * sp,
-                    vy: (1.6 + Math.random() * 1.6) * sp,
+                    vx: side * (0.4 + Math.random() * 0.9),
+                    vy: (1.2 + Math.random() * 1.4) * (0.5 + sp),
                     size: carW * (0.03 + Math.random() * 0.025),
                     grow: carW * 0.004,
                     alpha: 0.65,
@@ -976,11 +1003,13 @@ function render() {
     drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000', true);
 }
 
-// --- ZEIT UND NEUSTART ---
+// --- START, ZEIT UND NEUSTART ---
 const TIME_LIMIT = 60;
-let timeLeft = TIME_LIMIT, isGameOver = false, gameOverAt = 0;
+let timeLeft = TIME_LIMIT, isGameOver = false, started = false;
 const timeDisplay = document.getElementById('timeDisplay');
 const gameOverScreen = document.getElementById('gameOver');
+const startScreen = document.getElementById('startScreen');
+const btnAgain = document.getElementById('btnAgain');
 function resetGame() {
     buildTrack();
     resetOpponents();
@@ -988,18 +1017,23 @@ function resetGame() {
     timeLeft = TIME_LIMIT; isGameOver = false;
     turboEnergy = 1;
     dustParticles.length = 0;
-    gameOverScreen.style.display = 'none';
+    gameOverScreen.hidden = true;
 }
-// Tippen nach Spielende startet neu (1 s Sperre, damit ein Lenkfinger nicht sofort neu startet)
-document.addEventListener('pointerdown', (e) => {
-    if (!isGameOver || performance.now() - gameOverAt < 1000) return;
-    if (e.target.closest && e.target.closest('#ver, #mute, #update')) return;
-    resetGame();
-}, true);
+// Start: der Tipp auf den Knopf gibt gleichzeitig den Ton frei (iOS verlangt dafür eine Nutzeraktion)
+function startRace() {
+    initAudio();
+    if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
+    started = true;
+    startScreen.hidden = true;
+    gameOverScreen.hidden = true;
+}
+document.getElementById('btnStart').addEventListener('click', startRace);
+btnAgain.addEventListener('click', () => { resetGame(); startRace(); });
+for (const b of [document.getElementById('btnStart'), btnAgain]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
 
 // --- SPIEL-LOGIK ---
 function update(dt) {
-    if (isGameOver) {
+    if (!started || isGameOver) {
         speed = 0; isTurbo = false;
         speedDisplay.innerText = 0;
         updateDust(dt);
@@ -1010,8 +1044,9 @@ function update(dt) {
     if (timeLeft <= 0) {
         timeLeft = 0;
         isGameOver = true;
-        gameOverAt = performance.now();
-        gameOverScreen.style.display = 'block';
+        gameOverScreen.hidden = false;
+        btnAgain.disabled = true;                      // kurz sperren, damit ein Lenkfinger nicht sofort neu startet
+        setTimeout(() => { btnAgain.disabled = false; }, 800);
         speed = 0;
     }
     timeDisplay.innerText = 'TIME: ' + Math.ceil(timeLeft);

@@ -14,7 +14,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`), ausgeliefer
 
 ## Steuerung
 
-Gas ist immer an (`keys.up: true`). Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
+Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach Ablauf der Zeit NOCHMAL-Knopf. Danach ist Gas immer an (`keys.up: true`). Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
 `fragen-allgemein/spiele/passfahrt`). Bedienfeld nur 20 % der Höhe (120–170 px, Nutzer: vorher zu groß). Darin ein runder Knüppel, der dorthin rückt, wo der Daumen aufsetzt, und nur
 seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten, Turbo Shift/Leertaste.
