@@ -78,14 +78,21 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 Plan für Schritt 2: `konzept.html` Abschnitt 2b (19.11.): Tabelle mit 3 Abschnitten je Etappe und 7 Bausteinen in
 Bau-Reihenfolge. Nutzer: Baustein für Baustein bauen, je Baustein eine Version pushen, er testet, dann der nächste.
 
-Schritt 2, Baustein 1 (v3.28, wartet auf Rückmeldung des Nutzers): Wasser neben der Straße. `WATER` (meer, fluss, see, hafen),
-in `STAGES[id].zones[k].water = { t, side, s, w }`, gesetzt von `addWater` (ab da, wo die Ziel-Landschaft im Verbindungsstück
-überwiegt; Uferlinie rückt über 90 Segmente von weit draußen heran), gezeichnet von `drawWater` (wandernde Wellenbänder,
-Brandung, Glitzern, im Hafen nachts Lichtspiegelungen). Fahren: im Wasser (`inWater`) hart auf 30 % gebremst, Strömung schiebt
-ans Ufer, Gischt, Platschen (`playSplash`), Rütteln; man kommt bis 0,7 hinter die Uferlinie. Abschnitte: K2 1/3 Meer links,
-L2 1/3 Fluss rechts mit Weiden (Gegenufer), G2 2/3 Bergsee rechts (Boot, Schilf; Bootshaus kommt mit Baustein 4), K3 1/3 Meer
-links und 3/3 rechts (2/3 Meeresbrücke = Baustein 2), K4 1/3 schwarzer Strand, K5 1/3 Hafenbecken. Neue Sprites: willow, boat,
-reed. Bot-Zeiten unverändert (Bot bleibt auf der Fahrbahn).
+Schritt 2 komplett (v3.28 Wasser, v3.29 alle übrigen Bausteine; Nutzer 19.11.: „bau alles, ich schaue später“, noch NICHT
+vom Nutzer abgenommen). Alle 39 Abschnitte stehen in `STAGES[id].zones[k]` mit `name` (Konzept 2b). Datenmodell am Segment:
+`water`/`water2` (`WATER`: meer, fluss, see, hafen, lava; Abgründe mit `deep`: tal, krater, wolken), `edgeL`/`edgeR`
+= { k: rail | rock | canyon | snow | tunnel | house | pillar, d } (`EDGE_D`), `bridge`, `tunnel`/`portal`, `gallery`, `kehre`
+(nur echte Kehren, `hair` aus `genBody`), `cobble`, `wind`, `lights`. Gesetzt von `applyZone`; Streckenform je Abschnitt über
+`zoneAt` in `genBody` (kehren, flat = ohne Kuppen, straight). Gezeichnet: Boden in der Straßenschleife (`drawWater`), alles
+Senkrechte von hinten nach vorn in `drawStruct` (auch Segmente vor dem Auto), Tunnel hinten dunkel (`drawTunnelCap`).
+Fahren: Leitplanke/Schnee/Pfeiler weich (−0,7 maxSpeed/s), Fels/Haus hart (−1,6), Funken + Kratzen (`playScrape`);
+Wasser/Lava auf 30 %; Kopfsteinpflaster 90 % + Rattern; Seitenwind auf der Talbrücke (`windAt`, fest je Ort); Kehren
+`KEHRE_K` = 3,2-fache Fliehkraft, über 55 % Tempo neben der Fahrbahn = „ZU SCHNELL!“ fast Stillstand (Bremsen ≈ 1 s schneller
+als Vollgas); Tunnel dunkel, Motor hallt (`echoGain`), Blendung beim Ausfahren. Bot `botDrive` bremst vor Kehren (für
+`calibrate`). Bot-Zeiten: L2 68,8 s (Pflaster), G3 72,1 s (Kehren), sonst unverändert 66–69 s. Neue Sprites: palm, house,
+house2, fachwerk(2), church, fisher(2), lighthouse, boathouse, dune, smoke, mesa, gas, crane, container, tower(2), neon(2),
+cube, dome, willow, boat, reed. Offen (spätere Schritte): Eisplatten/Steinschlag (4), Nebel/Sandsturm (3).
+Training: Etappe antippen → Startpunkt wählen (Anfang oder Abschnitt 2/3, `startAt`), Start kurz vor dem Checkpoint.
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
 × 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
