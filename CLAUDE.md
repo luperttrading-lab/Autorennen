@@ -65,3 +65,4 @@ maximale Abwechslung inkl. Vulkan und Stadt. Gewählt: 5 Etappen pro Fahrt (Absc
 Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
 je Schritt eine frische Sitzung. `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
 im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
+Seit v3.9 ist Klang B im Spiel ein tonaler Quietschton (zwei Sägezähne um 950 Hz, Tonhöhe steigt mit dem Rutschen); das Rubbeln aus der Hörprobe B klang im Spiel wie Scheppern (Nutzer 19.11.).
