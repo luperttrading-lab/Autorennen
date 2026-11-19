@@ -192,7 +192,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.9';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.0';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -563,21 +563,50 @@ function drawPlayerCar(x, y, w, h, color) {
     ctx.fill();
     ctx.fillStyle = '#a00000';                                 // Heckflügel
     ctx.fillRect(l + w * 0.1, top + h * 0.85, w * 0.8, h * 0.09);
-    ctx.fillStyle = '#222';                                    // Heckscheibe
-    ctx.fillRect(l + w * 0.25, top + h * 0.1, w * 0.5, h * 0.3);
-    const head = w * 0.11;
-    ctx.fillStyle = '#8B4513';                                 // Fahrer (braune Haare)
-    ctx.fillRect(l + w * 0.35, top + h * 0.15, head, head);
-    ctx.fillStyle = '#FFD700';                                 // Beifahrerin (gelbe Haare)
-    ctx.fillRect(l + w * 0.55, top + h * 0.15, head, head);
+    // Heckscheibe, etwas größer, damit die beiden Insassen Platz haben
+    const wx = l + w * 0.22, wy = top + h * 0.06, ww = w * 0.56, wh = h * 0.38;
+    ctx.fillStyle = '#2b3440';
+    ctx.fillRect(wx, wy, ww, wh);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+    const r = w * 0.085, hy = wy + wh * 0.5;            // Kopfradius, Kopfhöhe
+    // Fahrer links: blaues Shirt, kurze braune Haare, Ohren
+    ctx.fillStyle = '#2a4d9b';
+    ctx.beginPath(); ctx.ellipse(l + w * 0.38, wy + wh, r * 1.6, r * 1.1, 0, Math.PI, 0); ctx.fill();
+    circle(l + w * 0.38 - r * 0.95, hy + r * 0.1, r * 0.28, '#f0c090');
+    circle(l + w * 0.38 + r * 0.95, hy + r * 0.1, r * 0.28, '#f0c090');
+    circle(l + w * 0.38, hy, r, '#5a3418');
+    circle(l + w * 0.38 - r * 0.3, hy - r * 0.35, r * 0.35, '#7a4a26');   // Glanz im Haar
+    // Beifahrerin rechts: pinkes Oberteil, lange blonde Haare bis auf die Schultern
+    ctx.fillStyle = '#e8578f';
+    ctx.beginPath(); ctx.ellipse(l + w * 0.62, wy + wh, r * 1.5, r * 1.05, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#f5c542';
+    ctx.beginPath();
+    ctx.ellipse(l + w * 0.62, hy + r * 0.55, r * 1.15, r * 1.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    circle(l + w * 0.62, hy - r * 0.05, r * 1.05, '#f5c542');
+    circle(l + w * 0.62 - r * 0.3, hy - r * 0.4, r * 0.35, '#ffe08a');   // Glanz im Haar
+    ctx.restore();
     ctx.fillStyle = '#111';                                    // Kühlerschlitze
     for (let i = 0; i < 3; i++) ctx.fillRect(l + w * 0.15, top + h * (0.55 + i * 0.07), w * 0.7, h * 0.045);
     ctx.fillStyle = '#ff0000';                                 // Rückleuchten
     ctx.fillRect(l + w * 0.1, top + h * 0.8, w * 0.2, h * 0.12);
     ctx.fillRect(l + w * 0.7, top + h * 0.8, w * 0.2, h * 0.12);
-    ctx.fillStyle = '#000';                                    // Räder
-    ctx.fillRect(l - w * 0.03, top + h * 0.6, w * 0.08, h * 0.4);
-    ctx.fillRect(l + w * 0.95, top + h * 0.6, w * 0.08, h * 0.4);
+    // Breite Reifen: ragen seitlich heraus, mit Profilrillen und hellerer Flanke
+    const tw = w * 0.2, th = h * 0.5, ty = y - th + h * 0.04;
+    for (const tx of [l - w * 0.07, l + w * 0.87]) {
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(tx, ty, tw, th, tw * 0.18) : ctx.rect(tx, ty, tw, th);
+        ctx.fill();
+        ctx.fillStyle = '#2c2c2c';                             // Lauffläche
+        ctx.fillRect(tx + tw * 0.12, ty + th * 0.06, tw * 0.76, th * 0.88);
+        ctx.fillStyle = '#0a0a0a';                             // Profilrillen
+        for (let g = 1; g < 5; g++) ctx.fillRect(tx + tw * 0.12, ty + th * (g * 0.19), tw * 0.76, th * 0.05);
+        ctx.fillStyle = '#3d3d3d';                             // Flanke außen
+        const fx = tx < l ? tx + tw * 0.02 : tx + tw * 0.86;
+        ctx.fillRect(fx, ty + th * 0.1, tw * 0.12, th * 0.8);
+    }
 }
 
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -686,21 +715,31 @@ function updateDust(dt) {
     const rgb = DUST_RGB[seg.theme];
     const carW = canvas.width * 0.2;
     const wheelY = canvas.height - 50;
-    const rate = (offRoad ? 1.2 : 0.25) * sp * k;           // Teilchen je Rad und Bild
+    const rate = (offRoad ? 1.2 : 0.6) * sp * k;            // Teilchen je Rad und Bild
     for (const side of [-1, 1]) {
         let n = rate;
         while (n > 0) {
             if (Math.random() < Math.min(1, n)) {
-                dustParticles.push({
+                dustParticles.push(offRoad ? {                  // Gras/Sand: große Wolken, quellen seitlich weg
                     x: canvas.width / 2 + side * carW * 0.47,
                     y: wheelY - 2,
                     vx: side * (1.2 + Math.random() * 1.8) * sp,
                     vy: (0.6 + Math.random() * 1.2) * sp,
                     size: carW * (0.06 + Math.random() * 0.05),
                     grow: carW * 0.009,
-                    alpha: offRoad ? 0.55 : 0.28,
-                    fade: offRoad ? 0.016 : 0.014,
+                    alpha: 0.55,
+                    fade: 0.016,
                     rgb
+                } : {                                           // Asphalt: kleine Wölkchen, fliegen nach hinten weg
+                    x: canvas.width / 2 + side * carW * (0.46 + Math.random() * 0.06),
+                    y: wheelY,
+                    vx: side * (0.2 + Math.random() * 0.7) * sp,
+                    vy: (1.6 + Math.random() * 1.6) * sp,
+                    size: carW * (0.03 + Math.random() * 0.025),
+                    grow: carW * 0.004,
+                    alpha: 0.65,
+                    fade: 0.03,
+                    rgb: '190,185,175'
                 });
             }
             n -= 1;
