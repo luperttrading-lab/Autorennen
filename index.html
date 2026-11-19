@@ -295,7 +295,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.11';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.12';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -311,8 +311,9 @@ const gameEl = document.getElementById('game');
 // iPhone-Home-Bildschirm-App (iOS 26): das Layout endet ein Stück über dem unteren Bildschirmrand. Die automatische
 // Erkennung griff auf dem Gerät des Nutzers nicht (v3.8–3.10), deshalb seit v3.11 von Hand: die Knöpfe ▼/▲ rechts oben
 // unter dem Lautsprecher schieben das untere Ende der Seite in 10-px-Schritten tiefer/höher (wird gemerkt).
-let lowerPx = 0, lowerExtra = 0;
-try { lowerPx = Math.max(0, Math.min(160, parseInt(localStorage.getItem('autorennen.tiefpx') || '0', 10) || 0)); } catch (_) {}
+// Voreinstellung auf dem iPhone: 60 px tiefer (Nutzer 19.11.: „den ganzen Bildschirm nach unten verschieben“)
+let lowerPx = /iPhone/.test(navigator.userAgent) ? 60 : 0, lowerExtra = 0;
+try { const v = localStorage.getItem('autorennen.tiefpx'); if (v !== null && v !== '0') lowerPx = Math.max(0, Math.min(160, parseInt(v, 10) || 0)); } catch (_) {}
 function fitScreen() {
     const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight;
     const portrait = ih > window.innerWidth;
