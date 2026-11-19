@@ -59,8 +59,46 @@
             color: white;
             font-size: 24px;
             font-weight: bold;
-            text-shadow: 2px 2px 0 #000;
+            font-family: 'Courier New', Courier, monospace;
+            text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
             pointer-events: none;
+        }
+        /* Turbo: kleiner runder Knopf unten rechts, Füllstand = Turbo-Vorrat */
+        #turbo {
+            position: absolute;
+            right: 16px;
+            bottom: max(env(safe-area-inset-bottom), 16px);
+            z-index: 20;
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            border: 3px solid #ff3333;
+            background: rgba(0, 0, 0, 0.25);
+            color: #fff;
+            font: bold 14px 'Courier New', Courier, monospace;
+            overflow: hidden;
+            touch-action: none;
+            padding: 0;
+        }
+        #turboFill {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            height: 100%;
+            background: rgba(255, 50, 50, 0.55);
+            pointer-events: none;
+        }
+        #turbo span { position: relative; pointer-events: none; }
+        #turbo.an { border-color: #fff; }
+        #mute {
+            position: absolute;
+            top: calc(max(env(safe-area-inset-top), 20px) + 40px);
+            right: 12px;
+            z-index: 20;
+            font-size: 22px;
+            background: none;
+            border: 0;
+            padding: 4px 8px;
+            cursor: pointer;
         }
         /* Lenkung: Finger irgendwo aufsetzen und seitlich schieben */
         #steerZone {
@@ -109,7 +147,9 @@
 <!-- Touch-Steuerung: ganze Fläche, Finger seitlich schieben -->
 <div id="steerZone"></div>
 <div id="steerBar"><div id="steerKnob"></div></div>
-<div id="hint">Finger aufsetzen und nach links / rechts schieben</div>
+<div id="hint">Finger aufsetzen und seitlich schieben = lenken<br>TURBO gedrückt halten = schneller</div>
+<button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
+<button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
 <button id="ver" type="button"></button>
 <div class="update" id="update" hidden>
     <span id="update-text"></span>
@@ -117,7 +157,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '1.5';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -193,14 +233,78 @@ steerZone.addEventListener('pointermove', (e) => {
 steerZone.addEventListener('pointerup', steerEnd);
 steerZone.addEventListener('pointercancel', steerEnd);
 
+// --- TURBO ---
+// Gedrückt halten: Höchsttempo x 1,4. Vorrat reicht 3 s, lädt in 10 s wieder voll.
+const TURBO_FACTOR = 1.4;
+let turboHeld = false, turboEnergy = 1, isTurbo = false;
+const turboBtn = document.getElementById('turbo');
+const turboFill = document.getElementById('turboFill');
+let turboPtr = null;
+turboBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    turboPtr = e.pointerId;
+    try { turboBtn.setPointerCapture(e.pointerId); } catch (x) {}
+    turboHeld = true;
+    hint.style.opacity = 0;
+});
+function turboEnd(e) { if (e.pointerId === turboPtr) { turboPtr = null; turboHeld = false; } }
+turboBtn.addEventListener('pointerup', turboEnd);
+turboBtn.addEventListener('pointercancel', turboEnd);
+turboBtn.addEventListener('lostpointercapture', turboEnd);
+
+// --- MOTORSOUND (Web Audio) ---
+// Startet erst bei der ersten Berührung: iOS spielt Ton nur nach einer Nutzeraktion.
+let audioCtx = null, engineOsc = null, engineGain = null;
+let muted = false;
+try { muted = localStorage.getItem('autorennen.ton') === 'aus'; } catch (_) {}
+const muteBtn = document.getElementById('mute');
+muteBtn.textContent = muted ? '🔇' : '🔊';
+function initAudio() {
+    if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audioCtx = new AC();
+    engineOsc = audioCtx.createOscillator();
+    engineOsc.type = 'sawtooth';
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 800;
+    engineGain = audioCtx.createGain();
+    engineGain.gain.value = 0;
+    engineOsc.connect(filter);
+    filter.connect(engineGain);
+    engineGain.connect(audioCtx.destination);
+    engineOsc.start();
+}
+document.addEventListener('pointerdown', initAudio, true);
+muteBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    muteBtn.textContent = muted ? '🔇' : '🔊';
+    try { localStorage.setItem('autorennen.ton', muted ? 'aus' : 'an'); } catch (_) {}
+});
+document.addEventListener('visibilitychange', () => {
+    if (!audioCtx) return;
+    if (document.visibilityState === 'visible') audioCtx.resume(); else audioCtx.suspend();
+});
+function updateAudio() {
+    if (!audioCtx) return;
+    const sp = speed / maxSpeed;                       // 0 .. 1,4
+    const freq = 50 + sp * 450 + (isTurbo ? 100 : 0);
+    engineOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+    engineGain.gain.setTargetAtTime(muted ? 0 : (isTurbo ? 0.1 : 0.05), audioCtx.currentTime, 0.1);
+}
+
 // Tastatur-Steuerung (für den PC-Test)
 window.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift' || e.key === ' ') turboHeld = true;
     if (e.key === 'ArrowLeft') keys.left = true;
     if (e.key === 'ArrowRight') keys.right = true;
     if (e.key === 'ArrowUp') keys.up = true;
     if (e.key === 'ArrowDown') keys.down = true;
 });
 window.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift' || e.key === ' ') turboHeld = false;
     if (e.key === 'ArrowLeft') keys.left = false;
     if (e.key === 'ArrowRight') keys.right = false;
     if (e.key === 'ArrowUp') keys.up = false;
@@ -229,12 +333,9 @@ function lastY() { return (segments.length === 0) ? 0 : segments[segments.length
 // Strecke bauen
 function buildTrack() {
     segments = [];
-    addStraight(50);
-    addCurve(50, 5);
-    addStraight(50);
-    addCurve(50, -5);
-    addHill(50, 100);
-    addStraight(100);
+    addStraight(50); addCurve(50, 4); addHill(50, 200);
+    addStraight(50); addCurve(50, -4); addHill(50, -200);
+    addCurve(100, 6); addStraight(100); addCurve(100, -6);
     trackLength = segments.length * segmentLength;
 }
 function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
@@ -256,7 +357,7 @@ const drawDistance = 150;
 // --- GEGNER-AUTOS ---
 const PLAYER_Z = 950;        // Abstand Kamera -> eigenes Auto (dort steht es unten im Bild)
 const CAR_WORLD_W = 450;     // Breite eines Autos in Welt-Einheiten (Straße: 2 * roadWidth = 4000)
-const OPP_COUNT = 14;
+const OPP_COUNT = 28;
 const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1a1a', '#00a3a3'];
 let opponents = [];
 function resetOpponents() {
@@ -272,23 +373,62 @@ function resetOpponents() {
 }
 resetOpponents();
 
-// Auto von hinten zeichnen; x = Mitte, y = Unterkante, w = Breite in Pixeln
+// Sportwagen von hinten; x = Mitte, y = Unterkante, w = Breite in Pixeln
 function drawCar(x, y, w, h, color) {
-    const left = x - w / 2, top = y - h;
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    const l = x - w / 2, top = y - h;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';                         // Schatten
     ctx.beginPath();
-    ctx.ellipse(x, y, w * 0.55, h * 0.12, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, w * 0.55, h * 0.14, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#111';                                    // Räder
-    ctx.fillRect(left - w * 0.06, top + h * 0.6, w * 0.16, h * 0.4);
-    ctx.fillRect(left + w * 0.9, top + h * 0.6, w * 0.16, h * 0.4);
-    ctx.fillStyle = color;                                     // Karosserie
-    ctx.fillRect(left, top, w, h * 0.92);
-    ctx.fillStyle = '#333';                                    // Heckscheibe
-    ctx.fillRect(left + w * 0.1, top + h * 0.1, w * 0.8, h * 0.4);
-    ctx.fillStyle = '#ff2a2a';                                 // Rücklichter
-    ctx.fillRect(left + w * 0.05, top + h * 0.62, w * 0.18, h * 0.1);
-    ctx.fillRect(left + w * 0.77, top + h * 0.62, w * 0.18, h * 0.1);
+    ctx.fillStyle = color;                                     // Karosserie (Trapez)
+    ctx.beginPath();
+    ctx.moveTo(l + w * 0.1, y);
+    ctx.lineTo(l + w * 0.9, y);
+    ctx.lineTo(l + w, top + h * 0.4);
+    ctx.lineTo(l + w * 0.8, top);
+    ctx.lineTo(l + w * 0.2, top);
+    ctx.lineTo(l, top + h * 0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#222';                                    // Heckscheibe
+    ctx.fillRect(l + w * 0.25, top + h * 0.1, w * 0.5, h * 0.3);
+    if (w > 25) {                                              // Lüftungsgitter nur, wenn groß genug
+        ctx.fillStyle = '#111';
+        for (let i = 0; i < 4; i++) ctx.fillRect(l + w * 0.15, top + h * (0.5 + i * 0.09), w * 0.7, h * 0.045);
+    }
+    ctx.fillStyle = '#ff4d4d';                                 // Rücklichter
+    ctx.fillRect(l + w * 0.1, top + h * 0.82, w * 0.2, h * 0.1);
+    ctx.fillRect(l + w * 0.7, top + h * 0.82, w * 0.2, h * 0.1);
+    ctx.fillStyle = '#000';                                    // Räder
+    ctx.fillRect(l - w * 0.04, top + h * 0.6, w * 0.12, h * 0.4);
+    ctx.fillRect(l + w * 0.92, top + h * 0.6, w * 0.12, h * 0.4);
+}
+
+// Hintergrund: Himmelsverlauf, Sonne, Berge (wandern in Kurven seitlich mit)
+let bgOffset = 0;
+function drawBackground() {
+    const W = canvas.width, H = canvas.height, hz = H / 2;
+    const sky = ctx.createLinearGradient(0, 0, 0, hz);
+    sky.addColorStop(0, '#1E90FF');
+    sky.addColorStop(1, '#87CEEB');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, hz + 2);
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(W * 0.8, H * 0.3, Math.min(50, W * 0.12), 0, Math.PI * 2);
+    ctx.fill();
+    const peaks = [0, 0.35, 0.12, 0.6, 0.25, 0.8, 0.4, 0.5, 0.15, 0.7, 0];  // Höhen relativ
+    const span = W * 1.5, step = span / (peaks.length - 1);
+    const off = ((bgOffset * W) % span + span) % span;
+    ctx.fillStyle = '#3a6ea5';
+    for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.moveTo(k * span - off, hz + 1);
+        peaks.forEach((p, i) => ctx.lineTo(k * span - off + i * step, hz - p * H * 0.12));
+        ctx.lineTo(k * span - off + span, hz + 1);
+        ctx.closePath();
+        ctx.fill();
+    }
 }
 
 // --- RENDERING FUNKTIONEN ---
@@ -314,9 +454,7 @@ function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
 }
 
 function render() {
-    // Himmel
-    ctx.fillStyle = '#87CEEB';
-    ctx.fillRect(0, 0, canvas.width, canvas.height/2);
+    drawBackground();
     // Gras
     ctx.fillStyle = '#004d00';
     ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
@@ -421,9 +559,23 @@ function render() {
         ctx.restore();
     }
 
-    // Spieler-Auto: gleiche Zeichnung wie die Gegner, nur rot und vorn
+    // Turbo: Geschwindigkeitsstreifen
+    if (isTurbo) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 10; i++) {
+            const lx = Math.random() * canvas.width, ly = Math.random() * canvas.height;
+            ctx.beginPath();
+            ctx.moveTo(lx, ly);
+            ctx.lineTo(lx, ly + 100 + Math.random() * 200);
+            ctx.stroke();
+        }
+    }
+
+    // Spieler-Auto: gleiche Zeichnung wie die Gegner, nur rot und vorn; wackelt im Turbo
     const carW = canvas.width * 0.2;              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
-    drawCar(canvas.width / 2, canvas.height - 50, carW, carW * 0.6, '#e60000');
+    const shake = isTurbo ? (Math.random() - 0.5) * 5 : 0;
+    drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000');
 }
 
 // --- SPIEL-LOGIK ---
@@ -442,8 +594,20 @@ function update(dt) {
         speed -= offRoadDecel * dt;
     }
 
-    // Limits
-    if (speed > maxSpeed) speed = maxSpeed;
+    // Turbo: nur mit Vorrat und erst ab etwas Tempo
+    isTurbo = turboHeld && turboEnergy > 0 && speed > maxSpeed * 0.3;
+    if (isTurbo) {
+        speed += accel * dt;                             // zusätzlicher Schub
+        turboEnergy = Math.max(0, turboEnergy - dt / 3);
+    } else if (!turboHeld) {
+        turboEnergy = Math.min(1, turboEnergy + dt / 10);
+    }
+    turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
+    turboBtn.classList.toggle('an', isTurbo);
+    const topSpeed = isTurbo ? maxSpeed * TURBO_FACTOR : maxSpeed;
+
+    // Limits: über dem Höchsttempo (nach dem Turbo) sanft abbremsen statt springen
+    if (speed > topSpeed) speed = Math.max(topSpeed, speed - accel * dt * 2);
     if (speed < 0) speed = 0;
 
     // Position updaten
@@ -472,6 +636,7 @@ function update(dt) {
     const playerSegment = segments[Math.floor(position / segmentLength) % segments.length];
     const speedPercent = speed / maxSpeed;
     const dx = dt * 2 * speedPercent; // Lenkgeschwindigkeit
+    bgOffset += playerSegment.curve * speedPercent * dt * 0.02;  // Berge wandern in Kurven
 
     let s = steer;
     if (keys.left) s = -1;
@@ -487,6 +652,7 @@ function update(dt) {
 
     // UI Update
     speedDisplay.innerText = Math.floor(speed / maxSpeed * 300); // Fake km/h
+    updateAudio();
 }
 
 // --- GAME LOOP ---
