@@ -61,6 +61,41 @@ Meer, Vulkan- und Stadtelemente folgen ab Schritt 2. Seit v3.21: Kurvenwarntafel
 Kurven, Heu-Rundballen/Strohballen/Kühe; seit v3.22 nur in Abschnitten (`STAGES[id].zones`, je Drittel der Etappe eigene Randobjekte): Morgenland 2. Drittel Allee (1. Drittel Felder: Ausbau in Schritt 2); Voralpen 1. Drittel Alm mit Kühen UND Heu-/Strohballen (Nutzer 19.11.: gehören zusammen, nicht ins Morgenland). Weitere Abschnitte je Etappe in Schritt 5, lange Auf- und Abfahrten
 (`addLongRamp`: Küste 1 sanfte, Land/Gebirge 2 je Etappe, 260–400 Segmente mit Kurven).
 
+## Stand und offene Punkte (Übergabe 19.11.)
+
+Stand v3.33 (live). Schritt 1 (v3.0), Schritt 2 (v3.28–v3.29, Feinschliff v3.32–v3.33) und Schritt 3 (v3.31) sind gebaut,
+vom Nutzer aber nur die linke Route (S → K2 → K3 → K4 → K5) gefahren. Abschnitte je Etappe (`STAGES[id].zones[k].name`):
+- S Morgenland: Rapsfelder mit Höfen · Allee · Dorf mit Kirchturm.
+- K2 Küstenstraße: Sandstrand mit Palmen, Schirmen, Meer links · Felsküste (Felswand rechts, Leitplanke + Meer links) · Fischerdorf mit Leuchtturm, Booten.
+- K3 Inseln: Insel mit Hafen (Palmen, Fischerhäuser) · Meeresbrücke mit Pylonen und Laternen · Insel mit Dünen, Meer rechts.
+- K4 Vulkaninsel: schwarzer Strand · Lavafelder (glühende Adern, Fontänen, Rauchsäulen) · Kraterrand mit Leitplanke.
+- K5 Hafenstadt (Nacht): Hafen mit Kränen/Containern · Stadtbrücke im Gewitter mit Lichterketten · Innenstadt mit Neon und Regen, Ziel.
+- L2 Kleinstadt: Flussufer mit Weiden · Altstadt Fachwerk + Kopfsteinpflaster · Flussbrücke.
+- G2 Voralpen: Alm (Kühe, Ballen) · Bergsee mit Boot, Bootshäusern · Bergwald mit Schotterweg.
+- L3 Weinland: Terrassen · Talbrücke mit Seitenwind · Weindorf.
+- G3 Alpenpass: Kehren (Bremszwang, „ZU SCHNELL!“) · Lawinengalerie · Passhöhe im Schnee.
+- L4 Canyon: enge Schlucht (Felswände) · Dammkrone (See links, Tal rechts) · Tafelberge, Tankstelle, Sandsturm.
+- G4 Gletscher: Schneeschneise · Tunnel (Portal, Lampen, Hall, Blendung) · Eisplatten.
+- L5 Oase: Wüste unter Sternen · lange Gerade mit Palmen · Wüstenstadt mit Leuchtreklame.
+- G5 Sternwarte: über den Wolken (Leitplanke) · Schlussanstieg im Nebel · Gipfel mit Kuppeln.
+Dazu: Öl je nach Tempo (Dreher ab 85 %), Startpunkt-Wahl im Training (Etappe antippen → Abschnitt).
+
+Offene Rückmeldungen des Nutzers:
+- Überschlag in den Kehren statt nur „ZU SCHNELL!“-Stillstand: ja/nein? (bisher nur Schleudern/Dreher auf Öl)
+- Wirken die Wellenkämme (v3.33) auf dem iPhone wie Wellen oder wie Flimmern?
+- Details der Umgebung: Nutzer will mehr Sorgfalt; Mitte und rechte Route hat er noch nicht gefahren.
+- Schritt 3 (Wetter) und die nicht-linken Etappen von Schritt 2 noch nicht abgenommen.
+
+Bekannte Schwächen:
+- Felsküste: Meer liegt auf Straßenhöhe statt tief unter der Klippe (gilt für alle Abgründe: Pseudo-3D ohne Tiefe).
+- Inselhafen ohne Steg; Neon/Laternen in der Innenstadt bei Regen etwas verschwommen; Tunnelportal ist eine flache Bergform.
+- Kehren-Bot fährt vorsichtig (Zeitgutschrift dort großzügig); Öl kostet im Gebirge bei ≈ 3 s Puffer meist das Rennen.
+- Getestet nur per Headless-Bot (Gegner dabei ausgeblendet) und Standbildern, kein Ton geprüft.
+
+Als Nächstes: Rückmeldungen oben einarbeiten, dann Schritt 4 (Verkehr: Lkw, Traktor, Motorrad, Rivale; Hindernisse:
+Pylonen, Steinschlag, Turbo-Kanister) erst nach Freigabe des Nutzers. Testskripte lagen nur im Scratchpad (nicht im Repo):
+Bot-Fahrt über ganze Routen mit `botDrive` + Öl-Ausweichen, Kalibrierung aller Etappen per `calibrate`.
+
 ## Eingefügter HTML-Code aus anderen Chats
 
 Schickt der Nutzer eine komplette HTML-Fassung des Spiels (z. B. aus einem anderen Chat), nicht übernehmen, sondern
