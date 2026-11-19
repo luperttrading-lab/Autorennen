@@ -27,7 +27,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 ## Steuerung
 
 Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), danach Countdown 3–2–1–LOS mit Piepton (seit v3.2), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
-`fragen-allgemein/spiele/passfahrt`). Bedienfeld flach (108 px + Safe-Area). Seit v3.13 sind Knüppel (100 px, Fangbereich 220 px) und Turbo FREI
+`fragen-allgemein/spiele/passfahrt`). Bedienfeld flach (108 px + Safe-Area). Seit v3.24 sind Knüppel und Turbo eckig (abgerundet), der gelbe Knopf erreicht die Ecken (Vollgas + Volleinschlag). Seit v3.13 sind Knüppel (100 px, Fangbereich 220 px) und Turbo FREI
 platzierbar (Nutzer 19.11.: feste Lagen trafen auf dem iPhone nie): Zahnrad ⚙ KNÖPFE unten zwischen Knüppel und Turbo (nur Start-/Endbildschirm, ab v3.15) → mit dem Finger
 ziehen → FERTIG; gespeichert je Hoch-/Querformat in `autorennen.knoepfe` (Bildschirmkoordinaten der Mitten), STANDARD
 setzt zurück, dort auch ▼/▲ für das untere Ende der Seite. Steuerung: Fingerlage relativ zur Knüppelmitte zählt,
