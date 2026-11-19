@@ -142,14 +142,18 @@
         }
         /* Knöpfe getauscht: Turbo links, Knüppel rechts */
         #panel.swap { flex-direction: row-reverse; padding-left: 16px; padding-right: 0; }
-        #swap, #lower {
-            position: absolute; left: 50%; margin-left: -34px; top: 8px; z-index: 21;
+        #swap {
+            position: absolute; left: 50%; margin-left: -15px; top: 8px; z-index: 21;
             width: 30px; height: 26px; padding: 0; border: 1px solid rgba(241,239,230,.35); border-radius: 8px;
             background: rgba(0,0,0,.3); color: rgba(241,239,230,.8); font: bold 15px sans-serif; touch-action: manipulation;
         }
-        #lower { margin-left: 4px; }
-        #lower[hidden] { display: none; }
-        #diag { font-size: 10px; opacity: .55; text-shadow: none; }
+        /* Unteres Ende der Seite tiefer/höher schieben (iPhone-App), rechts oben unter dem Lautsprecher */
+        #lowerBox { position: absolute; z-index: 20; right: 10px; top: calc(max(env(safe-area-inset-top), 20px) + 80px); display: flex; flex-direction: column; gap: 6px; }
+        #lowerBox button { width: 34px; height: 30px; padding: 0; border: 1px solid rgba(255,255,255,.5); border-radius: 8px;
+            background: rgba(0,0,0,.35); color: #fff; font: bold 14px sans-serif; touch-action: manipulation; }
+        body:not(.menu) #lowerBox { display: none; }      /* nur auf Start- und Endbildschirm */
+        @media (orientation: landscape) { #lowerBox { display: none; } }
+        #diag { font-size: 10px; opacity: .6; text-shadow: none; }
         /* Querformat: Bedienfeld liegt durchsichtig über dem unteren Bildrand */
         @media (orientation: landscape) {
             #panel {
@@ -281,9 +285,9 @@
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
     <button id="swap" type="button" aria-label="Knüppel und Turbo tauschen">⇄</button>
-    <button id="lower" type="button" aria-label="Bedienfeld tiefer oder höher" hidden>▼</button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
+<div id="lowerBox"><button id="lowerDown" type="button" aria-label="Bedienfeld tiefer">▼</button><button id="lowerUp" type="button" aria-label="Bedienfeld höher">▲</button></div>
 <button id="ver" type="button"></button>
 <div class="update" id="update" hidden>
     <span id="update-text"></span>
@@ -291,7 +295,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.10';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.11';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -304,27 +308,32 @@ document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // Bildschirmgröße anpassen
 const gameEl = document.getElementById('game');
-// iPhone-Home-Bildschirm-App: das Layout endet dort ein Stück über dem unteren Bildschirmrand (Screenshots des
-// Nutzers 19.11.: oben und unten je ≈ 60 pt frei). Das Bedienfeld wird um diesen Betrag nach unten verlängert.
-// Der Knopf ▼/▲ im Bedienfeld schaltet das ab, falls der Bereich auf einem Gerät doch nicht sichtbar ist.
-let lowerOn = true, lowerExtra = 0;
-try { lowerOn = localStorage.getItem('autorennen.tief') !== 'nein'; } catch (_) {}
+// iPhone-Home-Bildschirm-App (iOS 26): das Layout endet ein Stück über dem unteren Bildschirmrand. Die automatische
+// Erkennung griff auf dem Gerät des Nutzers nicht (v3.8–3.10), deshalb seit v3.11 von Hand: die Knöpfe ▼/▲ rechts oben
+// unter dem Lautsprecher schieben das untere Ende der Seite in 10-px-Schritten tiefer/höher (wird gemerkt).
+let lowerPx = 0, lowerExtra = 0;
+try { lowerPx = Math.max(0, Math.min(160, parseInt(localStorage.getItem('autorennen.tiefpx') || '0', 10) || 0)); } catch (_) {}
 function fitScreen() {
-    const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight, shh = screen.height;
-    const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-    let extra = 0;
-    if (ih > window.innerWidth) {                          // nur Hochformat
-        if (ih - ch > 10) extra = ih - ch;                 // Fenster ist höher als das Layout
-        else if (standalone && shh - ih > 60 && shh - ih < 170) extra = Math.round((shh - ih) / 2);
-    }
-    lowerExtra = extra;
-    // Dokument selbst höher machen (nicht nur ein fest positioniertes Element): erst dann zeigt iOS den Bereich an
-    const H = ch + (lowerOn ? extra : 0);
+    const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight;
+    const portrait = ih > window.innerWidth;
+    lowerExtra = portrait ? lowerPx : 0;
+    const H = ch + lowerExtra;                          // das Dokument selbst höher machen
     de.style.height = H + 'px';
     document.body.style.height = H + 'px';
-    const lb = document.getElementById('lower'), dg = document.getElementById('diag');
-    if (lb) { lb.hidden = !extra; lb.textContent = lowerOn ? '▲' : '▼'; }
-    if (dg) dg.textContent = 'Bild ' + window.innerWidth + '×' + ih + ' · Layout ' + ch + ' · Gerät ' + shh + ' · tiefer ' + (lowerOn ? extra : 0) + (standalone ? ' · App' : '');
+    const dg = document.getElementById('diag');
+    if (dg) {
+        const vv = window.visualViewport ? Math.round(window.visualViewport.height) : '-';
+        const sa = navigator.standalone === true ? 'j' : navigator.standalone === false ? 'n' : '?';
+        const dm = window.matchMedia && matchMedia('(display-mode: standalone)').matches ? 'j' : 'n';
+        dg.textContent = 'B' + window.innerWidth + '×' + ih + ' L' + ch + ' V' + vv + ' G' + screen.width + '×' + screen.height +
+            ' A' + sa + dm + ' T' + lowerExtra;
+    }
+}
+function setLower(d) {
+    lowerPx = Math.max(0, Math.min(160, lowerPx + d));
+    try { localStorage.setItem('autorennen.tiefpx', String(lowerPx)); } catch (_) {}
+    edgeColor = '';
+    resize();
 }
 function resize() {
     fitScreen();
@@ -363,13 +372,11 @@ const stickBase = document.getElementById('stickBase');
 const stickKnob = document.getElementById('stickKnob');
 let steerPtr = null, steerX0 = 0, steerY0 = 0;
 // Knöpfe tauschen (kleiner Knopf unten links): Knüppel und Turbo wechseln die Seite, wird gemerkt
-document.getElementById('lower').addEventListener('pointerdown', (e) => e.stopPropagation());
-document.getElementById('lower').addEventListener('click', () => {
-    lowerOn = !lowerOn;
-    try { localStorage.setItem('autorennen.tief', lowerOn ? 'ja' : 'nein'); } catch (_) {}
-    edgeColor = '';
-    resize();
-});
+for (const [id, d] of [['lowerDown', 10], ['lowerUp', -10]]) {
+    const el = document.getElementById(id);
+    el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.addEventListener('click', () => setLower(d));
+}
 let swapped = false;
 try { swapped = localStorage.getItem('autorennen.tausch') === 'ja'; } catch (_) {}
 const panelEl = document.getElementById('panel'), swapBtn = document.getElementById('swap');
@@ -1527,7 +1534,7 @@ function setEdgeColor(c) {
     if (c === edgeColor) return;
     edgeColor = c;
     // Außerhalb des Layouts zeigt das iPhone nur die Grundfarbe: Himmel, wenn das Bedienfeld bis unten reicht, sonst dunkel
-    document.documentElement.style.background = lowerOn && lowerExtra ? c : '#242833';
+    document.documentElement.style.background = lowerExtra ? c : '#242833';
     if (themeMeta) themeMeta.setAttribute('content', c);
 }
 let glows = [], curDark = 0;                           // Lichtpunkte, die nach dem Abdunkeln leuchten
