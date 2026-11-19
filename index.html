@@ -336,7 +336,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.27';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.28';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -402,6 +402,7 @@ const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) 
 // Tastenstatus
 let keys = { left: false, right: false, up: false, down: false };
 let throttle = 0, brake = 0;                          // vom Knüppel: 0..1
+let wasWet = false, splashT = 0;                       // im Wasser (v3.28)
 let slipTime = 0;                                     // > 0: Auto rutscht auf Öl
 
 // Touch-Steuerung: Knüppel im Bedienfeld
@@ -828,6 +829,18 @@ function playOilSlide() {
     n.connect(bf); bf.connect(ngn); ngn.connect(audioCtx.destination);
     [o, lfo, n].forEach(x => { x.start(t); x.stop(t + 1.25); });
 }
+// Wasser: Platschen = Rauschen, dessen Tiefpass schnell nach unten gleitet, lauter bei hohem Tempo
+function playSplash(sp) {
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime, dur = 0.55;
+    const len = Math.floor(audioCtx.sampleRate * dur), b = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (Math.random() < 0.3 ? 1 : 0.4);
+    const n = audioCtx.createBufferSource(), f = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    n.buffer = b; f.type = 'lowpass'; f.Q.value = 2;
+    f.frequency.setValueAtTime(2600, t); f.frequency.exponentialRampToValueAtTime(350, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05 + 0.12 * sp, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start(t); n.stop(t + dur + 0.02);
+}
 function updateAudio() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
@@ -926,6 +939,22 @@ function climatePath(a, b) {                           // kürzester Weg im Klim
     return path;
 }
 
+// Wasser neben der Straße (Schritt 2, Baustein 1, v3.28). Am Segment: water = { t: Art, side: −1 links / 1 rechts,
+// s: Uferlinie in halben Straßenbreiten ab Fahrbahnmitte, w: Breite (Infinity = bis zum Horizont) }.
+// c = Wasserfarben (Wellenbänder), edge = Uferstreifen, bank = dessen Breite, flow = Wellen wandern (Segmente/s, − = entgegen)
+const WATER = {
+    meer:  { c: ['#2a8ad0', '#1f78bd'], edge: '#f4f8fb', bank: 0,    foam: true, flow: 3,  glint: 0.6 },
+    fluss: { c: ['#4a8f9c', '#3e808d'], edge: '#7d6c4c', bank: 0.14, flow: -6, glint: 0.4 },
+    see:   { c: ['#2a6f8c', '#23627d'], edge: '#8a877b', bank: 0.14, flow: 1,  glint: 0.5 },
+    hafen: { c: ['#33708f', '#2b6280'], edge: '#b0b0a8', bank: 0.2,  flow: 1,  glint: 0.3, quay: true }
+};
+function inWater(seg, x) {                             // steht der Punkt x (halbe Straßenbreiten) im Wasser?
+    const w = seg.water;
+    if (!w) return false;
+    const d = w.side * (x - seg.roads[0]);
+    return d > w.s && d < w.s + w.w;
+}
+
 // Karte: 3 Spalten (Küste leicht, Land mittel, Gebirge schwer) × 5 Reihen (Morgen bis Nacht) = 13 Etappen, 41 Routen
 const COLS = ['K', 'L', 'G'];
 const COL_NAME = ['KÜSTE', 'LAND', 'GEBIRGE'];
@@ -939,18 +968,33 @@ const STAGES = {
           zones: [null,                                                                        // Felder (Ausbau in Schritt 2)
                   { allee: true },                                                             // Allee
                   null] },                                                                     // Dorf (Häuser ab Schritt 2)
-    K2: { row: 1, col: 0, name: 'Küstenstraße',            short: 'KÜSTENSTRASSE', land: 'strand' },
-    L2: { row: 1, col: 1, name: 'Kleinstadt am Fluss',     short: 'KLEINSTADT',    land: 'dorf' },
+    // water: Wasser neben der Straße in diesem Drittel (v3.28); far = Randobjekte am anderen Ufer, boats = Boot alle n Segmente
+    K2: { row: 1, col: 0, name: 'Küstenstraße',            short: 'KÜSTENSTRASSE', land: 'strand',
+          zones: [{ water: { t: 'meer', side: -1, s: 1.75 }, every: 5, chance: 0.5, types: ['bush', 'bush', 'rock', 'tree'], boats: 140 },   // Sandstrand, Meer links
+                  null, null] },                                                               // Felsküste, Fischerdorf (Baustein 3, 4)
+    L2: { row: 1, col: 1, name: 'Kleinstadt am Fluss',     short: 'KLEINSTADT',    land: 'dorf',
+          zones: [{ water: { t: 'fluss', side: 1, s: 1.75, w: 2.6 }, every: 4, chance: 0.6, types: ['willow', 'willow', 'bush', 'tree'],
+                    far: { every: 5, chance: 0.75, types: ['willow', 'tree', 'willow', 'bush'] }, reeds: true },                         // Flussufer mit Weiden
+                  null, null] },                                                               // Altstadt, Brücke (Baustein 4, 2)
     G2: { row: 1, col: 2, name: 'Voralpen und Bergsee',    short: 'VORALPEN',      land: 'wald', gravel: true,
           zones: [{ every: 3, chance: 0.6, types: ['cow', 'cow', 'bale', 'bale', 'straw', 'bush', 'fir'], grass: ['#4f9a3a', '#468f33'] },   // Alm: Kühe, Heu- und Strohballen
-                  null, null] },                                                               // Bergwald, Schotterweg
-    K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand' },
+                  { water: { t: 'see', side: 1, s: 1.8, w: 7 }, every: 3, chance: 0.8, types: ['fir', 'fir', 'fir', 'bush', 'rock'],
+                    far: { every: 4, chance: 0.85, types: ['fir', 'fir', 'fir', 'rock'] }, boats: 260, reeds: true },                    // Bergsee (Bootshaus mit Baustein 4)
+                  null] },                                                                     // Bergwald, Schotterweg
+    K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand',
+          zones: [{ water: { t: 'meer', side: -1, s: 1.8 }, every: 5, chance: 0.5, types: ['bush', 'tree', 'bush', 'rock'], boats: 120 },   // Insel, Meer links
+                  null,                                                                        // Meeresbrücke (Baustein 2)
+                  { water: { t: 'meer', side: 1, s: 1.8 }, every: 5, chance: 0.45, types: ['bush', 'rock', 'bush'], boats: 160 }] },       // zweite Insel, Meer rechts
     L3: { row: 2, col: 1, name: 'Weinland und Talbrücke',  short: 'WEINLAND',      land: 'wein' },
     G3: { row: 2, col: 2, name: 'Alpenpass',               short: 'ALPENPASS',     land: 'schnee' },
-    K4: { row: 3, col: 0, name: 'Vulkaninsel',             short: 'VULKANINSEL',   land: 'vulkan' },
+    K4: { row: 3, col: 0, name: 'Vulkaninsel',             short: 'VULKANINSEL',   land: 'vulkan',
+          zones: [{ water: { t: 'meer', side: -1, s: 1.75 }, every: 5, chance: 0.5, types: ['rock', 'rock', 'bush'], grass: ['#2b2624', '#24201e'] },   // schwarzer Sandstrand
+                  null, null] },
     L4: { row: 3, col: 1, name: 'Canyon und Staudamm',     short: 'CANYON',        land: 'canyon' },
     G4: { row: 3, col: 2, name: 'Gletscher',               short: 'GLETSCHER',     land: 'eis' },
-    K5: { row: 4, col: 0, name: 'Hafenstadt',              short: 'HAFENSTADT',    land: 'stadt' },
+    K5: { row: 4, col: 0, name: 'Hafenstadt',              short: 'HAFENSTADT',    land: 'stadt',
+          zones: [{ water: { t: 'hafen', side: -1, s: 1.6 }, every: 6, chance: 0.4, types: ['bush'], boats: 200 },                     // Hafenbecken links (Kräne folgen)
+                  null, null] },
     L5: { row: 4, col: 1, name: 'Oase der Lichter',        short: 'OASE',          land: 'oase' },
     G5: { row: 4, col: 2, name: 'Sternwarte',              short: 'STERNWARTE',    land: 'gipfel' }
 };
@@ -1113,6 +1157,15 @@ function decorate(a, b, r) {
             seg.sprites.push({ type: 'chevron', offset: seg.curve > 0 ? Math.min(...seg.roads) - 1.3 : Math.max(...seg.roads) + 1.3, scale: 1, flip: seg.curve < 0 });
             continue;
         }
+        const wt = seg.water;
+        if (wt) {                                       // Wasser: Boote, Schilf am Ufer, Bäume am anderen Ufer
+            const z = seg.zone || {}, near = wt.s < 2.6;
+            if (z.boats && i % z.boats === z.boats >> 1 && near)
+                seg.sprites.push({ type: 'boat', offset: wt.side * (wt.s + 0.9 + r() * Math.min(4, (wt.w === Infinity ? 6 : wt.w) - 1.6)), scale: 0.9 + r() * 0.5, v: i % 2 });
+            if (z.reeds && near && r() < 0.18) seg.sprites.push({ type: 'reed', offset: wt.side * (wt.s + 0.05), scale: 0.8 + r() * 0.5, v: i % 2 });
+            if (z.far && wt.w !== Infinity && i % z.far.every === 0 && r() < z.far.chance)
+                seg.sprites.push({ type: z.far.types[Math.floor(r() * z.far.types.length)], offset: wt.side * (wt.s + wt.w + 0.4 + r() * 1.2), scale: 0.8 + r() * 0.5, v: Math.floor(r() * 3) });
+        }
         if (seg.zone) {                                 // Abschnitt mit eigener Ausstattung
             const lo0 = Math.min(...seg.roads), hi0 = Math.max(...seg.roads);
             if (seg.zone.allee) {                       // Allee: Bäume dicht in Reihe beidseits
@@ -1128,7 +1181,8 @@ function decorate(a, b, r) {
         }
         const sp = D.spr;
         if (!sp || i % sp.every !== 0 || r() > sp.chance) continue;
-        const side = r() > 0.5 ? 1 : -1;
+        let side = r() > 0.5 ? 1 : -1;
+        if (wt && side === wt.side && wt.s < 4) side = -side;   // nicht ins Wasser stellen
         const type = sp.types[Math.floor(r() * sp.types.length)];
         const near = (type === 'bush' || type === 'rock' || type === 'snowrock' || type === 'bale' || type === 'straw' ? 1.35
                     : type === 'cow' ? 1.6 : 1.45) + (D.rows ? 0.4 : 0);
@@ -1165,6 +1219,7 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
         const z = st.zones[Math.min(2, Math.floor(3 * (i - startSeg) / len))], g = segments[i];
         if (z && g.mix === 0 && g.land === st.land && g.roads.length === 1) g.zone = z;
     }
+    if (st.zones) for (let k = 0; k < 3; k++) addWater(st, st.zones[k], startSeg, len, k, r);
     for (const c of S.cps) segments[c].gates = [{ o: 0, kind: 'cp' }];
     if (ownHead) {                                     // Startlinie
         segments[startSeg + 8].checker = segments[startSeg + 9].checker = true;
@@ -1181,6 +1236,25 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
         spawnOpponents(st, startSeg + (ownHead ? 30 : drawDistance + 10), S.endSeg - 10, r);
     }
     return S;
+}
+// Wasser in Drittel k: beginnt schon im Verbindungsstück, sobald die Ziel-Landschaft überwiegt („erster Blick aufs
+// Meer“), und rückt an beiden Enden über 90 Segmente von weit draußen ans Ufer heran. Die Uferlinie schwingt leicht.
+function addWater(st, z, startSeg, len, k, r) {
+    if (!z || !z.water) return;
+    const own = (g) => g.roads.length === 1 && !g.fork && (g.mix < 0.5 ? g.land : g.land2) === st.land;
+    let a = -1, b = -1;
+    for (let i = startSeg; i < startSeg + len; i++) {
+        if (Math.min(2, Math.floor(3 * (i - startSeg) / len)) !== k || !own(segments[i])) continue;
+        if (a < 0) a = i;
+        b = i + 1;
+    }
+    if (a < 0) return;
+    const W = z.water, T = WATER[W.t], ph = r() * 6.28, RAMP = 90, wavy = W.t === 'meer' || W.t === 'see';
+    for (let i = a; i < b; i++) {
+        const e = Math.min(1, (i - a) / RAMP, (b - 1 - i) / RAMP), sm = e * e * (3 - 2 * e);
+        const wig = wavy ? 0.22 * (0.5 + 0.5 * Math.sin(i * 0.019 + ph)) + 0.08 * (0.5 + 0.5 * Math.sin(i * 0.071 + 2 * ph)) : 0.04 * Math.sin(i * 0.03 + ph);
+        segments[i].water = { t: W.t, side: W.side, s: W.s + wig + 9 * (1 - sm), w: W.w || Infinity, T };
+    }
 }
 // Strecke vorn abschneiden: alles vor dem Segment base fällt weg, Positionen rücken nach
 function rebase(base) {
@@ -1500,7 +1574,39 @@ function spriteCow(seed) {                             // Kuh von der Seite 40 x
     g.fillStyle = '#3a2a20'; g.fillRect(5, 9, 2, 6);                                              // Schwanz
     return pixelize(c, '#2a1d14', 0.05, seed);
 }
+function spriteWillow(seed) {                          // Trauerweide 48 x 60: hängende Zweige bis fast zum Boden
+    const c = makeCanvas(48, 60), g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = '#5e4128'; g.fillRect(21, 24, 6, 36); g.fillStyle = '#463020'; g.fillRect(25, 24, 2, 36);
+    blobs(g, r, 24, 18, 18, 12, 22, 4, 7, '#3f7a2c');
+    blobs(g, r, 24, 15, 13, 8, 14, 3, 5, '#5d9a3a', -2, -2);
+    for (let i = 0; i < 26; i++) {                     // herabhängende Zweige
+        const x = 6 + r() * 36, y0 = 12 + r() * 12, len = 18 + r() * 24;
+        g.fillStyle = r() < 0.5 ? '#4f8a33' : '#6aa845'; g.fillRect(x, y0, 2, Math.min(len, 58 - y0));
+    }
+    return pixelize(c, '#1f3d15', 0.1, seed);
+}
+function spriteBoat(seed) {                            // Segelboot 28 x 32: weißes Segel, Rumpf liegt im Wasser
+    const c = makeCanvas(28, 32), g = c.getContext('2d');
+    g.fillStyle = '#5a3a22'; g.fillRect(13, 3, 2, 22);                                            // Mast
+    g.fillStyle = '#f6f3ea'; g.beginPath(); g.moveTo(12, 4); g.lineTo(12, 22); g.lineTo(2, 22); g.closePath(); g.fill();
+    g.fillStyle = seed % 2 ? '#e4473a' : '#f2f0e6'; g.beginPath(); g.moveTo(16, 6); g.lineTo(16, 22); g.lineTo(25, 22); g.closePath(); g.fill();
+    g.fillStyle = seed % 2 ? '#f3f1ea' : '#2f5f9e'; g.beginPath(); g.moveTo(1, 24); g.lineTo(27, 24); g.lineTo(23, 30); g.lineTo(5, 30); g.closePath(); g.fill();
+    g.fillStyle = '#d9a640'; g.fillRect(4, 24, 20, 1);
+    return pixelize(c, '#1d2a38', 0.04, seed);
+}
+function spriteReed(seed) {                            // Schilf am Ufer 24 x 18
+    const c = makeCanvas(24, 18), g = c.getContext('2d'), r = rng(seed);
+    for (let i = 0; i < 14; i++) {
+        const x = 2 + r() * 20, h = 8 + r() * 10;
+        g.fillStyle = r() < 0.5 ? '#6f8f3a' : '#89a64a'; g.fillRect(x, 18 - h, 1, h);
+        if (r() < 0.35) { g.fillStyle = '#6b4a2a'; g.fillRect(x - 0.5, 18 - h, 2, 3); }                 // Rohrkolben
+    }
+    return pixelize(c, null, 0.08, seed);
+}
 const SPR = {
+    willow: [spriteWillow(6), spriteWillow(15)],
+    boat: [spriteBoat(1), spriteBoat(2)],
+    reed: [spriteReed(3), spriteReed(8)],
     chevron: [spriteChevron()],
     bale: [spriteBale(2), spriteBale(7)],
     straw: [spriteStraw(4)],
@@ -1514,7 +1620,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -1523,8 +1629,10 @@ function drawSprite(sp, x, y, size) {
     if (!list) return;
     const img = list[(sp.v || 0) % list.length];
     const h = size * (sp.scale || 1) * SPR_H[sp.type], w = h * img.width / img.height;
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';                 // Fußschatten
-    ctx.beginPath(); ctx.ellipse(x, y, w * 0.4, w * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+    if (sp.type !== 'boat' && sp.type !== 'reed') {   // Fußschatten (nicht auf dem Wasser)
+        ctx.fillStyle = 'rgba(0,0,0,0.22)';
+        ctx.beginPath(); ctx.ellipse(x, y, w * 0.4, w * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.imageSmoothingEnabled = false;
     // Laternenarm zeigt immer zur Straße; Kurventafel nach Kurvenrichtung; Kühe schauen mal so, mal so
     const flip = (sp.type === 'lamp' && sp.offset < 0) || (sp.type === 'chevron' && sp.flip) || (sp.type === 'cow' && sp.offset < 0);
@@ -1633,6 +1741,15 @@ function updateDust(dt) {
     // Asphalt: nur beim Anfahren (Tempo steigt und liegt unter 60 %), am stärksten direkt nach dem Start.
     // Gras/Sand: immer ab 15 % Tempo.
     const gravel = seg.gravel && !offRoad;
+    if (inWater(seg, playerX) && sp > 0.05 && dustParticles.length < 200) {   // Wasser: Gischt spritzt hoch und zur Seite
+        const carW = canvas.width * 0.2, wheelY = canvas.height - 50;
+        for (const side of [-1, 1]) for (let j = 0; j < 2; j++) dustParticles.push({
+            x: canvas.width / 2 + side * carW * (0.4 + Math.random() * 0.15), y: wheelY - Math.random() * carW * 0.1,
+            vx: side * (1 + Math.random() * 3) * (0.4 + sp), vy: -(1.5 + Math.random() * 3) * (0.4 + sp),
+            size: carW * (0.05 + Math.random() * 0.06), grow: carW * 0.006, alpha: 0.75, fade: 0.03, rgb: '235,246,255'
+        });
+        return;
+    }
     const launch = !offRoad && !gravel && accelerating && sp > 0.01 && sp < 0.6;
     if (dustParticles.length > 160 || !(launch || ((offRoad || gravel) && sp >= 0.15))) return;
     const rgb = gravel ? '160,145,120' : LANDS[seg.mix < 0.5 ? seg.land : seg.land2].dust;
@@ -1860,6 +1977,43 @@ function setEdgeColor(c) {
     if (themeMeta) themeMeta.setAttribute('content', c);
 }
 let glows = [], curDark = 0;                           // Lichtpunkte, die nach dem Abdunkeln leuchten
+// Wasserfläche eines Segments: Uferstreifen, Wasser mit wandernden Wellenbändern, Schaum (Meer), Glitzern, Gegenufer
+let waveT = 0;
+function drawWater(seg, nx, p1, p2, W) {
+    const w = seg.water, T = w.T, sd = w.side, w2 = (nx && nx.water && nx.water.side === sd) ? nx.water : w;
+    const c1 = p1.x + p1.w * seg.roads[0], c2 = p2.x + p2.w * seg.roads2[0];
+    const X1 = (d) => c1 + sd * p1.w * d, X2 = (d) => c2 + sd * p2.w * d;
+    const s1 = w.s, s2 = w2.s, open = w.w === Infinity;
+    const edge = sd < 0 ? -20 : W + 20;
+    const f1 = open ? 0 : s1 + w.w, f2 = open ? 0 : s2 + w2.w;
+    const o1 = open ? edge : X1(f1), o2 = open ? edge : X2(f2);
+    if (T.bank) drawPolygon(X1(s1 - T.bank), p1.y, X2(s2 - T.bank), p2.y, X2(s2), p2.y, X1(s1), p1.y, T.edge);
+    const band = ((seg.index + Math.floor(waveT * T.flow)) % 6 + 6) % 6 < 3;
+    drawPolygon(X1(s1), p1.y, X2(s2), p2.y, o2, p2.y, o1, p1.y, band ? T.c[0] : T.c[1]);
+    if (!open && T.bank) drawPolygon(o1, p1.y, o2, p2.y, X2(f2 + T.bank), p2.y, X1(f1 + T.bank), p1.y, T.edge);
+    if (T.quay && p1.w > 40) drawPolygon(X1(s1), p1.y, X2(s2), p2.y, X2(s2 + 0.03), p2.y, X1(s1 + 0.03), p1.y, '#3a3a38');
+    if (T.foam) {                                      // Brandung: Schaumsaum, der sich mit den Wellen hebt und senkt
+        const k = Math.max(0, Math.sin(waveT * 2.2 - seg.index * 0.33));
+        const fw = 0.04 + 0.1 * k;
+        ctx.globalAlpha = 0.85;
+        drawPolygon(X1(s1 - 0.02), p1.y, X2(s2 - 0.02), p2.y, X2(s2 + fw), p2.y, X1(s1 + fw), p1.y, T.edge);
+        ctx.globalAlpha = 1;
+    }
+    if (p1.w > 25 && band) {                           // Glitzern: kurze helle Striche an festen, flackernden Stellen
+        const h = (seg.index * 2654435761 + Math.floor(waveT * 3) * 40503) >>> 0;
+        if ((h % 100) / 100 < T.glint) {
+            const span = open ? 6 : w.w - 0.4, d = s1 + 0.25 + ((h >>> 8) % 1000) / 1000 * span;
+            const gx = X1(d), gl = p1.w * 0.12;
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillRect(gx - gl / 2, p1.y - Math.max(1, (p1.y - p2.y) * 0.5), gl, Math.max(1, (p1.y - p2.y) * 0.35));
+        }
+    }
+    if (T.quay && curDark > 0.3 && p1.w > 8 && seg.index % 3 === 0) {   // Hafen bei Nacht: Lichter der Stadt spiegeln sich
+        const h = (seg.index * 2246822519) >>> 0, d = s1 + 0.4 + (h % 1000) / 1000 * 5;
+        const fl = 0.75 + 0.25 * Math.sin(waveT * 5 + seg.index);
+        glows.push({ x: X1(d), y: p1.y, r: Math.max(3, p1.w * 0.09 * fl), sy: 2.5, c: h % 3 ? '255,200,110' : '140,210,255' });
+    }
+}
 function render() {
     const W = canvas.width, H = canvas.height, hz = H / 2;
     ctx.globalCompositeOperation = 'source-over';
@@ -1867,6 +2021,7 @@ function render() {
     const baseSegment = Math.max(0, Math.min(segments.length - 1, Math.floor(position / segmentLength)));
     const basePercent = (position % segmentLength) / segmentLength;
     const playerSegment = segments[baseSegment];
+    waveT = performance.now() / 1000;
     const tod = timeOfDay(dayPos());
     curDark = tod.dark;
     setEdgeColor(tod.top);
@@ -1906,6 +2061,7 @@ function render() {
         }
         ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
         ctx.fillRect(0, p2.y, W, p1.y - p2.y);
+        if (segment.water) drawWater(segment, segments[idx + 1], p1, p2, W);
 
         const R1 = segment.roads, R2 = segment.roads2, r1 = p1.w / 5, r2 = p2.w / 5;
         for (let j = 0; j < R1.length; j++) {          // Rumble Strips (erst alle, damit Fahrbahnen sie überdecken)
@@ -2019,11 +2175,13 @@ function render() {
     drawSky(tod, W, H);
     ctx.globalCompositeOperation = 'source-over';
     for (const g of glows) {                           // Laternen und Rücklichter im Dunkeln
+        if (g.sy) { ctx.save(); ctx.translate(g.x, g.y); ctx.scale(1, g.sy); ctx.translate(-g.x, -g.y); }   // Spiegelung: senkrecht gestreckt
         const gr = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
         gr.addColorStop(0, 'rgba(' + (g.c || '255,230,150') + ',' + (0.6 * curDark).toFixed(2) + ')');
         gr.addColorStop(1, 'rgba(' + (g.c || '255,230,150') + ',0)');
         ctx.fillStyle = gr;
         ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2); ctx.fill();
+        if (g.sy) ctx.restore();
     }
 
     // Schneefall: Menge nach Landschaft (im Übergang gemischt)
@@ -2083,6 +2241,11 @@ function physicsStep(st, segs, gas, brk, s, turbo, dt) {
     st.speed -= accel * 2.5 * slope * dt;
     const off = roadDist(carSeg, st.playerX) > 1;
     if (off && st.speed > offRoadLimit) st.speed -= offRoadDecel * dt;   // Gras bremst
+    if (inWater(carSeg, st.playerX)) {                 // Wasser (v3.28): bremst hart auf 30 %, die Strömung schiebt zurück ans Ufer
+        if (st.speed > maxSpeed * 0.3) st.speed -= offRoadDecel * 1.8 * dt;
+        st.playerX -= carSeg.water.side * dt * 1.2;
+        st.wet = true;
+    }
     if (turbo) st.speed += accel * dt;                 // zusätzlicher Schub
     // Höchsttempo: bergauf weniger (Steigung 0,15 -> 76 %), bergab etwas mehr (bis +12 %), Schotter 85 %
     const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope)) * (carSeg.gravel ? 0.85 : 1);
@@ -2103,7 +2266,10 @@ function physicsStep(st, segs, gas, brk, s, turbo, dt) {
         st.playerX += Math.sign(R[k] - st.playerX || 1) * dt * 2.5;
         st.hitRail = true;
     }
-    st.playerX = Math.max(lo - 2, Math.min(hi + 2, st.playerX));
+    let lo2 = lo - 2, hi2 = hi + 2;
+    const wt = carSeg.water;                           // am Wasser kommt man bis 0,7 hinter die Uferlinie
+    if (wt) { if (wt.side < 0) lo2 = Math.min(lo2, R[0] - wt.s - 0.7); else hi2 = Math.max(hi2, R[0] + wt.s + 0.7); }
+    st.playerX = Math.max(lo2, Math.min(hi2, st.playerX));
     return { carSeg, pSeg, off, sp };
 }
 
@@ -2556,6 +2722,12 @@ function update(dt) {
     dist += st.position - position;
     position = st.position; playerX = st.playerX; speed = st.speed;
     if (st.hitRail && navigator.vibrate && Math.random() < 0.1) navigator.vibrate(20);
+    if (st.wet && (!wasWet || splashT <= 0)) {         // ins Wasser: Platschen, beim Hineinfahren kurz rütteln
+        playSplash(speed / maxSpeed);
+        if (!wasWet && navigator.vibrate) navigator.vibrate(50);
+        splashT = 0.45;
+    }
+    splashT -= dt; wasWet = !!st.wet;
     bgOffset += ph.pSeg.curve * ph.sp * dt * 0.02;     // Berge wandern in Kurven
 
     // Tore

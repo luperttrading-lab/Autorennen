@@ -78,6 +78,15 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 Plan für Schritt 2: `konzept.html` Abschnitt 2b (19.11.): Tabelle mit 3 Abschnitten je Etappe und 7 Bausteinen in
 Bau-Reihenfolge. Nutzer: Baustein für Baustein bauen, je Baustein eine Version pushen, er testet, dann der nächste.
 
+Schritt 2, Baustein 1 (v3.28, wartet auf Rückmeldung des Nutzers): Wasser neben der Straße. `WATER` (meer, fluss, see, hafen),
+in `STAGES[id].zones[k].water = { t, side, s, w }`, gesetzt von `addWater` (ab da, wo die Ziel-Landschaft im Verbindungsstück
+überwiegt; Uferlinie rückt über 90 Segmente von weit draußen heran), gezeichnet von `drawWater` (wandernde Wellenbänder,
+Brandung, Glitzern, im Hafen nachts Lichtspiegelungen). Fahren: im Wasser (`inWater`) hart auf 30 % gebremst, Strömung schiebt
+ans Ufer, Gischt, Platschen (`playSplash`), Rütteln; man kommt bis 0,7 hinter die Uferlinie. Abschnitte: K2 1/3 Meer links,
+L2 1/3 Fluss rechts mit Weiden (Gegenufer), G2 2/3 Bergsee rechts (Boot, Schilf; Bootshaus kommt mit Baustein 4), K3 1/3 Meer
+links und 3/3 rechts (2/3 Meeresbrücke = Baustein 2), K4 1/3 schwarzer Strand, K5 1/3 Hafenbecken. Neue Sprites: willow, boat,
+reed. Bot-Zeiten unverändert (Bot bleibt auf der Fahrbahn).
+
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
 × 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
 Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Entscheidungen des Nutzers (19.11.) in Abschnitt 0: Gabelung per Lenken mit großen
