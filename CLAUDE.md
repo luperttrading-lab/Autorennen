@@ -12,7 +12,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
   online ist. Ohne neue Nummer erkennt sie das Update nicht.
 - Seite füllt den Bildschirm über `body { position: fixed; top/left/right/bottom: 0 }`, NICHT über 100vh/100dvh: in der
   iPhone-Home-Bildschirm-App blieb damit unten ein Streifen frei (Nutzer 19.11., v3.7). Ränder außerhalb des Spiels: oben
-  Himmelsfarbe (folgt dem Tageslauf, `setEdgeColor`), unten Farbe des Bedienfelds. Bekannter iOS-26-Fehler (Home-Bildschirm-App mit viewport-fit=cover + black-translucent: Höhe um die Statusleiste zu kurz). Seit v3.10 macht `fitScreen()` das DOKUMENT höher (html + body in Pixeln), ein nur fest positioniertes Element (v3.8/3.9) half auf dem Gerät nicht. Seit v3.11 KEINE automatische Erkennung mehr (griff auf dem Gerät des Nutzers nicht): Knöpfe ▼/▲ rechts oben auf Start-/Endbildschirm verschieben das untere Ende in 10-px-Schritten (`autorennen.tiefpx`, 0–160; seit v3.12 auf dem iPhone voreingestellt 60). Veraltet: Seit v3.8 `fitScreen()`: in der
+  Himmelsfarbe (folgt dem Tageslauf, `setEdgeColor`), unten Farbe des Bedienfelds. Bekannter iOS-26-Fehler (Home-Bildschirm-App mit viewport-fit=cover + black-translucent: Höhe um die Statusleiste zu kurz). Seit v3.10 macht `fitScreen()` das DOKUMENT höher (html + body in Pixeln), ein nur fest positioniertes Element (v3.8/3.9) half auf dem Gerät nicht. Seit v3.11 KEINE automatische Erkennung mehr (griff auf dem Gerät des Nutzers nicht): Knöpfe ▼/▲ rechts oben auf Start-/Endbildschirm verschieben das untere Ende in 10-px-Schritten (`autorennen.tiefpx`, 0–160, Standard 0; seit v3.13 im Einstellmodus der Knöpfe). Veraltet: Seit v3.8 `fitScreen()`: in der
   Home-Bildschirm-App endet das Layout ≈ 60 pt über dem unteren Rand; body wird um (screen.height − innerHeight)/2 nach
   unten verlängert, Knopf ▲/▼ im Bedienfeld schaltet das ab (`autorennen.tief`). Kleine Diagnosezeile auf dem Startbildschirm.
 - Pages braucht nach dem Push 1–2 Minuten. Vorher zeigt die App noch die alte Version an; das ist kein Fehler.
@@ -24,9 +24,11 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 ## Steuerung
 
 Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), danach Countdown 3–2–1–LOS mit Piepton (seit v3.2), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
-`fragen-allgemein/spiele/passfahrt`). Bedienfeld seit v3.6 flach (108 px + Safe-Area, „Variante A“, Nutzer 19.11.). Darin ein runder Knüppel (100 px), der FEST am linken Rand ganz unten steht:
-Fingerlage relativ zur Knüppelmitte zählt, links/rechts lenkt (analog, Volleinschlag nach 50 px), oberhalb Gas, unterhalb Bremse (voll nach 30 px);
-Knopf ⇄ unten in der Mitte tauscht Knüppel und Turbo (`autorennen.tausch`); rechts daneben der Turbo-Knopf.
+`fragen-allgemein/spiele/passfahrt`). Bedienfeld flach (108 px + Safe-Area). Seit v3.13 sind Knüppel (100 px, Fangbereich 220 px) und Turbo FREI
+platzierbar (Nutzer 19.11.: feste Lagen trafen auf dem iPhone nie): Startbildschirm → „KNÖPFE EINSTELLEN“ → mit dem Finger
+ziehen → FERTIG; gespeichert je Hoch-/Querformat in `autorennen.knoepfe` (Bildschirmkoordinaten der Mitten), STANDARD
+setzt zurück, dort auch ▼/▲ für das untere Ende der Seite. Steuerung: Fingerlage relativ zur Knüppelmitte zählt,
+links/rechts lenkt (Volleinschlag nach 50 px), oberhalb Gas, unterhalb Bremse (voll nach 30 px).
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen nur bei krassem Lenken (Knüppel > 60 %) und hohem Tempo (> 80 %) sowie bei Vollbremsung (Nutzer 19.11., v3.2).
 
 ## Spielablauf (seit v3.0: Konzept Schritt 1)

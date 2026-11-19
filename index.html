@@ -140,20 +140,19 @@
             padding: 0 16px max(env(safe-area-inset-bottom) - 14px, 4px) 0;
             box-sizing: border-box;
         }
-        /* Knöpfe getauscht: Turbo links, Knüppel rechts */
-        #panel.swap { flex-direction: row-reverse; padding-left: 16px; padding-right: 0; }
-        #swap {
-            position: absolute; left: 50%; margin-left: -15px; top: 8px; z-index: 21;
-            width: 30px; height: 26px; padding: 0; border: 1px solid rgba(241,239,230,.35); border-radius: 8px;
-            background: rgba(0,0,0,.3); color: rgba(241,239,230,.8); font: bold 15px sans-serif; touch-action: manipulation;
-        }
-        /* Unteres Ende der Seite tiefer/höher schieben (iPhone-App), rechts oben unter dem Lautsprecher */
-        #lowerBox { position: absolute; z-index: 20; right: 10px; top: calc(max(env(safe-area-inset-top), 20px) + 80px); display: flex; flex-direction: column; gap: 6px; }
-        #lowerBox button { width: 34px; height: 30px; padding: 0; border: 1px solid rgba(255,255,255,.5); border-radius: 8px;
-            background: rgba(0,0,0,.35); color: #fff; font: bold 14px sans-serif; touch-action: manipulation; }
-        body:not(.menu) #lowerBox { display: none; }      /* nur auf Start- und Endbildschirm */
-        @media (orientation: landscape) { #lowerBox { display: none; } }
-        #diag { font-size: 10px; opacity: .6; text-shadow: none; }
+        /* Knöpfe frei verschiebbar (seit v3.13): Einstellmodus über „KNÖPFE EINSTELLEN“ auf dem Startbildschirm */
+        #editBar { position: fixed; left: 10px; right: 10px; top: calc(max(env(safe-area-inset-top), 14px) + 40px); z-index: 25;
+            background: rgba(10, 8, 20, 0.85); color: #fff; border-radius: 14px; padding: 12px; text-align: center;
+            font: 15px sans-serif; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        #editBar[hidden] { display: none; }
+        #editBar .row { display: flex; gap: 10px; }
+        #editBar button, .smallBtn { font: bold 16px sans-serif; padding: 10px 16px; border-radius: 10px; border: 2px solid #fff;
+            background: #2a6fd6; color: #fff; touch-action: manipulation; cursor: pointer; }
+        #editBar #editReset { background: #555; }
+        .smallBtn { background: rgba(0,0,0,.45); font-size: 14px; padding: 8px 14px; }
+        body.edit #stickBase, body.edit #turbo { outline: 3px dashed #ffd84a; outline-offset: 4px; }
+        body.edit #steerZone { background: rgba(255, 216, 74, 0.08); border-radius: 50%; }
+        #diag { display: none; }
         /* Querformat: Bedienfeld liegt durchsichtig über dem unteren Bildrand */
         @media (orientation: landscape) {
             #panel {
@@ -175,11 +174,11 @@
         }
         /* Turbo: kleiner runder Knopf unten rechts, Füllstand = Turbo-Vorrat */
         #turbo {
-            position: relative;
-            flex: 0 0 auto;
+            position: fixed;
             z-index: 20;
             width: 72px;
             height: 72px;
+            margin: -36px 0 0 -36px;
             border-radius: 50%;
             border: 3px solid #ff3333;
             background: rgba(0, 0, 0, 0.25);
@@ -210,14 +209,13 @@
             cursor: pointer;
         }
         /* Lenkung: Knüppel im Bedienfeld, rückt dorthin, wo der Daumen aufsetzt; nur seitlich */
-        #steerZone {
-            position: relative;
-            flex: 1 1 auto;
-            align-self: stretch;
+        #steerZone {                      /* Fangbereich um den Knüppel, liegt frei auf dem Bildschirm */
+            position: fixed; z-index: 19;
+            width: 220px; height: 220px; margin: -110px 0 0 -110px;
             touch-action: none;
         }
         #stickBase {
-            position: absolute;
+            position: absolute; left: 50%; top: 50%;
             width: 100px;
             height: 100px;
             margin: -50px 0 0 -50px;
@@ -259,6 +257,7 @@
         <div class="map" id="startMap"></div>
         <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
+        <button class="smallBtn" id="btnKnoepfe" type="button">KNÖPFE EINSTELLEN</button>
         <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb</div>
         <div class="small" id="diag"></div>
         <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
@@ -284,10 +283,14 @@
         <div id="stickBase"><span class="u">GAS</span><span class="d">BREMSE</span><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
-    <button id="swap" type="button" aria-label="Knüppel und Turbo tauschen">⇄</button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
-<div id="lowerBox"><button id="lowerDown" type="button" aria-label="Bedienfeld tiefer">▼</button><button id="lowerUp" type="button" aria-label="Bedienfeld höher">▲</button></div>
+<div id="editBar" hidden>
+    <div><b>Knöpfe einstellen</b><br>Knüppel und Turbo mit dem Finger dorthin ziehen, wo du sie haben willst.</div>
+    <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button></div>
+    <div class="row" style="align-items:center;font-size:13px">Seite unten:
+        <button id="lowerDown" type="button" aria-label="Seite tiefer">▼</button><button id="lowerUp" type="button" aria-label="Seite höher">▲</button></div>
+</div>
 <button id="ver" type="button"></button>
 <div class="update" id="update" hidden>
     <span id="update-text"></span>
@@ -295,7 +298,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.12';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.13';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -312,7 +315,7 @@ const gameEl = document.getElementById('game');
 // Erkennung griff auf dem Gerät des Nutzers nicht (v3.8–3.10), deshalb seit v3.11 von Hand: die Knöpfe ▼/▲ rechts oben
 // unter dem Lautsprecher schieben das untere Ende der Seite in 10-px-Schritten tiefer/höher (wird gemerkt).
 // Voreinstellung auf dem iPhone: 60 px tiefer (Nutzer 19.11.: „den ganzen Bildschirm nach unten verschieben“)
-let lowerPx = /iPhone/.test(navigator.userAgent) ? 60 : 0, lowerExtra = 0;
+let lowerPx = 0, lowerExtra = 0;
 try { const v = localStorage.getItem('autorennen.tiefpx'); if (v !== null && v !== '0') lowerPx = Math.max(0, Math.min(160, parseInt(v, 10) || 0)); } catch (_) {}
 function fitScreen() {
     const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight;
@@ -378,31 +381,49 @@ for (const [id, d] of [['lowerDown', 10], ['lowerUp', -10]]) {
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     el.addEventListener('click', () => setLower(d));
 }
-let swapped = false;
-try { swapped = localStorage.getItem('autorennen.tausch') === 'ja'; } catch (_) {}
-const panelEl = document.getElementById('panel'), swapBtn = document.getElementById('swap');
-panelEl.classList.toggle('swap', swapped);
-swapBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
-swapBtn.addEventListener('click', () => {
-    swapped = !swapped;
-    panelEl.classList.toggle('swap', swapped);
-    try { localStorage.setItem('autorennen.tausch', swapped ? 'ja' : 'nein'); } catch (_) {}
-    stickHome();
-});
+// Knöpfe frei platzieren (Nutzer 19.11.: feste Lage passt auf dem iPhone nicht). Gespeichert je Hochformat/Querformat
+// als Bildschirmkoordinaten der Knopfmitten.
+let knoepfe = {};
+try { knoepfe = JSON.parse(localStorage.getItem('autorennen.knoepfe') || '{}') || {}; } catch (_) {}
+let editMode = false, dragWhat = null, dragPtr = null;
+const panelEl = document.getElementById('panel');
+function orientKey() { return window.innerWidth > window.innerHeight ? 'l' : 'p'; }
+function defaultKnoepfe() {
+    const W = window.innerWidth, H = window.innerHeight;
+    if (orientKey() === 'l') return { sx: 70, sy: H - 70, tx: W - 60, ty: H - 70 };
+    const pb = panelEl.getBoundingClientRect().bottom || H;
+    return { sx: 62, sy: pb - 54, tx: W - 50, ty: pb - 54 };
+}
+function placeKnoepfe() {
+    const k = knoepfe[orientKey()] || defaultKnoepfe();
+    const W = window.innerWidth, H = document.documentElement.getBoundingClientRect().height || window.innerHeight;
+    const cx = (v) => Math.max(20, Math.min(W - 20, v)), cy = (v) => Math.max(20, Math.min(H - 20, v));
+    steerZone.style.left = cx(k.sx) + 'px'; steerZone.style.top = cy(k.sy) + 'px';
+    turboBtn.style.left = cx(k.tx) + 'px'; turboBtn.style.top = cy(k.ty) + 'px';
+}
+function setEdit(on) {
+    editMode = on;
+    document.body.classList.toggle('edit', on);
+    document.getElementById('editBar').hidden = !on;
+    startScreen.hidden = on;
+    if (!on) { try { localStorage.setItem('autorennen.knoepfe', JSON.stringify(knoepfe)); } catch (_) {} }
+}
+function dragStart(what, e) {
+    dragWhat = what; dragPtr = e.pointerId;
+    if (!knoepfe[orientKey()]) knoepfe[orientKey()] = defaultKnoepfe();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    dragMove(e);
+}
+function dragMove(e) {
+    if (e.pointerId !== dragPtr) return;
+    const k = knoepfe[orientKey()];
+    if (dragWhat === 'stick') { k.sx = e.clientX; k.sy = e.clientY; } else { k.tx = e.clientX; k.ty = e.clientY; }
+    placeKnoepfe();
+}
+function dragEnd(e) { if (e.pointerId === dragPtr) { dragPtr = null; dragWhat = null; } }
 function steerRange() { return 50; } // Fingerweg für Volleinschlag in px: kurz, weil der Knüppel am Rand sitzt (bis v3.5: 22 % der Breite)
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
-function stickHome() {
-    const r = steerZone.getBoundingClientRect();
-    if (!r.width) return;
-    const R = stickR();
-    if (window.innerWidth > window.innerHeight) {          // Querformat: unten in der Ecke, nicht über dem Auto
-        stickBase.style.left = (swapped ? r.width - R - 20 : R + 20) + 'px';
-        stickBase.style.top = (r.height - R - 10) + 'px';
-    } else {                                               // Hochformat: am äußeren Rand, ganz unten im Bedienfeld
-        stickBase.style.left = (swapped ? r.width - R - 12 : R + 12) + 'px';
-        stickBase.style.top = (r.height - R - 2) + 'px';
-    }
-}
+function stickHome() { placeKnoepfe(); }
 function steerMove(x, y) {
     const range = steerRange();
     const off = Math.max(-range, Math.min(range, x - steerX0));
@@ -427,6 +448,7 @@ function steerEnd(e) {
     stickHome();
 }
 steerZone.addEventListener('pointerdown', (e) => {
+    if (editMode) { dragStart('stick', e); e.preventDefault(); return; }
     if (steerPtr !== null) return;
     steerPtr = e.pointerId;
     try { steerZone.setPointerCapture(e.pointerId); } catch (x) {}
@@ -439,11 +461,11 @@ steerZone.addEventListener('pointerdown', (e) => {
     e.preventDefault();
 });
 steerZone.addEventListener('pointermove', (e) => {
+    if (editMode) { dragMove(e); e.preventDefault(); return; }
     if (e.pointerId === steerPtr) { steerMove(e.clientX, e.clientY); e.preventDefault(); }
 });
-steerZone.addEventListener('pointerup', steerEnd);
-steerZone.addEventListener('pointercancel', steerEnd);
-stickHome();
+steerZone.addEventListener('pointerup', (e) => { dragEnd(e); steerEnd(e); });
+steerZone.addEventListener('pointercancel', (e) => { dragEnd(e); steerEnd(e); });
 
 // --- TURBO ---
 // Gedrückt halten: Höchsttempo x 1,4. Vorrat reicht 3 s, lädt in 10 s wieder voll.
@@ -454,11 +476,14 @@ const turboFill = document.getElementById('turboFill');
 let turboPtr = null;
 turboBtn.addEventListener('pointerdown', (e) => {
     e.stopPropagation(); e.preventDefault();
+    if (editMode) { dragStart('turbo', e); return; }
     turboPtr = e.pointerId;
     try { turboBtn.setPointerCapture(e.pointerId); } catch (x) {}
     turboHeld = true;
 });
-function turboEnd(e) { if (e.pointerId === turboPtr) { turboPtr = null; turboHeld = false; } }
+function turboEnd(e) { dragEnd(e); if (e.pointerId === turboPtr) { turboPtr = null; turboHeld = false; } }
+turboBtn.addEventListener('pointermove', (e) => { if (editMode) dragMove(e); });
+stickHome();
 turboBtn.addEventListener('pointerup', turboEnd);
 turboBtn.addEventListener('pointercancel', turboEnd);
 turboBtn.addEventListener('lostpointercapture', turboEnd);
@@ -2064,6 +2089,10 @@ function finishTrip() {
     ].filter(Boolean));
 }
 document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') startRace(); });
+document.getElementById('btnKnoepfe').addEventListener('click', () => { if (phase === 'menu') setEdit(true); });
+document.getElementById('editDone').addEventListener('click', () => { setEdit(false); showStart(); });
+document.getElementById('editReset').addEventListener('click', () => { delete knoepfe[orientKey()]; placeKnoepfe(); });
+for (const id of ['btnKnoepfe', 'editDone', 'editReset']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
 btnAgain.addEventListener('click', () => {
     if (trip.training) { showStart(); return; }
     setupTrip('S'); startRace();
