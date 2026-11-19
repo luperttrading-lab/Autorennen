@@ -236,7 +236,7 @@
 </div>
 
 <script>
-const APP_VERSION = '2.6';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.7';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -273,6 +273,7 @@ const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) 
 // Tastenstatus
 let keys = { left: false, right: false, up: false, down: false };
 let throttle = 0, brake = 0;                          // vom Knüppel: 0..1
+let slipTime = 0;                                     // > 0: Auto rutscht auf Öl
 
 // Touch-Steuerung: Knüppel im Bedienfeld
 // Analoge Lenkung: steer von -1 (voll links) bis +1 (voll rechts).
@@ -360,7 +361,7 @@ turboBtn.addEventListener('lostpointercapture', turboEnd);
 
 // --- MOTORSOUND (Web Audio) ---
 // Startet erst bei der ersten Berührung: iOS spielt Ton nur nach einer Nutzeraktion.
-let squealGain = null, squealFilter = null, squealAmt = 0;
+let squealGains = null, squealType = 'B', squealAmt = 0, gravelGain = null, gravelAmt = 0;
 let audioCtx = null, engineOsc1 = null, engineOsc2 = null, engineGain = null, engineFilter = null, noiseGain = null;
 let muted = false;
 try { muted = localStorage.getItem('autorennen.ton') === 'aus'; } catch (_) {}
@@ -417,17 +418,35 @@ function initAudio() {
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioCtx.destination);
     noiseSrc.start();
-    // Reifenquietschen: Rauschen durch einen schmalen Bandpass um 2,6 kHz, Frequenz leicht wobbelnd
-    const sqSrc = audioCtx.createBufferSource();
-    sqSrc.buffer = buf; sqSrc.loop = true;
-    squealFilter = audioCtx.createBiquadFilter();
-    squealFilter.type = 'bandpass'; squealFilter.frequency.value = 2600; squealFilter.Q.value = 14;
-    const lfo = audioCtx.createOscillator(), lfoGain = audioCtx.createGain();
-    lfo.frequency.value = 7; lfoGain.gain.value = 250;
-    lfo.connect(lfoGain); lfoGain.connect(squealFilter.frequency);
-    squealGain = audioCtx.createGain(); squealGain.gain.value = 0;
-    sqSrc.connect(squealFilter); squealFilter.connect(squealGain); squealGain.connect(audioCtx.destination);
-    sqSrc.start(); lfo.start();
+    // Reifenquietschen, drei Klangarten (Hörproben toene.html), je nach Landschaft eine aktiv:
+    // A Arcade-Pfeifen (Nacht), B Gummi auf Asphalt (Wiese, Wald), C tief schleifend (Wüste, Berge)
+    const ns = () => { const x = audioCtx.createBufferSource(); x.buffer = buf; x.loop = true; x.start(); return x; };
+    const osc = (type, f) => { const o = audioCtx.createOscillator(); o.type = type; o.frequency.value = f; o.start(); return o; };
+    const gn = (v) => { const g = audioCtx.createGain(); g.gain.value = v; return g; };
+    const bq = (type, f, q, gain) => { const b = audioCtx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; if (gain) b.gain.value = gain; return b; };
+    squealGains = { A: gn(0), B: gn(0), C: gn(0) };
+    for (const k in squealGains) squealGains[k].connect(audioCtx.destination);
+    {   // A: Dreieck 1,1 kHz mit 22-Hz-Flattern + etwas helles Rauschen
+        const o = osc('triangle', 1100), lfo = osc('sine', 22), lg = gn(60), f = bq('bandpass', 1150, 2);
+        lfo.connect(lg); lg.connect(o.frequency); o.connect(f); f.connect(squealGains.A);
+        const nf = bq('bandpass', 2400, 6), half = gn(0.5); ns().connect(nf); nf.connect(half); half.connect(squealGains.A);
+    }
+    {   // B: Rauschen, Hochpass 1,5 kHz, Anhebung bei 3,2 kHz, Rubbeln mit 18 Hz
+        const hp = bq('highpass', 1500, 0.7), pk = bq('peaking', 3200, 3, 12), trem = gn(0.65), lfo = osc('square', 18), lg = gn(0.35);
+        lfo.connect(lg); lg.connect(trem.gain); ns().connect(hp); hp.connect(pk); pk.connect(trem); trem.connect(squealGains.B);
+    }
+    {   // C: Rauschen + Sägezahn 460 Hz durch Bandpass 900 Hz, Wobbeln 9 Hz
+        const bp = bq('bandpass', 900, 6), lfo = osc('sine', 9), lg = gn(120), saw = osc('sawtooth', 460), sg = gn(0.25);
+        lfo.connect(lg); lg.connect(bp.frequency); saw.connect(sg); sg.connect(bp); ns().connect(bp); bp.connect(squealGains.C);
+    }
+    {   // Schotter: Knackser (dünn gestreute Impulse) durch einen breiten Bandpass, Lautstärke nach Tempo
+        const len = audioCtx.sampleRate, gb = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = gb.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() < 0.004 ? (Math.random() * 2 - 1) : 0) + (Math.random() * 2 - 1) * 0.08;
+        for (let i = 1; i < len; i++) d[i] += d[i - 1] * 0.55;                         // Knackser klingen kurz nach
+        const src = audioCtx.createBufferSource(); src.buffer = gb; src.loop = true; src.start();
+        gravelGain = gn(0); const f = bq('bandpass', 1400, 0.8);
+        src.connect(f); f.connect(gravelGain); gravelGain.connect(audioCtx.destination);
+    }
     engineOsc1.start();
     engineOsc2.start();
     unlockBlip();
@@ -450,7 +469,7 @@ muteBtn.addEventListener('click', () => {
     try { localStorage.setItem('autorennen.ton', muted ? 'aus' : 'an'); } catch (_) {}
     if (audioCtx) {                                    // sofort umschalten, nicht erst ausblenden
         const t = audioCtx.currentTime;
-        for (const g of [engineGain, noiseGain, squealGain]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(muted ? 0 : g.gain.value, t); }
+        for (const g of [engineGain, noiseGain]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(muted ? 0 : g.gain.value, t); }
     }
     showSound();
 });
@@ -458,6 +477,25 @@ document.addEventListener('visibilitychange', () => {
     if (!audioCtx) return;
     if (document.visibilityState === 'visible') audioCtx.resume().then(showSound, () => {}); else audioCtx.suspend();
 });
+// Öl: einmaliges Rutsch-Geräusch, Pfeifen mit Abwärtsschwung und schnellem Flattern plus zischendes Rauschen
+function playOilSlide() {
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime;
+    const o = audioCtx.createOscillator(), lfo = audioCtx.createOscillator(), lg = audioCtx.createGain(), g = audioCtx.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(1700, t); o.frequency.exponentialRampToValueAtTime(600, t + 1.1);
+    lfo.frequency.value = 30; lg.gain.value = 180; lfo.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11, t + 0.06); g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    o.connect(g); g.connect(audioCtx.destination);
+    const len = audioCtx.sampleRate * 1.2, b = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const n = audioCtx.createBufferSource(), bf = audioCtx.createBiquadFilter(), ngn = audioCtx.createGain();
+    n.buffer = b; bf.type = 'bandpass'; bf.Q.value = 3;
+    bf.frequency.setValueAtTime(3500, t); bf.frequency.exponentialRampToValueAtTime(700, t + 1.1);
+    ngn.gain.setValueAtTime(0.09, t); ngn.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    n.connect(bf); bf.connect(ngn); ngn.connect(audioCtx.destination);
+    [o, lfo, n].forEach(x => { x.start(t); x.stop(t + 1.25); });
+}
 function updateAudio() {
     if (!audioCtx) return;
     const t = audioCtx.currentTime;
@@ -468,7 +506,11 @@ function updateAudio() {
     engineFilter.frequency.setTargetAtTime(200 + s * 1.5, t, 0.1);
     engineGain.gain.setTargetAtTime(muted ? 0 : (isTurbo ? 0.08 : 0.04), t, 0.1);
     noiseGain.gain.setTargetAtTime(muted ? 0 : Math.max(0, (s - 100) / 300) * 0.05, t, 0.1);
-    if (squealGain) squealGain.gain.setTargetAtTime(muted ? 0 : squealAmt * 0.12, t, 0.05);
+    if (squealGains) {
+        const PEAK = { A: 0.10, B: 0.08, C: 0.14 };
+        for (const k in squealGains) squealGains[k].gain.setTargetAtTime(muted || k !== squealType ? 0 : squealAmt * PEAK[k], t, 0.05);
+        gravelGain.gain.setTargetAtTime(muted ? 0 : gravelAmt * 0.35, t, 0.08);
+    }
 }
 
 // Tastatur-Steuerung (für den PC-Test)
@@ -503,6 +545,7 @@ const THEMES = [
     { sky: ['#2f74d0', '#bfe1ff'], sun: '#fff6c8', mount: '#9fb2c9', grass: ['#eef3f7', '#dfe7ee'], base: '#d0dae3', snow: true }
 ];
 let currentTheme = 0;
+let gravelOn = false;
 function addSegment(curve, y) {
     const n = segments.length;
     segments.push({
@@ -512,7 +555,8 @@ function addSegment(curve, y) {
         curve: curve,
         theme: currentTheme,
         color: Math.floor(n / rumbleLength) % 2 ? 'dark' : 'light',
-        sprites: []
+        sprites: [],
+        gravel: gravelOn
     });
 }
 function lastY() { return (segments.length === 0) ? 0 : segments[segments.length - 1].p2.world.y; }
@@ -524,7 +568,8 @@ function buildTrack(mirror = false) {
     currentTheme = 0;
     addStraight(50); addCurve(50, 4); addHill(50, 200); addStraight(50);
     currentTheme = 1;
-    addCurve(100, -5); addStraight(50); addHill(50, -100); addStraight(50);
+    addCurve(100, -5);
+    gravelOn = true; addStraight(50); addHill(50, -100); addStraight(50); gravelOn = false;   // Schotterweg durch den Wald
     // Berge: lange Auffahrt in Kehren, Passhöhe im Schnee, Abfahrt
     currentTheme = 4;
     mountainStart = segments.length;
@@ -537,6 +582,8 @@ function buildTrack(mirror = false) {
     currentTheme = 3;
     addCurve(100, 4); addStraight(100);
     trackLength = segments.length * segmentLength;
+    // Ölflecken: feste Stellen (Segment, Spur), damit man sie lernen kann
+    oils = [[160, 0], [420, 0.6], [700, -0.6], [905, 0], [1040, 0.6], [1180, -0.6]].map(([seg, off]) => ({ seg, offset: off * curveSign }));
     // Randobjekte je Landschaft: Wiese Laubbäume + Büsche, Wald dichte Tannen, Wüste Kakteen + Felsen,
     // Nacht Straßenlaternen im festen Abstand. offset 1 = Straßenrand, Größe leicht zufällig.
     const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -558,7 +605,7 @@ function buildTrack(mirror = false) {
     }
 }
 function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
-let mountainStart = 0, mountainEnd = 0;
+let mountainStart = 0, mountainEnd = 0, oils = [];
 // Rampe: Höhenänderung dh weich ein- und auslaufend (smoothstep), optional mit Kurve
 function addRamp(num, dh, curve = 0) {
     const y0 = lastY();
@@ -951,18 +998,19 @@ function updateDust(dt) {
     const offRoad = playerX < -1 || playerX > 1;
     // Asphalt: nur beim Anfahren (Tempo steigt und liegt unter 60 %), am stärksten direkt nach dem Start.
     // Gras/Sand: immer ab 15 % Tempo.
-    const launch = !offRoad && accelerating && sp > 0.01 && sp < 0.6;
-    if (dustParticles.length > 160 || !(launch || (offRoad && sp >= 0.15))) return;
     const seg = segments[Math.floor(position / segmentLength) % segments.length];
-    const rgb = DUST_RGB[seg.theme];
+    const gravel = seg.gravel && !offRoad;
+    const launch = !offRoad && !gravel && accelerating && sp > 0.01 && sp < 0.6;
+    if (dustParticles.length > 160 || !(launch || ((offRoad || gravel) && sp >= 0.15))) return;
+    const rgb = gravel ? '160,145,120' : DUST_RGB[seg.theme];
     const carW = canvas.width * 0.2;
     const wheelY = canvas.height - 50;
-    const rate = (offRoad ? 1.2 * sp : 1.6 * (1 - sp / 0.6)) * k;   // Teilchen je Rad und Bild
+    const rate = (offRoad ? 1.2 * sp : gravel ? 0.8 * sp : 1.6 * (1 - sp / 0.6)) * k;   // Teilchen je Rad und Bild
     for (const side of [-1, 1]) {
         let n = rate;
         while (n > 0) {
             if (Math.random() < Math.min(1, n)) {
-                dustParticles.push(offRoad ? {                  // Gras/Sand: große Wolken, quellen seitlich weg
+                dustParticles.push(offRoad || gravel ? {                  // Gras/Sand: große Wolken, quellen seitlich weg
                     x: canvas.width / 2 + side * carW * 0.47,
                     y: wheelY - 2,
                     vx: side * (1.2 + Math.random() * 1.8) * sp,
@@ -1138,6 +1186,10 @@ function render() {
         let grassColor = THEMES[segment.theme].grass[segment.color === 'light' ? 0 : 1];
         let rumbleColor = segment.color === 'light' ? '#ff0000' : '#ffffff';
         let roadColor = segment.color === 'light' ? '#555555' : '#666666';
+        if (segment.gravel) {                          // Schotter: braungrau, Rand aus groberem Kies
+            roadColor = segment.color === 'light' ? '#8a7c69' : '#7f725f';
+            rumbleColor = segment.color === 'light' ? '#6b5f4e' : '#5f5444';
+        }
 
         // Gras
         ctx.fillStyle = grassColor;
@@ -1161,8 +1213,23 @@ function render() {
             continue;
         }
 
-        // Fahrspuren
-        if (segment.color === 'light') {
+        // Ölfleck auf diesem Segment: dunkle Lache mit Regenbogenschimmer
+        for (const oil of oils) {
+            if (oil.seg !== segment.index) continue;
+            const ox = (p1.x + p2.x) / 2 + (p1.w + p2.w) / 2 * oil.offset, oy = (p1.y + p2.y) / 2;
+            const rx = (p1.w + p2.w) / 2 * 0.2, ry = Math.max(1, (p1.y - p2.y) * 1.6);
+            ctx.fillStyle = 'rgba(10,10,14,0.85)';
+            ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+            if (rx > 6) {
+                ctx.strokeStyle = 'rgba(120,80,200,0.55)'; ctx.lineWidth = Math.max(1, rx * 0.06);
+                ctx.beginPath(); ctx.ellipse(ox - rx * 0.15, oy, rx * 0.6, ry * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.strokeStyle = 'rgba(60,180,160,0.45)';
+                ctx.beginPath(); ctx.ellipse(ox + rx * 0.1, oy, rx * 0.35, ry * 0.3, 0, 0, Math.PI * 2); ctx.stroke();
+            }
+        }
+
+        // Fahrspuren (nicht auf Schotter)
+        if (segment.color === 'light' && !segment.gravel) {
             const l1 = p1.w / 3;                       // Spurgrenzen bei 1/3 der halben Breite = drei Spuren
             const l2 = p2.w / 3;
             const lw1 = p1.w / 60;
@@ -1262,9 +1329,15 @@ function render() {
 
     // Spieler-Auto: gleiche Zeichnung wie die Gegner, nur rot und vorn; wackelt im Turbo
     const carW = canvas.width * 0.2;              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
-    const shake = isTurbo ? (Math.random() - 0.5) * 5 : 0;
+    const onGravel = segments[Math.floor((position + PLAYER_Z) / segmentLength) % segments.length].gravel && speed > maxSpeed * 0.1;
+    const shake = isTurbo ? (Math.random() - 0.5) * 5 : (onGravel ? (Math.random() - 0.5) * 2.5 : 0);
     drawDust();
-    drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000', true);
+    if (slipTime > 0) {                                // auf Öl: Auto schlingert sichtbar
+        const ang = Math.sin(slipTime * 14) * 0.18 * Math.min(1, slipTime * 2);
+        ctx.save(); ctx.translate(canvas.width / 2, canvas.height - 60); ctx.rotate(ang); ctx.translate(-canvas.width / 2, -(canvas.height - 60));
+        drawCar(canvas.width / 2, canvas.height - 50, carW, carW * 0.6, '#D40000', true);
+        ctx.restore();
+    } else drawCar(canvas.width / 2 + shake, canvas.height - 50 + shake, carW, carW * 0.6, '#D40000', true);
 }
 
 // --- START, ETAPPEN, ZEIT UND NEUSTART ---
@@ -1343,7 +1416,7 @@ function updateFlakes(dt, curve, sp) {
 // --- SPIEL-LOGIK ---
 function update(dt) {
     if (!started || isGameOver) {
-        speed = 0; isTurbo = false; squealAmt = 0;
+        speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; slipTime = 0;
         speedDisplay.innerText = 0;
         updateDust(dt);
         updateAudio();
@@ -1388,7 +1461,7 @@ function update(dt) {
     turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
     turboBtn.classList.toggle('an', isTurbo);
     // Höchsttempo: bergauf weniger (Steigung 0,15 -> 76 %), bergab etwas mehr (bis +12 %)
-    const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope));
+    const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope)) * (carSeg.gravel ? 0.85 : 1);   // Schotter: 85 %
     const topSpeed = (isTurbo ? maxSpeed * TURBO_FACTOR : maxSpeed) * hill;
 
     // Limits: über dem Höchsttempo (nach dem Turbo) sanft abbremsen statt springen
@@ -1433,10 +1506,22 @@ function update(dt) {
     let s = steer;
     if (keys.left) s = -1;
     else if (keys.right) s = 1;
+    // Öl: 1,2 s kaum Lenkwirkung, das Auto schlingert und verliert etwas Tempo
+    const carIdx = Math.floor((position + PLAYER_Z) / segmentLength) % segments.length;
+    if (slipTime <= 0) for (const oil of oils) {
+        if (oil.seg === carIdx && Math.abs(playerX - oil.offset) < 0.28 && speed > maxSpeed * 0.2) { slipTime = 1.2; playOilSlide(); break; }
+    }
+    if (slipTime > 0) {
+        slipTime -= dt;
+        s *= 0.15;
+        playerX += Math.sin(slipTime * 14) * dt * 1.1 * speedPercent;
+        speed -= accel * 0.6 * dt;
+    }
+    const grip = segments[carIdx].gravel ? 1.7 : 1;    // Schotter: Kurven drücken stärker nach außen
     playerX += dx * s;
     
     // Zentrifugalkraft (zieht dich in Kurven nach außen)
-    playerX -= (dx * speedPercent * playerSegment.curve * centrifugal);
+    playerX -= (dx * speedPercent * playerSegment.curve * centrifugal * grip);
 
     // Begrenzung der X-Position
     if (playerX < -2) playerX = -2;
@@ -1447,7 +1532,10 @@ function update(dt) {
     const lat = speedPercent * speedPercent * (Math.abs(s) * 0.7 + Math.abs(playerSegment.curve) / 6 * 0.7);
     const sqCurve = Math.max(0, Math.min(1, (lat - 0.55) / 0.35));
     const sqBrake = brk * Math.max(0, Math.min(1, (speedPercent - 0.5) / 0.5)) * 0.8;
-    squealAmt = offRoadNow ? 0 : Math.max(sqCurve, sqBrake);
+    const onGravelNow = segments[carIdx].gravel;
+    squealAmt = offRoadNow || onGravelNow || slipTime > 0 ? 0 : Math.max(sqCurve, sqBrake);
+    squealType = { 0: 'B', 1: 'B', 2: 'C', 3: 'A', 4: 'C' }[segments[carIdx].theme] || 'B';
+    gravelAmt = onGravelNow && !offRoadNow ? Math.min(1, speedPercent * 1.1) * (0.6 + 0.4 * Math.max(sqCurve, Math.abs(s))) : 0;
     updateFlakes(dt, playerSegment.curve, speedPercent);
 
     // UI Update

@@ -46,4 +46,5 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Offene Entscheidungen des Nutzers stehen in
 Abschnitt 10. Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
 Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
-je Schritt eine frische Sitzung. `toene.html`: vier Hörproben fürs Reifenquietschen (A–D), Wahl des Nutzers offen.
+je Schritt eine frische Sitzung. `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
+im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
