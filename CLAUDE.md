@@ -34,6 +34,12 @@ setzt zurück, dort auch ▼/▲ für das untere Ende der Seite. Steuerung: Fing
 links/rechts lenkt (Volleinschlag nach 50 px), oberhalb Gas, unterhalb Bremse (voll nach 30 px).
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen nur bei krassem Lenken (Knüppel > 60 %) und hohem Tempo (> 80 %) sowie bei Vollbremsung (Nutzer 19.11., v3.2).
 
+Seit v3.16: Pause-Knopf ❚❚ rechts unter dem Lautsprecher (auch automatisch, wenn die App in den Hintergrund geht) →
+WEITER / EINSTELLUNGEN / AUFGEBEN. Einstellungen (⚙ auf dem Startbildschirm oder aus der Pause): Knöpfe ziehen,
+Lenken KNÜPPEL oder HANDY NEIGEN (`autorennen.lenken`; Schwerkraft aus devicemotion in die Bildschirmebene gedreht,
+wie ein Lenkrad, voll bei 25°, Nullstellung bei LOS und nach der Pause; iPhone-Freigabe per requestPermission beim
+Tipp). Gas/Bremse bleiben am Knüppel. Knopf-Positionen als Anteile von Breite/Höhe.
+
 ## Spielablauf (seit v3.0: Konzept Schritt 1)
 
 Fahrt über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer) × 5 Reihen (Morgen bis Nacht):

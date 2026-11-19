@@ -151,12 +151,21 @@
         #editBar button, .smallBtn { font: bold 16px sans-serif; padding: 10px 16px; border-radius: 10px; border: 2px solid #fff;
             background: #2a6fd6; color: #fff; touch-action: manipulation; cursor: pointer; }
         #editBar #editReset { background: #555; }
+        #editBar button.aus { background: #3a3d46; opacity: .75; }
+        #editBar #lowerDown, #editBar #lowerUp { padding: 6px 12px; }
+        /* Pause: Knopf rechts unter dem Lautsprecher, nur während der Fahrt */
+        #pauseBtn { position: absolute; z-index: 20; right: 12px; top: calc(max(env(safe-area-inset-top), 20px) + 84px);
+            width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.75); background: rgba(0,0,0,.35);
+            color: #fff; font: bold 16px sans-serif; padding: 0; touch-action: manipulation; }
+        body:not(.racing) #pauseBtn { display: none; }
+        #pauseScreen { background: rgba(10, 8, 20, 0.8); z-index: 16; }
         /* Zahnrad unten zwischen den Knöpfen: Einstellungen (nur auf Start- und Endbildschirm) */
         #btnKnoepfe { position: absolute; left: 50%; top: 50%; width: 56px; height: 52px; margin: -26px 0 0 -28px; z-index: 21;
             border: 1px solid rgba(241,239,230,.35); border-radius: 12px; background: rgba(0,0,0,.3); color: rgba(241,239,230,.85);
             font: 22px sans-serif; line-height: 1; padding: 4px 0 0; touch-action: manipulation; cursor: pointer; }
         #btnKnoepfe span { display: block; font: bold 8px sans-serif; letter-spacing: .05em; margin-top: 3px; }
         body:not(.menu) #btnKnoepfe, body.edit #btnKnoepfe { display: none; }
+        @media (orientation: landscape) { #btnKnoepfe { top: auto; bottom: 8px; margin-top: 0; } }
         body.edit #stickBase, body.edit #turbo { outline: 3px dashed #ffd84a; outline-offset: 4px; }
         body.edit #steerZone { background: rgba(255, 216, 74, 0.08); border-radius: 50%; }
         #diag { display: none; }
@@ -274,6 +283,12 @@
         <button class="startBtn alt" id="btnTraining" type="button">TRAINING</button>
         <div class="small">Training: Etappe auf der Karte frei wählen,<br>kein Game Over, keine Rekorde.</div>
     </div>
+    <div class="overlay" id="pauseScreen" hidden>
+        <div class="big">PAUSE</div>
+        <button class="startBtn" id="btnWeiter" type="button">WEITER</button>
+        <button class="startBtn alt" id="btnEinst" type="button">EINSTELLUNGEN</button>
+        <button class="startBtn" id="btnAufgeben" type="button" style="background:#555;box-shadow:0 6px 0 #222">AUFGEBEN</button>
+    </div>
     <div class="overlay" id="gameOver" hidden>
         <div class="big" id="endTitle">GAME OVER</div>
         <div class="map" id="endMap"></div>
@@ -292,8 +307,12 @@
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
+<button id="pauseBtn" type="button" aria-label="Pause">❚❚</button>
 <div id="editBar" hidden>
-    <div><b>Knöpfe einstellen</b><br>Knüppel und Turbo mit dem Finger dorthin ziehen, wo du sie haben willst.</div>
+    <div><b>Einstellungen</b><br>Knüppel und Turbo mit dem Finger dorthin ziehen, wo du sie haben willst.</div>
+    <div class="row" style="align-items:center;font-size:13px">Lenken:
+        <button id="tiltOff" type="button">KNÜPPEL</button><button id="tiltOn" type="button">HANDY NEIGEN</button></div>
+    <div id="tiltInfo" style="font-size:12px;opacity:.85"></div>
     <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button></div>
     <div class="row" style="align-items:center;font-size:13px">Seite unten:
         <button id="lowerDown" type="button" aria-label="Seite tiefer">▼</button><button id="lowerUp" type="button" aria-label="Seite höher">▲</button></div>
@@ -305,7 +324,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.15';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.16';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -325,12 +344,11 @@ const gameEl = document.getElementById('game');
 let lowerPx = 0, lowerExtra = 0;
 try { const v = localStorage.getItem('autorennen.tiefpx'); if (v !== null && v !== '0') lowerPx = Math.max(0, Math.min(160, parseInt(v, 10) || 0)); } catch (_) {}
 function fitScreen() {
-    const de = document.documentElement, ch = de.clientHeight, ih = window.innerHeight;
-    const portrait = ih > window.innerWidth;
+    const de = document.documentElement, ih = window.innerHeight;
+    de.style.height = ''; document.body.style.height = '';   // erst frei messen (sonst bleibt nach dem Drehen die alte Höhe)
+    const ch = de.clientHeight, portrait = ih > window.innerWidth;
     lowerExtra = portrait ? lowerPx : 0;
-    const H = ch + lowerExtra;                          // das Dokument selbst höher machen
-    de.style.height = H + 'px';
-    document.body.style.height = H + 'px';
+    if (lowerExtra) { de.style.height = (ch + lowerExtra) + 'px'; document.body.style.height = (ch + lowerExtra) + 'px'; }
     const dg = document.getElementById('diag');
     if (dg) {
         const vv = window.visualViewport ? Math.round(window.visualViewport.height) : '-';
@@ -353,7 +371,7 @@ function resize() {
     canvas.height = Math.round(r.height);
     try { stickHome(); } catch (_) {} // beim ersten Aufruf ist die Lenkung noch nicht angelegt
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); setTimeout(resize, 350); });   // iOS meldet beim Drehen erst später die End-Größe
 window.addEventListener('pageshow', () => { resize(); setTimeout(resize, 600); });   // iOS meldet die Größe beim Start teils verspätet
 resize();
 
@@ -395,17 +413,19 @@ try { knoepfe = JSON.parse(localStorage.getItem('autorennen.knoepfe') || '{}') |
 let editMode = false, dragWhat = null, dragPtr = null;
 const panelEl = document.getElementById('panel');
 function orientKey() { return window.innerWidth > window.innerHeight ? 'l' : 'p'; }
+// Positionen als Anteile von Breite/Höhe (0–1), damit sie nach dem Drehen und bei anderer Größe passen
+function viewWH() { return [window.innerWidth, Math.max(window.innerHeight, document.documentElement.clientHeight)]; }
 function defaultKnoepfe() {
-    const W = window.innerWidth, H = window.innerHeight;
-    if (orientKey() === 'l') return { sx: 70, sy: H - 70, tx: W - 60, ty: H - 70 };
-    const pb = panelEl.getBoundingClientRect().bottom || H;
-    return { sx: 62, sy: pb - 54, tx: W - 50, ty: pb - 54 };
+    const [W, H] = viewWH();
+    if (orientKey() === 'l') return { sx: 75 / W, sy: (H - 72) / H, tx: (W - 62) / W, ty: (H - 72) / H };
+    return { sx: 62 / W, sy: (H - 56) / H, tx: (W - 50) / W, ty: (H - 56) / H };
 }
 function placeKnoepfe() {
     const k = knoepfe[orientKey()] || defaultKnoepfe();
-    // nur so weit, dass der Knopf ganz sichtbar bleibt (unterhalb davon schneidet iOS ab)
-    const W = window.innerWidth, H = Math.max(window.innerHeight, document.documentElement.clientHeight);
-    const cx = (v, r) => Math.max(r, Math.min(W - r, v)), cy = (v, r) => Math.max(r, Math.min(H - r, v));
+    const [W, H] = viewWH();
+    const px = (v, L) => (v <= 1.5 ? v * L : v);       // Werte > 1,5 stammen aus v3.13/3.14 (Pixel)
+    // nur so weit, dass der Knopf ganz sichtbar bleibt
+    const cx = (v, r) => Math.max(r, Math.min(W - r, px(v, W))), cy = (v, r) => Math.max(r, Math.min(H - r, px(v, H)));
     steerZone.style.left = cx(k.sx, 50) + 'px'; steerZone.style.top = cy(k.sy, 52) + 'px';
     turboBtn.style.left = cx(k.tx, 38) + 'px'; turboBtn.style.top = cy(k.ty, 38) + 'px';
 }
@@ -413,7 +433,7 @@ function setEdit(on) {
     editMode = on;
     document.body.classList.toggle('edit', on);
     document.getElementById('editBar').hidden = !on;
-    startScreen.hidden = on;
+    if (on) { startScreen.hidden = true; document.getElementById('pauseScreen').hidden = true; showTiltButtons(); }
     if (!on) { try { localStorage.setItem('autorennen.knoepfe', JSON.stringify(knoepfe)); } catch (_) {} }
 }
 function dragStart(what, e) {
@@ -424,11 +444,78 @@ function dragStart(what, e) {
 }
 function dragMove(e) {
     if (e.pointerId !== dragPtr) return;
-    const k = knoepfe[orientKey()];
-    if (dragWhat === 'stick') { k.sx = e.clientX; k.sy = e.clientY; } else { k.tx = e.clientX; k.ty = e.clientY; }
+    const k = knoepfe[orientKey()], [W, H] = viewWH();
+    if (dragWhat === 'stick') { k.sx = e.clientX / W; k.sy = e.clientY / H; } else { k.tx = e.clientX / W; k.ty = e.clientY / H; }
     placeKnoepfe();
 }
 function dragEnd(e) { if (e.pointerId === dragPtr) { dragPtr = null; dragWhat = null; } }
+
+// --- LENKEN DURCH NEIGEN DES HANDYS (wie ein Lenkrad drehen) ---
+// Schwerkraft aus dem Beschleunigungssensor, in die Bildschirmebene gedreht; der Winkel gegenüber der Haltung beim
+// Start (Kalibrieren bei LOS und nach der Pause) ergibt den Einschlag: voll bei 25°, 2° tote Zone.
+let tiltOn = false, tiltSteer = 0, tiltOK = false, tiltRaw = null, tiltZero = 0, tiltSign = 1, tiltSeen = false;
+try { tiltOn = localStorage.getItem('autorennen.lenken') === 'neigen'; } catch (_) {}
+const TILT_FULL = 25;
+function screenAngle() {
+    if (typeof window.orientation === 'number') return window.orientation;
+    return (screen.orientation && screen.orientation.angle) || 0;
+}
+function tiltAngle() {                                 // Richtung der Schwerkraft in der Bildschirmebene, Grad
+    if (!tiltRaw) return null;
+    const a = screenAngle() * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const x = c * tiltRaw.x - s * tiltRaw.y, y = s * tiltRaw.x + c * tiltRaw.y;   // Gerät → Bildschirm
+    if (Math.hypot(x, y) < 2) return null;             // Handy liegt flach: keine Richtung
+    return Math.atan2(tiltSign * x, -tiltSign * y) * 180 / Math.PI;
+}
+function tiltCalibrate() {
+    if (!tiltOn || !tiltRaw) return;
+    const a = screenAngle() * Math.PI / 180;
+    const y = Math.sin(a) * tiltRaw.x + Math.cos(a) * tiltRaw.y;
+    tiltSign = y < 0 ? 1 : -1;                         // iOS und Android melden die Schwerkraft mit verschiedenen Vorzeichen
+    const ang = tiltAngle();
+    tiltZero = ang === null ? 0 : ang;
+    tiltSteer = 0;
+}
+function onMotion(e) {
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x === null) return;
+    tiltSeen = true;
+    if (!tiltRaw) tiltRaw = { x: g.x, y: g.y };
+    tiltRaw.x += (g.x - tiltRaw.x) * 0.3; tiltRaw.y += (g.y - tiltRaw.y) * 0.3;   // glätten
+    const ang = tiltAngle();
+    if (ang === null) { tiltSteer = 0; return; }
+    let d = ang - tiltZero;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    const m = Math.max(0, Math.abs(d) - 2) / (TILT_FULL - 2);
+    tiltSteer = Math.sign(d) * Math.min(1, m);
+}
+function requestTilt() {                               // muss aus einem Tipp heraus aufgerufen werden (iPhone)
+    if (tiltOK) return Promise.resolve(true);
+    const DM = window.DeviceMotionEvent;
+    if (!DM) return Promise.resolve(false);
+    const go = () => { window.addEventListener('devicemotion', onMotion); tiltOK = true; return true; };
+    if (typeof DM.requestPermission === 'function') {
+        return DM.requestPermission().then((r) => (r === 'granted' ? go() : false), () => false);
+    }
+    return Promise.resolve(go());
+}
+function showTiltButtons() {
+    document.getElementById('tiltOn').classList.toggle('aus', !tiltOn);
+    document.getElementById('tiltOff').classList.toggle('aus', tiltOn);
+    document.getElementById('tiltInfo').textContent = tiltOn
+        ? 'Handy wie ein Lenkrad drehen. Die Haltung beim LOS ist geradeaus. Gas und Bremse weiter mit dem Knüppel.'
+        : 'Lenken mit dem Knüppel (links/rechts).';
+}
+function setTilt(on) {
+    if (!on) { tiltOn = false; save(); return; }
+    requestTilt().then((ok) => {
+        tiltOn = ok;
+        save();
+        if (!ok) document.getElementById('tiltInfo').textContent = 'Kein Zugriff auf den Bewegungssensor. Auf dem iPhone beim Nachfragen „Erlauben“ tippen.';
+        else setTimeout(() => { if (!tiltSeen) document.getElementById('tiltInfo').textContent = 'Der Bewegungssensor liefert keine Werte (am PC normal).'; }, 1500);
+    });
+    function save() { try { localStorage.setItem('autorennen.lenken', tiltOn ? 'neigen' : 'knueppel'); } catch (_) {} showTiltButtons(); }
+}
 function steerRange() { return 50; } // Fingerweg für Volleinschlag in px: kurz, weil der Knüppel am Rand sitzt (bis v3.5: 22 % der Breite)
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
 function stickHome() { placeKnoepfe(); }
@@ -1869,6 +1956,7 @@ function setupTrip(id) {
     updateHud(true);
 }
 function startRace() {
+    if (tiltOn) requestTilt();
     initAudio();
     if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
     setPhase('count');                                 // erst Countdown 3 – 2 – 1 – LOS
@@ -1897,6 +1985,7 @@ function updateCount(dt) {
     const n = Math.ceil(countT);
     if (n > 0 && n !== countShown) { countShown = n; showCount(String(n)); beep(523, 0.15); }
     if (countT <= 0) {
+        tiltCalibrate();
         setPhase('race'); showCount('LOS!', true); beep(1046, 0.45);
         setTimeout(() => countEl.classList.remove('an'), 700);
         const st = STAGES[cur.id];
@@ -2039,7 +2128,11 @@ const startScreen = document.getElementById('startScreen');
 const modeScreen = document.getElementById('modeScreen');
 const btnAgain = document.getElementById('btnAgain');
 const startMap = document.getElementById('startMap');
-function setPhase(p) { phase = p; document.body.classList.toggle('menu', p !== 'race' && p !== 'count'); }
+function setPhase(p) {
+    phase = p;
+    document.body.classList.toggle('menu', p !== 'race' && p !== 'count' && p !== 'pause');
+    document.body.classList.toggle('racing', p === 'race');
+}
 function showStart() {
     setPhase('menu');
     gameOverScreen.hidden = true; modeScreen.hidden = true; startScreen.hidden = false;
@@ -2105,7 +2198,31 @@ function finishTrip() {
 }
 document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') startRace(); });
 document.getElementById('btnKnoepfe').addEventListener('click', () => { if (phase === 'menu') setEdit(true); });
-document.getElementById('editDone').addEventListener('click', () => { setEdit(false); showStart(); });
+document.getElementById('editDone').addEventListener('click', () => {
+    setEdit(false);
+    if (phase === 'pause') document.getElementById('pauseScreen').hidden = false; else showStart();
+});
+// --- PAUSE ---
+function pauseGame() {
+    if (phase !== 'race') return;
+    setPhase('pause');
+    turboHeld = false; throttle = 0; brake = 0; steer = 0;
+    document.getElementById('pauseScreen').hidden = false;
+}
+function resumeGame() {
+    document.getElementById('pauseScreen').hidden = true;
+    tiltCalibrate();
+    setPhase('race');
+    lastTime = performance.now();
+}
+document.getElementById('pauseBtn').addEventListener('click', pauseGame);
+document.getElementById('btnWeiter').addEventListener('click', resumeGame);
+document.getElementById('btnEinst').addEventListener('click', () => setEdit(true));
+document.getElementById('btnAufgeben').addEventListener('click', () => { document.getElementById('pauseScreen').hidden = true; showStart(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') pauseGame(); });   // App im Hintergrund = Pause
+for (const id of ['pauseBtn', 'btnWeiter', 'btnEinst', 'btnAufgeben', 'tiltOn', 'tiltOff']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
+document.getElementById('tiltOn').addEventListener('click', () => setTilt(true));
+document.getElementById('tiltOff').addEventListener('click', () => setTilt(false));
 document.getElementById('editReset').addEventListener('click', () => { delete knoepfe[orientKey()]; placeKnoepfe(); });
 for (const id of ['btnKnoepfe', 'editDone', 'editReset']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
 btnAgain.addEventListener('click', () => {
@@ -2171,6 +2288,10 @@ function updateFlakes(dt, curve, sp) {
 
 // --- SPIEL-LOGIK ---
 function update(dt) {
+    if (phase === 'pause') {
+        const sv = speed; speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; updateAudio(); speed = sv;
+        return;
+    }
     if (phase === 'count') updateCount(dt);
     if (phase !== 'race') {
         if (phase === 'done' && speed > 0) {           // nach dem Ziel ausrollen (gebremst)
@@ -2199,6 +2320,8 @@ function update(dt) {
     turboBtn.classList.toggle('an', isTurbo);
 
     let s = steer;
+    if (tiltOn && steerPtr === null) s = tiltSteer;     // Handy neigen (Knüppel hat Vorrang, solange er angefasst ist)
+    else if (tiltOn && Math.abs(steer) < 0.05) s = tiltSteer;
     if (keys.left) s = -1;
     else if (keys.right) s = 1;
     // Öl: 1,2 s kaum Lenkwirkung, das Auto schlingert und verliert etwas Tempo
