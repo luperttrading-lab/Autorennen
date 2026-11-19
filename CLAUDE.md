@@ -102,6 +102,10 @@ Hafenstadt 2/3 Gewitter (Regen + Blitze + Donner `playThunder`), 3/3 Regen; Ster
 Gletscher 3/3 Eisplatten. Regen: nasse dunkle Straße, Lichter spiegeln sich, Gischt hinter Gegnern, Bremse 70 %, Kurve drückt
 1,3-fach (Bot rechnet mit). Eis: Lenken 30 %, Kurve 1,7-fach. Nebel/Sand: Dunstverlauf zum Horizont vor dem Tageslicht-Tint.
 Regen-/Sandgeräusch (`rainGain`/`sandGain`). Bot-Zeiten unverändert. Tageslauf gab es schon (Schritt 1).
+v3.32 Feinschliff linke Route (Nutzer: „mehr auf Details achten“, Felswand baute sich komisch auf, Lava sah schlecht aus):
+Wände wachsen über 45 Segmente aus dem Boden (`edge.r`, Nachbar `nxL/nxR`), Fels ohne Streifenmuster (Farbe je Segment), Gras
+auf der Klippe, Dunst in der Ferne; Lava/Krater = dunkle Kruste mit glühenden, sich schlängelnden Adern (`drawVeins`) und
+Lavafontänen (`spout`); Pylone der Meeresbrücke (`pylon`), Sonnenschirme am Strand (`umbrella`), größere Dünen, Höfe im Raps.
 Training: Etappe antippen → Startpunkt wählen (Anfang oder Abschnitt 2/3, `startAt`), Start kurz vor dem Checkpoint.
 
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
