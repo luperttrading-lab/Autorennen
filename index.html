@@ -213,7 +213,7 @@
 </div>
 
 <script>
-const APP_VERSION = '2.2';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.3';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -495,7 +495,7 @@ function buildTrack() {
                    : th === 1 ? pick(['fir', 'fir', 'fir', 'fir', 'bush'])
                    : pick(['cactus', 'cactus', 'rock', 'rock', 'rock']);
         const near = type === 'bush' || type === 'rock' ? 1.3 : 1.45;
-        segments[i].sprites.push({ type, offset: side * (near + Math.random() * 0.5), scale: 0.8 + Math.random() * 0.5 });
+        segments[i].sprites.push({ type, offset: side * (near + Math.random() * 0.5), scale: 0.8 + Math.random() * 0.5, v: Math.floor(Math.random() * 3) });
     }
 }
 function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
@@ -642,87 +642,205 @@ function drawPlayerCar(x, y, w, h, color) {
     carB(x, y, w, performance.now() / 1000);
 }
 
-// Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
-function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
-function footShadow(x, y, w) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(x, y, w, w * 0.25, 0, 0, Math.PI * 2); ctx.fill(); }
-function drawSprite(sp, x, y, size) {
-    const s = size * (sp.scale || 1);
-    switch (sp.type) {
-    case 'tree': {                                     // Laubbaum: Stamm + drei Kronenbälle, Licht von links
-        footShadow(x, y, s * 0.22);
-        ctx.fillStyle = '#6b4423'; ctx.fillRect(x - s * 0.035, y - s * 0.42, s * 0.07, s * 0.42);
-        ctx.fillStyle = '#4e3018'; ctx.fillRect(x, y - s * 0.42, s * 0.035, s * 0.42);
-        circle(x - s * 0.13, y - s * 0.52, s * 0.17, '#1f6b2a');
-        circle(x + s * 0.13, y - s * 0.54, s * 0.17, '#1a5c24');
-        circle(x, y - s * 0.7, s * 0.2, '#237a30');
-        circle(x - s * 0.06, y - s * 0.76, s * 0.09, '#3d9a45');   // Glanzlicht
-        break;
+// --- PIXEL-GRAFIK ---
+// Randobjekte und Berge werden einmal in kleiner Auflösung vorgezeichnet (mit Schattierung, Körnung und
+// dunkler Umrandung) und dann ohne Glättung vergrößert: wirkt leicht pixelig, aber detailreicher.
+function rng(seed) {                                   // reproduzierbarer Zufall (mulberry32)
+    return function () {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+// harte Kanten, leichte Körnung, 1 Pixel dunkle Umrandung
+function pixelize(c, outline, grain = 0.08, seed = 1) {
+    const g = c.getContext('2d'), W = c.width, H = c.height;
+    const d = g.getImageData(0, 0, W, H), a = d.data, r = rng(seed);
+    for (let i = 0; i < a.length; i += 4) {
+        if (a[i + 3] > 110) {
+            a[i + 3] = 255;
+            const f = 1 + (r() - 0.5) * 2 * grain;
+            a[i] = Math.min(255, a[i] * f); a[i + 1] = Math.min(255, a[i + 1] * f); a[i + 2] = Math.min(255, a[i + 2] * f);
+        } else a[i + 3] = 0;
     }
-    case 'bush': {
-        footShadow(x, y, s * 0.16);
-        circle(x - s * 0.09, y - s * 0.07, s * 0.1, '#1d6626');
-        circle(x + s * 0.09, y - s * 0.07, s * 0.1, '#185520');
-        circle(x, y - s * 0.13, s * 0.12, '#25782e');
-        circle(x - s * 0.04, y - s * 0.17, s * 0.05, '#3c9444');
-        break;
-    }
-    case 'fir': {                                      // Tanne: drei gestufte Dreiecke, linke Hälfte heller
-        footShadow(x, y, s * 0.18);
-        ctx.fillStyle = '#4e3018'; ctx.fillRect(x - s * 0.03, y - s * 0.16, s * 0.06, s * 0.16);
-        for (let k = 0; k < 3; k++) {
-            const by = y - s * (0.12 + k * 0.2), half = s * (0.22 - k * 0.05), ty = by - s * 0.32;
-            ctx.fillStyle = '#0f4a22';
-            ctx.beginPath(); ctx.moveTo(x - half, by); ctx.lineTo(x + half, by); ctx.lineTo(x, ty); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#17642f';
-            ctx.beginPath(); ctx.moveTo(x - half, by); ctx.lineTo(x, by); ctx.lineTo(x, ty); ctx.closePath(); ctx.fill();
+    if (outline) {
+        const o = hexRgb(outline), src = new Uint8ClampedArray(a);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+            const i = (y * W + x) * 4;
+            if (src[i + 3]) continue;
+            const n = (xx, yy) => xx >= 0 && yy >= 0 && xx < W && yy < H && src[(yy * W + xx) * 4 + 3];
+            if (n(x - 1, y) || n(x + 1, y) || n(x, y - 1) || n(x, y + 1)) { a[i] = o[0]; a[i + 1] = o[1]; a[i + 2] = o[2]; a[i + 3] = 255; }
         }
-        break;
     }
-    case 'cactus': {                                   // Säulenkaktus mit zwei Armen
-        footShadow(x, y, s * 0.12);
-        const w = s * 0.07;
-        const col = '#2e8b3a', dark = '#226b2c';
-        const pill = (px, py, pw, ph, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(px, py, pw, ph, pw / 2) : ctx.rect(px, py, pw, ph); ctx.fill(); };
-        pill(x - w / 2, y - s * 0.55, w, s * 0.55, col);
-        pill(x - w * 1.9, y - s * 0.38, w * 0.8, s * 0.2, col);    // linker Arm hoch
-        pill(x - w * 1.9, y - s * 0.24, w * 1.6, w * 0.7, col);     // linker Arm quer
-        pill(x + w * 1.1, y - s * 0.46, w * 0.8, s * 0.22, col);   // rechter Arm hoch
-        pill(x + w * 0.3, y - s * 0.3, w * 1.6, w * 0.7, col);      // rechter Arm quer
-        pill(x + w * 0.1, y - s * 0.55, w * 0.35, s * 0.55, dark);  // Schattenseite
-        break;
+    g.putImageData(d, 0, 0);
+    return c;
+}
+function blobs(g, r, cx, cy, rx, ry, n, rMin, rMax, color, dx = 0, dy = 0) {
+    g.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+        const a = r() * Math.PI * 2, d = Math.sqrt(r());
+        g.beginPath();
+        g.arc(cx + dx + Math.cos(a) * rx * d, cy + dy + Math.sin(a) * ry * d, rMin + r() * (rMax - rMin), 0, Math.PI * 2);
+        g.fill();
     }
-    case 'rock': {                                     // Felsbrocken mit heller und dunkler Seite
-        footShadow(x, y, s * 0.2);
-        ctx.fillStyle = '#8a7660';
-        ctx.beginPath();
-        ctx.moveTo(x - s * 0.2, y); ctx.lineTo(x - s * 0.16, y - s * 0.12); ctx.lineTo(x - s * 0.05, y - s * 0.2);
-        ctx.lineTo(x + s * 0.1, y - s * 0.17); ctx.lineTo(x + s * 0.2, y - s * 0.06); ctx.lineTo(x + s * 0.21, y);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#6b5a48';                     // Schattenseite rechts
-        ctx.beginPath();
-        ctx.moveTo(x + s * 0.02, y); ctx.lineTo(x + s * 0.02, y - s * 0.18); ctx.lineTo(x + s * 0.1, y - s * 0.17);
-        ctx.lineTo(x + s * 0.2, y - s * 0.06); ctx.lineTo(x + s * 0.21, y); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#a8927a';                     // Kante oben links
-        ctx.beginPath();
-        ctx.moveTo(x - s * 0.16, y - s * 0.12); ctx.lineTo(x - s * 0.05, y - s * 0.2); ctx.lineTo(x - s * 0.02, y - s * 0.15); ctx.lineTo(x - s * 0.12, y - s * 0.09);
-        ctx.closePath(); ctx.fill();
-        break;
+}
+function spriteTree(seed) {                            // Laubbaum 48 x 64
+    const c = makeCanvas(48, 64), g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = '#6b4423'; g.fillRect(21, 36, 6, 28);
+    g.fillStyle = '#4a2e17'; g.fillRect(25, 36, 2, 28);
+    g.fillStyle = '#6b4423'; g.fillRect(18, 61, 12, 3);
+    g.fillStyle = '#6b4423'; g.fillRect(16, 40, 6, 2); g.fillRect(27, 37, 6, 2);   // Äste
+    blobs(g, r, 24, 26, 18, 17, 26, 5, 8, '#1b5524');
+    blobs(g, r, 24, 24, 15, 14, 18, 4, 7, '#2b7431', -2, -2);
+    blobs(g, r, 24, 22, 10, 9, 12, 2, 4, '#4f9d45', -5, -5);
+    blobs(g, r, 24, 22, 6, 5, 6, 1, 2, '#7cc36a', -7, -7);
+    return pixelize(c, '#0f3215', 0.1, seed);
+}
+function spriteBush(seed) {                            // Busch 36 x 20
+    const c = makeCanvas(36, 20), g = c.getContext('2d'), r = rng(seed);
+    blobs(g, r, 18, 13, 14, 6, 16, 3, 6, '#1b5524');
+    blobs(g, r, 18, 11, 11, 5, 10, 2, 4, '#2f7a34', -2, -1);
+    blobs(g, r, 18, 10, 7, 3, 6, 1, 2, '#5aa84d', -4, -2);
+    return pixelize(c, '#0f3215', 0.1, seed);
+}
+function spriteFir(seed) {                             // Tanne 32 x 72, gezackte Stufen
+    const c = makeCanvas(32, 72), g = c.getContext('2d'), r = rng(seed);
+    g.fillStyle = '#4a2e17'; g.fillRect(14, 62, 4, 10);
+    for (let k = 0; k < 6; k++) {
+        const by = 64 - k * 10, half = 15 - k * 2.2, ty = by - 16;
+        const tier = (col, rightCut) => {
+            g.fillStyle = col; g.beginPath(); g.moveTo(16, ty);
+            const steps = 5;
+            for (let i = 0; i <= steps; i++) {               // gezackter Unterrand
+                const xx = 16 - half + (i / steps) * half * 2 * (rightCut ? 0.5 : 1);
+                g.lineTo(xx, by - (i % 2 ? 2 + r() * 2 : 0));
+            }
+            g.closePath(); g.fill();
+        };
+        tier('#0d3f1d', false);
+        tier('#18602e', true);
+        g.fillStyle = '#2d8443';
+        for (let i = 0; i < 4; i++) g.fillRect(16 - half * 0.6 + r() * half * 0.5, by - 4 - r() * 8, 1, 1);
     }
-    case 'lamp': {                                     // Straßenlaterne, Arm zeigt zur Straße, mit Lichtschein
-        const dir = sp.offset > 0 ? -1 : 1, hgt = s * 0.9;
-        ctx.fillStyle = '#555c66';
-        ctx.fillRect(x - s * 0.015, y - hgt, s * 0.03, hgt);
-        ctx.fillRect(Math.min(x, x + dir * s * 0.18), y - hgt, s * 0.18, s * 0.025);
-        const lx = x + dir * s * 0.18, ly = y - hgt + s * 0.04;
-        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, s * 0.35);
-        g.addColorStop(0, 'rgba(255, 230, 150, 0.55)');
+    return pixelize(c, '#082812', 0.08, seed);
+}
+function spriteCactus(seed) {                          // Säulenkaktus 24 x 44
+    const c = makeCanvas(24, 44), g = c.getContext('2d');
+    const col = (x, y, w, h) => { g.fillStyle = '#2e8b3a'; g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, w / 2) : g.rect(x, y, w, h); g.fill(); };
+    col(9, 2, 6, 42); col(2, 14, 4, 14); col(2, 24, 9, 4); col(18, 8, 4, 14); col(13, 18, 9, 4);
+    g.fillStyle = '#56b862'; g.fillRect(10, 4, 1, 38); g.fillRect(3, 16, 1, 10); g.fillRect(19, 10, 1, 10);   // Rippen hell
+    g.fillStyle = '#1e6528'; g.fillRect(13, 4, 2, 38); g.fillRect(5, 16, 1, 10); g.fillRect(21, 10, 1, 10);   // Schattenseite
+    g.fillStyle = '#ff7fb0'; g.fillRect(11, 1, 2, 2);                                                       // Blüte
+    return pixelize(c, '#103d17', 0.06, seed);
+}
+function spriteRock(seed) {                            // Felsbrocken 40 x 24
+    const c = makeCanvas(40, 24), g = c.getContext('2d'), r = rng(seed);
+    const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(p => g.lineTo(p[0], p[1])); g.closePath(); g.fill(); };
+    poly([[2, 24], [5, 13], [12, 5], [22, 3], [31, 7], [37, 15], [39, 24]], '#8a7660');
+    poly([[21, 24], [22, 3], [31, 7], [37, 15], [39, 24]], '#665441');
+    poly([[5, 13], [12, 5], [22, 3], [18, 9], [9, 14]], '#b29c80');
+    g.fillStyle = '#4e3f30'; for (let i = 0; i < 10; i++) g.fillRect(4 + r() * 32, 8 + r() * 14, 1, 1);  // Körnung
+    return pixelize(c, '#3a2e22', 0.1, seed);
+}
+function spriteLamp() {                                // Laterne 16 x 64, Arm zeigt nach links
+    const c = makeCanvas(16, 64), g = c.getContext('2d');
+    g.fillStyle = '#5c636e'; g.fillRect(12, 4, 2, 60);
+    g.fillStyle = '#8a929e'; g.fillRect(12, 4, 1, 60);
+    g.fillStyle = '#5c636e'; g.fillRect(2, 3, 11, 2);
+    g.fillStyle = '#2a2e35'; g.fillRect(1, 4, 5, 3);
+    g.fillStyle = '#fff3c0'; g.fillRect(2, 7, 3, 1);
+    g.fillStyle = '#3a4048'; g.fillRect(10, 60, 6, 4);
+    return pixelize(c, '#15171b', 0.04, 7);
+}
+const SPR = {
+    tree: [spriteTree(11), spriteTree(23), spriteTree(37)],
+    bush: [spriteBush(5), spriteBush(9)],
+    fir: [spriteFir(3), spriteFir(17)],
+    cactus: [spriteCactus(1)],
+    rock: [spriteRock(4), spriteRock(13)],
+    lamp: [spriteLamp()]
+};
+const SPR_H = { tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9 };   // Höhe in halben Straßenbreiten
+
+function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+// Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
+function drawSprite(sp, x, y, size) {
+    const list = SPR[sp.type];
+    if (!list) return;
+    const img = list[(sp.v || 0) % list.length];
+    const h = size * (sp.scale || 1) * SPR_H[sp.type], w = h * img.width / img.height;
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';                 // Fußschatten
+    ctx.beginPath(); ctx.ellipse(x, y, w * 0.4, w * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    const flip = sp.type === 'lamp' && sp.offset < 0;   // Laternenarm zeigt immer zur Straße
+    if (flip) {
+        ctx.save(); ctx.translate(x, 0); ctx.scale(-1, 1);
+        ctx.drawImage(img, -w / 2, y - h, w, h);
+        ctx.restore();
+    } else ctx.drawImage(img, x - w / 2, y - h, w, h);
+    if (sp.type === 'lamp') {                          // Lichtschein an der Leuchte
+        const k = w / img.width;
+        const lx = flip ? x + w / 2 - 3.5 * k : x - w / 2 + 3.5 * k, ly = y - h + 6 * k;
+        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, size * 0.35);
+        g.addColorStop(0, 'rgba(255, 230, 150, 0.5)');
         g.addColorStop(1, 'rgba(255, 230, 150, 0)');
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(lx, ly, s * 0.35, 0, Math.PI * 2); ctx.fill();
-        circle(lx, ly, s * 0.035, '#fff3c0');
-        break;
+        ctx.beginPath(); ctx.arc(lx, ly, size * 0.35, 0, Math.PI * 2); ctx.fill();
     }
+}
+
+// Berge: zwei Schichten (fern mit Schneekappen, nah als Hügel), nahtlos wiederholbar, pro Landschaft gefärbt
+const MOUNT = [
+    { far: ['#9db6d6', '#7d9bc1', '#5f7da6'], snow: '#f1f5fa', near: ['#5a9a50', '#3f7a3c', '#2c5e2c'], trees: '#24502a' },
+    { far: ['#8eaccb', '#6f8fae', '#526f8f'], snow: '#e8eef5', near: ['#3a7a48', '#2a6038', '#1b4428'], trees: '#113420' },
+    { far: ['#e6a873', '#d08b55', '#a96638'], snow: null,      near: ['#c7854c', '#a8683a', '#83492a'], trees: null },
+    { far: ['#343a6e', '#262a52', '#1b1e3d'], snow: '#5d6396', near: ['#1c1f3a', '#15172e', '#0e0f20'], trees: '#0a0b16' }
+];
+const MOUNT_PX = 3;
+const mountCache = {};
+function mountainLayer(tw, th, seed, minH, maxH, cols, snow, trees, freqs) {
+    const c = makeCanvas(tw, th), g = c.getContext('2d'), r = rng(seed);
+    const comps = freqs.map((k, i) => ({ k, a: (0.6 + r() * 0.4) / Math.pow(k, 0.7), ph: r() * Math.PI * 2 }));
+    const hs = [];
+    let lo = 1e9, hi = -1e9;
+    for (let x = 0; x < tw; x++) {
+        let v = 0; for (const q of comps) v += q.a * Math.sin(2 * Math.PI * q.k * x / tw + q.ph);
+        hs.push(v); lo = Math.min(lo, v); hi = Math.max(hi, v);
     }
+    const H = hs.map(v => Math.round(th * (minH + (maxH - minH) * (v - lo) / (hi - lo))));
+    const img = g.createImageData(tw, th), a = img.data;
+    const rgb = cols.map(hexRgb), sn = snow && hexRgb(snow), tr = trees && hexRgb(trees);
+    for (let x = 0; x < tw; x++) {
+        const h = H[x], top = th - h;
+        const slope = H[(x + 3) % tw] - H[(x - 3 + tw) % tw];  // Licht von links, über 6 Spalten geglättet
+        const lit = slope > 1, flat = Math.abs(slope) <= 1;
+        const snowDepth = sn ? Math.max(0, h - th * 0.72) * 0.7 : 0;
+        for (let y = top; y < th; y++) {
+            let col = lit ? rgb[0] : (flat ? rgb[1] : rgb[2]);
+            if (((x + y) & 1) && r() < 0.12) col = rgb[1];       // Körnung
+            if (y - top < snowDepth) col = sn;
+            if (tr && y - top < 3 && y - top >= 0 && (x % 4 === 0 || x % 4 === 1) && r() < 0.6) col = tr;   // Baumsaum
+            const i = (y * tw + x) * 4;
+            a[i] = col[0]; a[i + 1] = col[1]; a[i + 2] = col[2]; a[i + 3] = 255;
+        }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+}
+function getMountains(theme, W, H) {
+    const key = theme + ':' + W + 'x' + H;
+    if (!mountCache[key]) {
+        const M = MOUNT[theme];
+        const tw = Math.ceil(W * 1.5 / MOUNT_PX), th = Math.ceil(H * 0.17 / MOUNT_PX);
+        mountCache[key] = {
+            far: mountainLayer(tw, th, 100 + theme, 0.35, 1.0, M.far, M.snow, null, [1, 2, 3, 5, 8, 13]),
+            near: mountainLayer(tw, th, 200 + theme, 0.08, 0.42, M.near, null, M.trees, [2, 3, 5, 9, 17, 29])
+        };
+    }
+    return mountCache[key];
 }
 
 // Staubwolken hinter den Hinterrädern: wandern nach hinten (zum Betrachter = im Bild nach unten) und
@@ -823,17 +941,12 @@ function drawBackground(theme) {
         ctx.arc(W * 0.8 - playerX * 100, H * 0.3, Math.min(50, W * 0.12), 0, Math.PI * 2);
         ctx.fill();
     }
-    const peaks = [0, 0.35, 0.12, 0.6, 0.25, 0.8, 0.4, 0.5, 0.15, 0.7, 0];  // Höhen relativ
-    const span = W * 1.5, step = span / (peaks.length - 1);
-    const off = ((bgOffset * W) % span + span) % span;
-    ctx.fillStyle = T.mount;
-    for (let k = -1; k <= 1; k++) {
-        ctx.beginPath();
-        ctx.moveTo(k * span - off, hz + 1);
-        peaks.forEach((p, i) => ctx.lineTo(k * span - off + i * step, hz - p * H * 0.12));
-        ctx.lineTo(k * span - off + span, hz + 1);
-        ctx.closePath();
-        ctx.fill();
+    const M = getMountains(theme, W, H);
+    ctx.imageSmoothingEnabled = false;
+    for (const [layer, par] of [[M.far, 0.5], [M.near, 1]]) {
+        const lw = layer.width * MOUNT_PX, lh = layer.height * MOUNT_PX;
+        const off = ((bgOffset * par * W) % lw + lw) % lw;
+        for (let x0 = -off; x0 < W; x0 += lw) ctx.drawImage(layer, Math.floor(x0), Math.ceil(hz + 1 - lh), lw, lh);
     }
 }
 
@@ -919,10 +1032,10 @@ function render() {
 
         // Fahrspuren
         if (segment.color === 'light') {
-            const l1 = p1.w / 10;
-            const l2 = p2.w / 10;
-            const lw1 = p1.w / 40;
-            const lw2 = p2.w / 40;
+            const l1 = p1.w / 3;                       // Spurgrenzen bei 1/3 der halben Breite = drei Spuren
+            const l2 = p2.w / 3;
+            const lw1 = p1.w / 60;
+            const lw2 = p2.w / 60;
             // Linke Spur
             drawPolygon(p1.x - l1 - lw1, p1.y, p1.x - l1 + lw1, p1.y, p2.x - l2 + lw2, p2.y, p2.x - l2 - lw2, p2.y, '#ffffff');
             // Rechte Spur
