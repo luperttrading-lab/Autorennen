@@ -336,7 +336,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.26';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.27';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1458,17 +1458,16 @@ function spriteLamp() {                                // Laterne 16 x 64, Arm z
     g.fillStyle = '#3a4048'; g.fillRect(10, 60, 6, 4);
     return pixelize(c, '#15171b', 0.04, 7);
 }
-function spriteChevron() {                           // Kurventafel (v3.26 ruhiger): rote Tafel, schmale weiße Pfeile, 44 x 30
+function spriteChevron() {                           // Kurventafel (v3.27, Wahl K): weiß, roter Rand, 2 dicke rote Pfeile, ≈ 57 % Rot, 44 x 30
     const c = makeCanvas(44, 30), g = c.getContext('2d');
     g.fillStyle = '#6d727a'; g.fillRect(20, 16, 4, 14);                     // ein Pfosten
-    g.fillStyle = '#b3122b'; g.fillRect(1, 1, 42, 17);
-    g.fillStyle = '#8e0e22'; g.fillRect(1, 15, 42, 3);                      // Schattenkante unten
-    g.fillStyle = '#f4f1ea';
-    for (let k = 0; k < 2; k++) {                                          // zwei schlanke Pfeile
-        const x = 11 + k * 12;
-        g.beginPath(); g.moveTo(x, 4); g.lineTo(x + 6, 9.5); g.lineTo(x, 15); g.lineTo(x + 2.5, 15); g.lineTo(x + 8.5, 9.5); g.lineTo(x + 2.5, 4); g.closePath(); g.fill();
+    g.fillStyle = '#c8102e'; g.fillRect(1, 1, 42, 17);
+    g.fillStyle = '#f4f1ea'; g.fillRect(3, 3, 38, 13);
+    g.fillStyle = '#c8102e';
+    for (const x of [7, 22]) {
+        g.beginPath(); g.moveTo(x, 4); g.lineTo(x + 6, 9.5); g.lineTo(x, 15); g.lineTo(x + 9, 15); g.lineTo(x + 15, 9.5); g.lineTo(x + 9, 4); g.closePath(); g.fill();
     }
-    return pixelize(c, '#3a0a12', 0.03, 3);
+    return pixelize(c, '#222', 0.03, 3);
 }
 function spriteBale(seed) {                            // Rundballen Heu 26 x 22, Stirnseite mit Spirale
     const c = makeCanvas(26, 22), g = c.getContext('2d');
