@@ -30,7 +30,7 @@ segmentweise gemischt) → Hauptteil → Schilderbrücken (300) → Gabel (120) 
 das am Gabeltor vorn abgeschnitten wird (`commitFork`, `rebase`); die gewählte Fahrbahn wird zur Mitte.
 Zeit: 2 Checkpoints (1/3, 2/3) + Tor; jedes Tor schreibt die Zeit fürs nächste Drittel gut = Bot-Zeit × 1,30/1,20/1,12
 (Küste/Land/Gebirge, `calibrate`, läuft beim Laden der Etappe), von der Restzeit geht nur die Hälfte mit (`BONUS_SHARE`).
-Game Over = von vorn. Karte (`mapSVG`, `MAP_POS`) als Landkarte in Fahrtrichtung: Start unten, Ziele oben, Meer links, Gebirge rechts. Tageslauf über die ganze Fahrt (`TOD`): Lichtfarbe per `source-atop`, Himmel per `destination-over`.
+Game Over = von vorn. Karte (`mapSVG`, `MAP_POS`) als Landkarte in Fahrtrichtung: Start unten, Ziele oben, Meer links, Gebirge rechts; kleine Namensschilder, Schwierigkeit nur je Spalte am unteren Rand (v3.4). Tageslauf über die ganze Fahrt (`TOD`): Lichtfarbe per `source-atop`, Himmel per `destination-over`.
 Sammlung im localStorage `autorennen.sammlung` (Routen mit Bestzeit, Ziele). Versteckter Trainingsmodus: Versionsnummer
 auf dem Startbildschirm 2 s halten → RENNEN/TRAINING (`autorennen.modus`); Training: Etappe auf der Karte antippen,
 kein Game Over, keine Rekorde, Tipp auf die Leiste oben = zurück zur Karte. Landschaften (`LANDS`) bisher nur aus den

@@ -275,7 +275,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.3';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.4';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1831,7 +1831,7 @@ function collectionText() {
 // --- KARTE als Landkarte (SVG): unten Start am Morgen, oben die Ziele in der Nacht, in Fahrtrichtung nach oben.
 // Links Meer und Küste, Mitte Land, rechts Gebirge; Straßen als geschwungene Abschnitte zwischen den Orten.
 const MAP_POS = {                                      // Lage der Orte (leicht versetzt, damit es nicht wie ein Raster wirkt)
-    S: [150, 318], K2: [62, 252], L2: [152, 256], G2: [240, 250], K3: [56, 186], L3: [148, 190], G3: [246, 184],
+    S: [150, 306], K2: [62, 252], L2: [152, 256], G2: [240, 250], K3: [56, 186], L3: [148, 190], G3: [246, 184],
     K4: [64, 120], L4: [154, 124], G4: [238, 118], K5: [58, 52], L5: [150, 56], G5: [244, 50]
 };
 function mapSVG(route, clickable) {
@@ -1864,11 +1864,13 @@ function mapSVG(route, clickable) {
     s += '<rect width="300" height="340" fill="url(#mzeit)"/>';
     // Tageszeiten am rechten Rand
     ROW_NAME.forEach((n, r) => { const y = MAP_POS[stageAt(r, 1)][1]; s += '<text x="296" y="' + (y + 3) + '" text-anchor="end" font-family="sans-serif" font-size="8" fill="#fff" opacity="0.85">' + n + '</text>'; });
+    [['KÜSTE · leicht', 40], ['LAND · mittel', 150], ['GEBIRGE · schwer', 256]].forEach(([t, x]) => {
+        s += '<text x="' + x + '" y="335" text-anchor="middle" font-family="sans-serif" font-weight="600" font-size="7.5" fill="#fff" opacity="0.9">' + t + '</text>'; });
     // Straßen: grau mit Mittellinie, gefahrene Abschnitte golden leuchtend
     for (const id in STAGES) for (const nx of nextStages(id)) {
         const d = road(id, nx);
-        s += '<path d="' + d + '" fill="none" stroke="#2c2c30" stroke-width="5" stroke-linecap="round"/>';
-        s += '<path d="' + d + '" fill="none" stroke="#d8d8d8" stroke-width="1" stroke-dasharray="3 3"/>';
+        s += '<path d="' + d + '" fill="none" stroke="#3a3a40" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>';
+        s += '<path d="' + d + '" fill="none" stroke="#e8e8e8" stroke-width="0.6" stroke-dasharray="2.5 2.5" opacity="0.8"/>';
     }
     for (const e of edgeOn) {
         const [a, b] = e.split('>'), d = road(a, b);
@@ -1883,10 +1885,9 @@ function mapSVG(route, clickable) {
         s += '<circle cx="' + x + '" cy="' + y + '" r="' + (hit ? 9 : 7) + '" fill="' + COL_COLOR[st.col] + '" stroke="' + (hit ? '#ffd84a' : '#1b1730') + '" stroke-width="' + (hit ? 3 : 2) + '"/>';
         if (st.row === 0) s += '<path d="M' + (x + 6) + ',' + (y - 6) + ' v-16 l12,4 l-12,4" fill="#fff" stroke="#111" stroke-width="1"/>';
         if (st.row === ROWS - 1) s += '<text x="' + x + '" y="' + (y + 3.5) + '" text-anchor="middle" font-size="9" fill="' + (save.ziele[id] ? '#c08a00' : '#333') + '">★</text>';
-        const lbl = st.name.split(' ')[0], lw = lbl.length * 6.2 + 32;   // Namensschild: dunkel, darin Name und Schwierigkeit
-        s += '<rect x="' + (x - lw / 2) + '" y="' + (y - 27) + '" width="' + lw + '" height="15" rx="7.5" fill="rgba(20,18,32,0.82)"/>';
-        s += '<text x="' + (x - lw / 2 + 8) + '" y="' + (y - 16.5) + '" font-family="sans-serif" font-weight="600" font-size="10" fill="#fff">' + lbl + '</text>';
-        for (let k = 0; k < 3; k++) s += '<circle cx="' + (x + lw / 2 - 14 + k * 4) + '" cy="' + (y - 19.5) + '" r="1.5" fill="' + (k <= st.col ? '#ffd84a' : 'rgba(255,255,255,0.35)') + '"/>';
+        const lbl = st.name.split(' ')[0], lw = lbl.length * 4.6 + 10;   // kleines Namensschild, nur zur Orientierung
+        s += '<rect x="' + (x - lw / 2) + '" y="' + (y - 22) + '" width="' + lw + '" height="11" rx="5.5" fill="rgba(20,18,32,' + (hit ? 0.9 : 0.6) + ')"/>';
+        s += '<text x="' + x + '" y="' + (y - 14) + '" text-anchor="middle" font-family="sans-serif" font-weight="600" font-size="8" fill="' + (hit ? '#ffd84a' : '#fff') + '">' + lbl + '</text>';
         s += '</g>';
     }
     return s + '</g></svg>';
