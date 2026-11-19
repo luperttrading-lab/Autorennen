@@ -39,7 +39,7 @@ WEITER / EINSTELLUNGEN / AUFGEBEN. Einstellungen (⚙ auf dem Startbildschirm od
 Lenken KNÜPPEL oder HANDY NEIGEN (`autorennen.lenken`; Schwerkraft aus devicemotion in die Bildschirmebene gedreht,
 wie ein Lenkrad, voll bei 25°, Handy gerade = geradeaus (seit v3.18 ohne Eichung); iPhone-Freigabe per requestPermission beim
 Tipp). Seit v3.17 optional Gas/Bremse durch Kippen (`autorennen.kippen`): oben vom Körper weg = Gas, zu sich her = Bremse,
-voll nach 20°, 4° tote Zone. Seit v3.18 Nullstellung Kippen in den Einstellungen „JETZT SETZEN“ (`autorennen.kippnull`, Live-Anzeige), Lenken ohne Eichung (Handy gerade = geradeaus); der Knüppel zeigt beim Fahren die Sensor-Eingabe an. Knopf-Positionen als Anteile von Breite/Höhe, nie in die oberen 70 px
+voll nach 20° (seit v3.19 per Schieberegler 8–40°, `autorennen.kippgrad`; Lenken 8–45°, `autorennen.lenkgrad`), 4° tote Zone. Seit v3.18 Nullstellung Kippen in den Einstellungen „JETZT SETZEN“ (`autorennen.kippnull`, Live-Anzeige), Lenken ohne Eichung (Handy gerade = geradeaus); der Knüppel zeigt beim Fahren die Sensor-Eingabe an. Knopf-Positionen als Anteile von Breite/Höhe, nie in die oberen 70 px
 (oben rechts öffnet iOS das Kontrollzentrum); alte Pixelwerte werden beim Laden verworfen.
 
 ## Spielablauf (seit v3.0: Konzept Schritt 1)

@@ -143,16 +143,22 @@
             box-sizing: border-box;
         }
         /* Knöpfe frei verschiebbar (seit v3.13): Einstellmodus über „KNÖPFE EINSTELLEN“ auf dem Startbildschirm */
-        #editBar { position: fixed; left: 10px; right: 10px; top: calc(max(env(safe-area-inset-top), 14px) + 40px); z-index: 25;
-            background: rgba(10, 8, 20, 0.85); color: #fff; border-radius: 14px; padding: 12px; text-align: center;
-            font: 15px sans-serif; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        /* Einstellungen: kompakt, lässt unten bzw. links/rechts Platz für Knüppel und Turbo (v3.19) */
+        #editBar { position: fixed; left: 8px; right: 8px; top: calc(max(env(safe-area-inset-top), 14px) + 34px); z-index: 25;
+            max-height: calc(100% - 230px); overflow-y: auto; box-sizing: border-box;
+            background: rgba(10, 8, 20, 0.85); color: #fff; border-radius: 12px; padding: 8px 10px; text-align: center;
+            font: 13px sans-serif; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+        @media (orientation: landscape) { #editBar { left: 170px; right: 170px; top: 8px; max-height: calc(100% - 16px); } }
         #editBar[hidden] { display: none; }
-        #editBar .row { display: flex; gap: 10px; }
-        #editBar button, .smallBtn { font: bold 16px sans-serif; padding: 10px 16px; border-radius: 10px; border: 2px solid #fff;
+        #editBar .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; }
+        #editBar .row[hidden] { display: none; }
+        #editBar button { font: bold 13px sans-serif; padding: 6px 10px; border-radius: 8px; border: 2px solid #fff;
             background: #2a6fd6; color: #fff; touch-action: manipulation; cursor: pointer; }
         #editBar #editReset { background: #555; }
         #editBar button.aus { background: #3a3d46; opacity: .75; }
-        #editBar #lowerDown, #editBar #lowerUp { padding: 6px 12px; }
+        #editBar input[type=range] { width: 120px; accent-color: #ffd84a; touch-action: auto; }
+        #pitchLive { color: #ffd84a; }
+        #tiltInfo { font-size: 11px; opacity: .8; }
         /* Pause: Knopf rechts unter dem Lautsprecher, nur während der Fahrt */
         #pauseBtn { position: absolute; z-index: 20; right: 12px; top: calc(max(env(safe-area-inset-top), 20px) + 84px);
             width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.75); background: rgba(0,0,0,.35);
@@ -309,18 +315,17 @@
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
 <button id="pauseBtn" type="button" aria-label="Pause">❚❚</button>
 <div id="editBar" hidden>
-    <div><b>Einstellungen</b><br>Knüppel und Turbo mit dem Finger dorthin ziehen, wo du sie haben willst.</div>
-    <div class="row" style="align-items:center;font-size:13px">Lenken:
-        <button id="tiltOff" type="button">KNÜPPEL</button><button id="tiltOn" type="button">HANDY NEIGEN</button></div>
-    <div class="row" style="align-items:center;font-size:13px">Gas/Bremse:
-        <button id="pitchOff" type="button">KNÜPPEL</button><button id="pitchOn" type="button">HANDY KIPPEN</button></div>
-    <div class="row" style="align-items:center;font-size:13px">Nullstellung Kippen:
-        <button id="pitchZeroBtn" type="button">JETZT SETZEN</button></div>
-    <div id="pitchLive" style="font-size:13px;color:#ffd84a">Handy so halten, wie du fahren willst, dann „JETZT SETZEN“.</div>
-    <div id="tiltInfo" style="font-size:12px;opacity:.85"></div>
-    <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button></div>
-    <div class="row" style="align-items:center;font-size:13px">Seite unten:
-        <button id="lowerDown" type="button" aria-label="Seite tiefer">▼</button><button id="lowerUp" type="button" aria-label="Seite höher">▲</button></div>
+    <div class="t"><b>Einstellungen</b> · Knüppel und Turbo hinziehen, wo du sie willst</div>
+    <div class="row">Lenken <button id="tiltOff" type="button">KNÜPPEL</button><button id="tiltOn" type="button">NEIGEN</button></div>
+    <div class="row" id="rowTiltSens">Voll eingeschlagen bei <input type="range" id="tiltSens" min="8" max="45" step="1"> <span id="tiltSensV"></span></div>
+    <div class="row">Gas/Bremse <button id="pitchOff" type="button">KNÜPPEL</button><button id="pitchOn" type="button">KIPPEN</button></div>
+    <div class="row" id="rowPitchSens">Vollgas bei <input type="range" id="pitchSens" min="8" max="40" step="1"> <span id="pitchSensV"></span></div>
+    <div class="row" id="rowPitchZero">Nullstellung <button id="pitchZeroBtn" type="button">JETZT SETZEN</button></div>
+    <div id="pitchLive"></div>
+    <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button>
+        <span style="margin-left:6px">Seite unten</span><button id="lowerDown" type="button" aria-label="Seite tiefer">▼</button><button id="lowerUp" type="button" aria-label="Seite höher">▲</button></div>
+    <div id="tiltInfo"></div>
+</div>
 </div>
 <button id="ver" type="button"></button>
 <div class="update" id="update" hidden>
@@ -329,7 +334,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.18';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.19';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -461,7 +466,7 @@ function dragEnd(e) { if (e.pointerId === dragPtr) { dragPtr = null; dragWhat = 
 // Start (Kalibrieren bei LOS und nach der Pause) ergibt den Einschlag: voll bei 25°, 2° tote Zone.
 let tiltOn = false, tiltSteer = 0, tiltOK = false, tiltRaw = null, tiltZero = 0, tiltSign = 1, tiltSeen = false;
 try { tiltOn = localStorage.getItem('autorennen.lenken') === 'neigen'; } catch (_) {}
-const TILT_FULL = 25;
+let TILT_FULL = 25;                                    // Grad Drehung für vollen Einschlag (einstellbar)
 function screenAngle() {
     if (typeof window.orientation === 'number') return window.orientation;
     return (screen.orientation && screen.orientation.angle) || 0;
@@ -481,7 +486,12 @@ function tiltPitch() {
     return Math.atan2(-tiltSign * tiltRaw.z, Math.hypot(x, y)) * 180 / Math.PI;
 }
 let pitchOn = false, pitchZero = 0, tiltGas = 0, tiltBrake = 0;
-const PITCH_FULL = 20, PITCH_DEAD = 4;
+let PITCH_FULL = 20; const PITCH_DEAD = 4;             // Grad Kippen für Vollgas/Vollbremse (einstellbar)
+try {
+    const a = parseInt(localStorage.getItem('autorennen.lenkgrad'), 10), b = parseInt(localStorage.getItem('autorennen.kippgrad'), 10);
+    if (a >= 8 && a <= 45) TILT_FULL = a;
+    if (b >= 8 && b <= 40) PITCH_FULL = b;
+} catch (_) {}
 try { pitchOn = localStorage.getItem('autorennen.kippen') === 'ja'; } catch (_) {}
 // Nullstellung (v3.18, Nutzer): Lenken braucht keine – Handy gerade = geradeaus. Kippen ist subjektiv (Sitzen, Liegen):
 // Nullstellung wird in den Einstellungen mit „JETZT SETZEN“ festgelegt und gespeichert; ohne gespeicherten Wert gilt die Haltung bei LOS.
@@ -526,6 +536,10 @@ function onMotion(e) {
         const v = Math.min(1, m);
         tiltGas = d > 0 ? v : 0; tiltBrake = d < 0 ? v : 0;
     } else { tiltGas = 0; tiltBrake = 0; }
+    if (editMode && !tiltOn) {
+        const r = stickR() - 20;
+        stickKnob.style.transform = 'translate(0px,' + (-(tiltGas - tiltBrake) * r).toFixed(1) + 'px)';
+    }
     if (editMode && pa !== null) {                      // Anzeige in den Einstellungen: wo steht das Handy gegenüber der Nullstellung?
         const z = pitchZeroSaved !== null ? pitchZeroSaved : pitchZero, d = Math.round(pa - z);
         const m = Math.min(1, Math.max(0, Math.abs(pa - z) - PITCH_DEAD) / (PITCH_FULL - PITCH_DEAD));
@@ -538,6 +552,10 @@ function onMotion(e) {
     if (d > 180) d -= 360; else if (d < -180) d += 360;
     const m = Math.max(0, Math.abs(d) - 2) / (TILT_FULL - 2);
     tiltSteer = Math.sign(d) * Math.min(1, m);
+    if (editMode) {                                     // Rückmeldung in den Einstellungen: gelber Knopf zeigt Lenken und Gas
+        const r = stickR() - 20;
+        stickKnob.style.transform = 'translate(' + (tiltSteer * r).toFixed(1) + 'px,' + (-(tiltGas - tiltBrake) * r).toFixed(1) + 'px)';
+    }
 }
 function requestTilt() {                               // muss aus einem Tipp heraus aufgerufen werden (iPhone)
     if (tiltOK) return Promise.resolve(true);
@@ -550,14 +568,22 @@ function requestTilt() {                               // muss aus einem Tipp he
     return Promise.resolve(go());
 }
 function showTiltButtons() {
+    const ts = document.getElementById('tiltSens'), ps = document.getElementById('pitchSens');
+    ts.value = TILT_FULL; ps.value = PITCH_FULL;
+    document.getElementById('tiltSensV').textContent = TILT_FULL + '°';
+    document.getElementById('pitchSensV').textContent = PITCH_FULL + '°';
+    document.getElementById('rowTiltSens').hidden = !tiltOn;
+    document.getElementById('rowPitchSens').hidden = !pitchOn;
+    document.getElementById('rowPitchZero').hidden = !pitchOn;
+    document.getElementById('pitchLive').hidden = !pitchOn;
     document.getElementById('tiltOn').classList.toggle('aus', !tiltOn);
     document.getElementById('tiltOff').classList.toggle('aus', tiltOn);
     document.getElementById('pitchOn').classList.toggle('aus', !pitchOn);
     document.getElementById('pitchOff').classList.toggle('aus', pitchOn);
     document.getElementById('tiltInfo').textContent = tiltOn
-        ? 'Handy wie ein Lenkrad drehen, gerade = geradeaus.' : 'Lenken mit dem Knüppel (links/rechts).';
+        ? 'Neigen: Handy wie ein Lenkrad drehen, gerade = geradeaus.' : '';
     document.getElementById('tiltInfo').textContent += pitchOn
-        ? ' Gas: oben von dir weg kippen, Bremse: zu dir her (voll nach 20°). Der Knüppel zeigt beim Fahren an, was das Handy gerade macht.' : ' Gas und Bremse mit dem Knüppel.';
+        ? ' Kippen: oben von dir weg = Gas, zu dir her = Bremse. Der gelbe Knopf zeigt beim Fahren, was das Handy macht.' : '';
 }
 function setPitch(on) {
     if (!on) { pitchOn = false; savePitch(); return; }
@@ -2280,6 +2306,15 @@ document.getElementById('btnAufgeben').addEventListener('click', () => { documen
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') pauseGame(); });   // App im Hintergrund = Pause
 document.getElementById('pitchOn').addEventListener('click', () => setPitch(true));
 document.getElementById('pitchZeroBtn').addEventListener('click', setPitchZero);
+document.getElementById('tiltSens').addEventListener('input', (e) => {
+    TILT_FULL = +e.target.value; try { localStorage.setItem('autorennen.lenkgrad', String(TILT_FULL)); } catch (_) {}
+    document.getElementById('tiltSensV').textContent = TILT_FULL + '°';
+});
+document.getElementById('pitchSens').addEventListener('input', (e) => {
+    PITCH_FULL = +e.target.value; try { localStorage.setItem('autorennen.kippgrad', String(PITCH_FULL)); } catch (_) {}
+    document.getElementById('pitchSensV').textContent = PITCH_FULL + '°';
+});
+for (const id of ['tiltSens', 'pitchSens']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
 document.getElementById('pitchZeroBtn').addEventListener('pointerdown', (e) => e.stopPropagation());
 document.getElementById('pitchOff').addEventListener('click', () => setPitch(false));
 for (const id of ['pauseBtn', 'btnWeiter', 'btnEinst', 'btnAufgeben', 'tiltOn', 'tiltOff', 'pitchOn', 'pitchOff']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
