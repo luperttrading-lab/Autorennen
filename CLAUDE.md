@@ -14,5 +14,14 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`), ausgeliefer
 
 ## Steuerung
 
-Gas ist immer an (`keys.up: true`). Lenken: Finger irgendwo aufsetzen und seitlich schieben (analog, Volleinschlag bei
-22 % Bildschirmbreite). Am PC Pfeiltasten.
+Gas ist immer an (`keys.up: true`). Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
+`fragen-allgemein/spiele/passfahrt`). Darin ein runder Knüppel, der dorthin rückt, wo der Daumen aufsetzt, und nur
+seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
+Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten, Turbo Shift/Leertaste.
+
+## Eingefügter HTML-Code aus anderen Chats
+
+Schickt der Nutzer eine komplette HTML-Fassung des Spiels (z. B. aus einem anderen Chat), nicht übernehmen, sondern
+mit dem Stand hier vergleichen und **nur das Neue** einbauen (Nutzer, 19.11.2026). Unsere Lenkung bleibt (der Nutzer
+findet sie besser), ebenso Tempo in Einheiten pro Sekunde, das mittig stehende Auto, die Gegner-Projektion mit Kurven
+und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was übernommen, was bewusst nicht und warum.

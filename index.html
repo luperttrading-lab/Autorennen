@@ -46,11 +46,42 @@
             background-color: #87CEEB; /* Himmelblau */
             touch-action: none; /* Verhindert Scrollen/Zoomen beim Spielen */
             font-family: sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Oben das Spielbild, unten das Bedienfeld (wie bei Passfahrt) */
+        #game {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
         }
         canvas {
             display: block;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
+        }
+        #panel {
+            flex: 0 0 auto;
+            height: 34vh;
+            max-height: 320px;
+            min-height: 190px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #242833;
+            border-top: 3px solid #11131a;
+            padding: 0 16px max(env(safe-area-inset-bottom), 8px) 0;
+            box-sizing: border-box;
+        }
+        /* Querformat: Bedienfeld liegt durchsichtig über dem unteren Bildrand */
+        @media (orientation: landscape) {
+            #panel {
+                position: absolute; left: 0; right: 0; bottom: 0;
+                height: 50vh; max-height: none; min-height: 0;
+                background: transparent; border-top: 0;
+            }
         }
         #ui {
             position: absolute;
@@ -65,12 +96,11 @@
         }
         /* Turbo: kleiner runder Knopf unten rechts, Füllstand = Turbo-Vorrat */
         #turbo {
-            position: absolute;
-            right: 16px;
-            bottom: max(env(safe-area-inset-bottom), 16px);
+            position: relative;
+            flex: 0 0 auto;
             z-index: 20;
-            width: 84px;
-            height: 84px;
+            width: 96px;
+            height: 96px;
             border-radius: 50%;
             border: 3px solid #ff3333;
             background: rgba(0, 0, 0, 0.25);
@@ -100,40 +130,46 @@
             padding: 4px 8px;
             cursor: pointer;
         }
-        /* Lenkung: Finger irgendwo aufsetzen und seitlich schieben */
+        /* Lenkung: Knüppel im Bedienfeld, rückt dorthin, wo der Daumen aufsetzt; nur seitlich */
         #steerZone {
-            position: absolute;
-            inset: 0;
+            position: relative;
+            flex: 1 1 auto;
+            align-self: stretch;
             touch-action: none;
         }
-        #steerBar {
+        #stickBase {
             position: absolute;
-            height: 56px;
-            margin-top: -28px;
-            border-radius: 28px;
-            background: rgba(0, 0, 0, 0.25);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            pointer-events: none;
-            display: none;
-        }
-        #steerKnob {
-            position: absolute;
-            top: 50%;
-            width: 48px;
-            height: 48px;
-            margin: -24px 0 0 -24px;
+            width: 170px;
+            height: 170px;
+            margin: -85px 0 0 -85px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.85);
+            background: radial-gradient(circle, rgba(36,40,51,.55) 0 58%, rgba(36,40,51,.8) 59%);
+            border: 2px solid rgba(241,239,230,.4);
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+        #stickBase.on { border-color: #f2b632; }
+        #stickBase span {
+            position: absolute; top: 50%; margin-top: -14px;
+            font: bold 24px sans-serif; color: rgba(241,239,230,.75);
+        }
+        #stickBase .l { left: 14px; }
+        #stickBase .r { right: 14px; }
+        #stickKnob {
+            position: absolute; left: 50%; top: 50%;
+            width: 66px; height: 66px; margin: -33px 0 0 -33px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 38% 34%, #ffd05a, #f2b632 55%, #c98f17);
+            box-shadow: 0 4px 10px rgba(0,0,0,.45);
         }
         #hint {
             position: absolute;
             left: 0;
             right: 0;
-            top: 100px;
+            bottom: 6px;
             text-align: center;
-            color: white;
-            font-size: 18px;
-            text-shadow: 1px 1px 0 #000;
+            color: rgba(241,239,230,.7);
+            font-size: 13px;
             pointer-events: none;
             transition: opacity 0.5s;
         }
@@ -141,14 +177,17 @@
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
+<div id="game"><canvas id="gameCanvas"></canvas></div>
 <div id="ui">SPEED: <span id="speedDisplay">0</span> km/h</div>
 
-<!-- Touch-Steuerung: ganze Fläche, Finger seitlich schieben -->
-<div id="steerZone"></div>
-<div id="steerBar"><div id="steerKnob"></div></div>
-<div id="hint">Finger aufsetzen und seitlich schieben = lenken<br>TURBO gedrückt halten = schneller</div>
-<button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
+<!-- Bedienfeld unten: links/Mitte lenken, rechts Turbo -->
+<div id="panel">
+    <div id="steerZone">
+        <div id="stickBase"><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
+        <div id="hint">Daumen aufsetzen und seitlich schieben</div>
+    </div>
+    <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
+</div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
 <button id="ver" type="button"></button>
 <div class="update" id="update" hidden>
@@ -157,7 +196,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.5';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '1.6';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -165,9 +204,12 @@ const ctx = canvas.getContext('2d');
 const speedDisplay = document.getElementById('speedDisplay');
 
 // Bildschirmgröße anpassen
+const gameEl = document.getElementById('game');
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const r = gameEl.getBoundingClientRect();
+    canvas.width = Math.round(r.width);
+    canvas.height = Math.round(r.height);
+    try { stickHome(); } catch (_) {} // beim ersten Aufruf ist die Lenkung noch nicht angelegt
 }
 window.addEventListener('resize', resize);
 resize();
@@ -187,42 +229,55 @@ const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) 
 // Tastenstatus
 let keys = { left: false, right: false, up: true, down: false };
 
-// Touch-Steuerung
+// Touch-Steuerung: Knüppel im Bedienfeld
 // Analoge Lenkung: steer von -1 (voll links) bis +1 (voll rechts).
-// Maßgeblich ist der Abstand des Fingers zum Aufsetzpunkt, nicht die absolute Position.
+// Maßgeblich ist der Abstand des Daumens zum Aufsetzpunkt; der Knüppel rückt dorthin.
 let steer = 0;
 const steerZone = document.getElementById('steerZone');
-const steerBar = document.getElementById('steerBar');
-const steerKnob = document.getElementById('steerKnob');
+const stickBase = document.getElementById('stickBase');
+const stickKnob = document.getElementById('stickKnob');
 const hint = document.getElementById('hint');
 let steerPtr = null, steerX0 = 0;
 function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
-function steerShow(x, y) {
-    const r = steerRange();
-    steerBar.style.left = (x - r - 28) + 'px';
-    steerBar.style.top = y + 'px';
-    steerBar.style.width = (2 * r + 56) + 'px';
-    steerBar.style.display = 'block';
+function stickR() { return stickBase.offsetWidth / 2 || 85; }
+function stickHome() {
+    const r = steerZone.getBoundingClientRect();
+    if (!r.width) return;
+    const R = stickR();
+    if (window.innerWidth > window.innerHeight) {          // Querformat: links unten, nicht über dem Auto
+        stickBase.style.left = (R + 24) + 'px';
+        stickBase.style.top = (r.height - R - 12) + 'px';
+    } else {                                               // Hochformat: Mitte des Bedienfelds
+        stickBase.style.left = (r.width / 2) + 'px';
+        stickBase.style.top = (r.height / 2 - 8) + 'px';
+    }
 }
 function steerMove(x) {
-    const r = steerRange();
-    const off = Math.max(-r, Math.min(r, x - steerX0));
-    const a = off / r, m = Math.abs(a);
+    const range = steerRange();
+    const off = Math.max(-range, Math.min(range, x - steerX0));
+    const a = off / range, m = Math.abs(a);
     steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
-    steerKnob.style.left = (r + 28 + off) + 'px';
+    stickKnob.style.transform = 'translateX(' + (a * (stickR() - 24)).toFixed(1) + 'px)';
 }
 function steerEnd(e) {
     if (e.pointerId !== steerPtr) return;
     steerPtr = null;
     steer = 0;
-    steerBar.style.display = 'none';
+    stickKnob.style.transform = '';
+    stickBase.classList.remove('on');
+    stickHome();
 }
 steerZone.addEventListener('pointerdown', (e) => {
     if (steerPtr !== null) return;
     steerPtr = e.pointerId;
     try { steerZone.setPointerCapture(e.pointerId); } catch (x) {}
+    const r = steerZone.getBoundingClientRect(), R = stickR();
+    const cx = Math.max(R * 0.6, Math.min(r.width - R * 0.6, e.clientX - r.left));
+    const cy = Math.max(R * 0.6, Math.min(r.height - R * 0.6, e.clientY - r.top));
+    stickBase.style.left = cx + 'px';
+    stickBase.style.top = cy + 'px';
+    stickBase.classList.add('on');
     steerX0 = e.clientX;
-    steerShow(e.clientX, e.clientY);
     steerMove(e.clientX);
     hint.style.opacity = 0;
     e.preventDefault();
@@ -232,6 +287,7 @@ steerZone.addEventListener('pointermove', (e) => {
 });
 steerZone.addEventListener('pointerup', steerEnd);
 steerZone.addEventListener('pointercancel', steerEnd);
+stickHome();
 
 // --- TURBO ---
 // Gedrückt halten: Höchsttempo x 1,4. Vorrat reicht 3 s, lädt in 10 s wieder voll.
