@@ -50,6 +50,9 @@
             overflow: hidden;
             background-color: #87CEEB; /* Himmelblau */
             touch-action: none; /* Verhindert Scrollen/Zoomen beim Spielen */
+            -webkit-user-select: none; user-select: none;      /* langes Drücken markiert keinen Text */
+            -webkit-touch-callout: none;                      /* kein Lupen-/Kopiermenü auf iOS */
+            -webkit-tap-highlight-color: transparent;
             font-family: sans-serif;
             height: 100vh;
             height: 100dvh;
@@ -233,12 +236,16 @@
 </div>
 
 <script>
-const APP_VERSION = '2.5';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.6';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const speedDisplay = document.getElementById('speedDisplay');
+
+// Langes Drücken: kein Markieren, kein Kontextmenü
+document.addEventListener('selectstart', (e) => e.preventDefault());
+document.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // Bildschirmgröße anpassen
 const gameEl = document.getElementById('game');
@@ -1187,7 +1194,7 @@ function render() {
         const seg = segments[(baseSegment + n) % segments.length];
         if (!seg.sprites.length || seg.p1.camera.z <= cameraDepth) continue;
         const rel = n * segmentLength - (position % segmentLength);
-        if (rel < 500) continue;                        // direkt an der Kamera: würde das halbe Bild zudecken
+        if (rel < PLAYER_Z) continue;                   // näher als das eigene Auto: würde das halbe Bild zudecken
         for (const sp of seg.sprites) vis.push({ sp, rel, seg });
     }
     {                                                  // Zieltor über Segment 0

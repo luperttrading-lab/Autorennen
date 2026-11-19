@@ -44,4 +44,6 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
 × 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
 Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Offene Entscheidungen des Nutzers stehen in
-Abschnitt 10. Erst nach seiner Freigabe programmieren, je Schritt eine frische Sitzung.
+Abschnitt 10. Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
+Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
+je Schritt eine frische Sitzung. `toene.html`: vier Hörproben fürs Reifenquietschen (A–D), Wahl des Nutzers offen.

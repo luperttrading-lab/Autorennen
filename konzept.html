@@ -29,7 +29,7 @@
 <body>
 <main>
 <h1>Autorennen – Konzept: Karte, Strecken, Abwechslung</h1>
-<p class="lead">Stand 19.11.2026, Entwurf zum Abstimmen. Noch nichts davon ist programmiert.</p>
+<p class="lead">Stand 19.11.2026, Entwurf zum Abstimmen. Noch nichts davon ist programmiert. Nach deiner Rückmeldung ergänzt: Abschnitt 3a (Tempo der Landschaften und sinnvolle Übergänge).</p>
 
 <h2>1 · Die Grundidee in einem Satz</h2>
 <div class="card">
@@ -97,7 +97,7 @@ Mit einer fünften Reihe wären es [12, 17, 12] = 41 Routen.</p>
 <div class="card">
 <table>
   <tr><th>Größe</th><th>Vorschlag</th><th>Begründung</th></tr>
-  <tr><td>Etappe</td><td>≈ 4 000 Segmente, fehlerfrei 60–75 s</td><td>heute 1 250 Segmente ≈ 21 s; mit dem
+  <tr><td>Etappe</td><td>≈ 4 000 Segmente, fehlerfrei 60–75 s, davon ≈ 15 s Verbindungsstück (3a)</td><td>heute 1 250 Segmente ≈ 21 s; mit dem
       Dreifachen hat jede Etappe Platz für 3–4 Abschnitte mit eigenem Charakter</td></tr>
   <tr><td>Gesamtfahrt</td><td>4 Etappen ≈ 4,5 min fehlerfrei, real 5–6 min</td><td>passt in eine Pause, aber man
       fährt „richtig weit“</td></tr>
@@ -116,6 +116,48 @@ Mit einer fünften Reihe wären es [12, 17, 12] = 41 Routen.</p>
   <li>Innerhalb einer Etappe wird die Restzeit voll übertragen, zwischen den Etappen wie heute zur Hälfte.</li>
   <li>Medaillen je Etappe nach der Restzeit am Tor: Gold, Silber, Bronze.</li>
 </ul>
+
+<h2>3a · Tempo der Landschaften und Übergänge</h2>
+<div class="card">
+<p><b>Heute (v2.5) ist es zu hektisch:</b> Fünf Landschaften in einer Runde von etwa 21 s, also knapp 4 s je
+Landschaft. Nach 18 s ist schon Nacht, und es geht von Palmen direkt in den Schnee. Für die Karte gilt deshalb:</p>
+<ul>
+  <li><b>Eine Etappe hat eine Landschaft.</b> 60–75 s lang, mit 2–3 Abschnitten derselben Landschaft. Beispiel Küste:
+      Strand → Felsküste mit Leuchtturm → Fischerdorf. Es gibt keinen Landschaftswechsel innerhalb einer Etappe.</li>
+  <li><b>Die Tageszeit läuft über die ganze Tour</b> (≈ 5 min), nicht pro Runde: Etappe 1 Morgen, Etappe 2 Mittag,
+      Etappe 3 Nachmittag bis Abendrot, Etappe 4 Dämmerung bis Nacht. Dunkel wird es erst in der letzten Etappe,
+      und der Übergang dauert etwa eine Minute statt 10 s.</li>
+  <li><b>Jede Gabelung führt in ein eigenes Verbindungsstück</b> (≈ 15 s, ≈ 1 000 Segmente), das genau zu diesem Paar
+      passt. Bei 17 Pfeilen auf der Karte sind das 17 Verbindungsstücke. Boden, Himmel, Berge und Deko blenden dabei
+      Segment für Segment über, statt umzuschalten.</li>
+  <li><b>Klima-Regel:</b> Zwischen zwei Landschaften liegt immer die passende Zwischenstufe. Der Weg vom Meer in den
+      Schnee führt über Hügel, Wald, Bergwald und Fels, nie direkt.</li>
+</ul>
+</div>
+<h3>Die 17 Verbindungsstücke</h3>
+<table>
+  <tr><th>von → nach</th><th>Übergang</th></tr>
+  <tr><td>Start → K2</td><td>Felder → Hügel mit Pinien → erster Blick aufs Meer</td></tr>
+  <tr><td>Start → L2</td><td>Felder → sanfte Hänge → erste Weinreben</td></tr>
+  <tr><td>Start → G2</td><td>Felder → Voralpen-Hügel → Bergwald, Straße steigt</td></tr>
+  <tr><td>K2 → K3</td><td>Felsküste → Sandstrand → erste Dünen</td></tr>
+  <tr><td>K2 → L3</td><td>Küste → trockenes Buschland → rote Erde, Felsen werden höher</td></tr>
+  <tr><td>L2 → K3</td><td>Fluss wird breiter → Mündung mit Brücke → Bucht</td></tr>
+  <tr><td>L2 → L3</td><td>Weinberge → trockene Hügel → Canyon-Einfahrt</td></tr>
+  <tr><td>L2 → G3</td><td>Weinberge → Bergwald → Geröll → erster Schnee (lange Steigung)</td></tr>
+  <tr><td>G2 → L3</td><td>Abfahrt: Schnee taut → Bergwald lichtet sich → Felsschlucht → rote Wände</td></tr>
+  <tr><td>G2 → G3</td><td>höher hinauf, Bäume werden kleiner, Schnee nimmt zu</td></tr>
+  <tr><td>K3 → Ziel K</td><td>Dünen → Hafenanlagen und Kräne → Stadtrand mit ersten Lichtern</td></tr>
+  <tr><td>K3 → Ziel L</td><td>Dünen werden höher → Sandwüste → Palmen der Oase am Horizont</td></tr>
+  <tr><td>L3 → Ziel K</td><td>Canyon öffnet sich → grünes Flusstal → Küstenebene → Stadt</td></tr>
+  <tr><td>L3 → Ziel L</td><td>Canyon → flache Wüste → Lichter der Oase</td></tr>
+  <tr><td>L3 → Ziel G</td><td>Canyon → Hochplateau → Bergstraße in den Wolken</td></tr>
+  <tr><td>G3 → Ziel L</td><td>der längste Übergang (≈ 20 s): Abfahrt vom Gletscher, Schnee taut, Geröll, Hochwüste, Oase</td></tr>
+  <tr><td>G3 → Ziel G</td><td>Gletscher → Gipfelgrat → über die Wolken zur Sternwarte</td></tr>
+</table>
+<p class="small">Technisch heißt das: Bodenfarbe, Himmel, Berge und die Mischung der Randobjekte werden nicht mehr je
+Landschaft umgeschaltet, sondern pro Segment gemischt. Im Übergang stehen zum Beispiel zuerst einzelne Tannen
+zwischen den Laubbäumen, dann immer mehr.</p>
 
 <h2>4 · Sieht man, wo man ist?</h2>
 <table>

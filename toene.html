@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Autorennen – Hörproben Reifenquietschen</title>
+<style>
+  body { margin: 0; background: #1b1e26; color: #f1efe6; font: 16px/1.45 -apple-system, system-ui, sans-serif;
+         -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  main { max-width: 560px; margin: 0 auto; padding: max(env(safe-area-inset-top), 18px) 16px 40px; }
+  h1 { font-size: 21px; margin: 0 0 6px; }
+  p { margin: 6px 0; color: #c9c3d6; }
+  .probe { background: #242833; border-radius: 14px; padding: 14px; margin: 12px 0; }
+  .probe h2 { font-size: 17px; margin: 0 0 4px; }
+  .probe h2 b { color: #f2b632; margin-right: 6px; }
+  button { font: 600 16px sans-serif; border: 0; border-radius: 10px; padding: 11px 16px; margin: 8px 8px 0 0;
+           background: #d40000; color: #fff; touch-action: manipulation; }
+  button.alt { background: #3a3f4d; }
+  label { display: block; margin-top: 14px; color: #c9c3d6; }
+</style>
+</head>
+<body>
+<main>
+<h1>Reifenquietschen – vier Hörproben</h1>
+<p>Jede Probe spielt 2 s mit Motor darunter: erst Einlenken, dann voll in der Kurve, dann Auslaufen.
+   Lautsprecher an, Stummschalter aus. Sag mir den Buchstaben.</p>
+<label><input type="checkbox" id="motor" checked> Motor darunter mitspielen</label>
+<div id="list"></div>
+</main>
+<script>
+let ac = null, noise = null;
+function ctx() {
+  if (!ac) {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const len = ac.sampleRate * 2; noise = ac.createBuffer(1, len, ac.sampleRate);
+    const d = noise.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  if (ac.state !== 'running') ac.resume();
+  return ac;
+}
+function noiseSrc() { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; return s; }
+// Hüllkurve: 0,3 s einlenken, 1,2 s voll, 0,5 s auslaufen
+function envelope(g, t0, peak) {
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + 0.3);
+  g.gain.setValueAtTime(peak, t0 + 1.5);
+  g.gain.linearRampToValueAtTime(0, t0 + 2.0);
+}
+function motor(t0) {                                   // wie im Spiel bei ca. 280 km/h
+  const o1 = ac.createOscillator(), o2 = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
+  o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = 15;
+  const s = 280 / 300 * 250, base = 40 + s * 0.6;
+  o1.frequency.value = base; o2.frequency.value = base * 0.5;
+  f.type = 'lowpass'; f.frequency.value = 200 + s * 1.5; f.Q.value = 5;
+  g.gain.value = 0.04;
+  o1.connect(f); o2.connect(f); f.connect(g); g.connect(ac.destination);
+  o1.start(t0); o2.start(t0); o1.stop(t0 + 2.1); o2.stop(t0 + 2.1);
+}
+const PROBEN = [
+  { k: 'A', name: 'Arcade-Pfeifen', text: 'Heller, tonaler Pfeifton um 1,1 kHz mit schnellem Flattern, wie in alten Spielhallen-Rennspielen.',
+    play(t0) {
+      const o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), g = ac.createGain(), f = ac.createBiquadFilter();
+      o.type = 'triangle'; o.frequency.value = 1100;
+      lfo.frequency.value = 22; lg.gain.value = 60; lfo.connect(lg); lg.connect(o.frequency);
+      f.type = 'bandpass'; f.frequency.value = 1150; f.Q.value = 2;
+      o.connect(f); f.connect(g); g.connect(ac.destination); envelope(g, t0, 0.10);
+      const n = noiseSrc(), nf = ac.createBiquadFilter(), ng = ac.createGain();
+      nf.type = 'bandpass'; nf.frequency.value = 2400; nf.Q.value = 6;
+      n.connect(nf); nf.connect(ng); ng.connect(ac.destination); envelope(ng, t0, 0.05);
+      [o, lfo, n].forEach(x => { x.start(t0); x.stop(t0 + 2.1); });
+    } },
+  { k: 'B', name: 'Gummi auf Asphalt', text: 'Rauschiger, rauer Quietscher mit schnellem Rubbeln (Gummi, das über die Straße radiert). Am realistischsten.',
+    play(t0) {
+      const n = noiseSrc(), hp = ac.createBiquadFilter(), bp = ac.createBiquadFilter(), g = ac.createGain(), trem = ac.createGain();
+      hp.type = 'highpass'; hp.frequency.value = 1500;
+      bp.type = 'peaking'; bp.frequency.value = 3200; bp.Q.value = 3; bp.gain.value = 12;
+      const lfo = ac.createOscillator(), lg = ac.createGain();
+      lfo.type = 'square'; lfo.frequency.value = 18; lg.gain.value = 0.35; trem.gain.value = 0.65;
+      lfo.connect(lg); lg.connect(trem.gain);
+      n.connect(hp); hp.connect(bp); bp.connect(trem); trem.connect(g); g.connect(ac.destination); envelope(g, t0, 0.08);
+      [n, lfo].forEach(x => { x.start(t0); x.stop(t0 + 2.1); });
+    } },
+  { k: 'C', name: 'Tief schleifend', text: 'Tieferes, schleifendes Quietschen um 900 Hz mit langsamem Wobbeln, eher wie breite Reifen kurz vor dem Ausbrechen.',
+    play(t0) {
+      const n = noiseSrc(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 6;
+      const lfo = ac.createOscillator(), lg = ac.createGain();
+      lfo.frequency.value = 9; lg.gain.value = 120; lfo.connect(lg); lg.connect(bp.frequency);
+      const o = ac.createOscillator(), og = ac.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 460; og.gain.value = 0.25;
+      o.connect(og); og.connect(bp);
+      n.connect(bp); bp.connect(g); g.connect(ac.destination); envelope(g, t0, 0.14);
+      [n, lfo, o].forEach(x => { x.start(t0); x.stop(t0 + 2.1); });
+    } },
+  { k: 'D', name: 'Wie jetzt im Spiel (v2.5)', text: 'Zum Vergleich: schmales Rauschen um 2,6 kHz mit leichtem Wobbeln.',
+    play(t0) {
+      const n = noiseSrc(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = 2600; bp.Q.value = 14;
+      const lfo = ac.createOscillator(), lg = ac.createGain();
+      lfo.frequency.value = 7; lg.gain.value = 250; lfo.connect(lg); lg.connect(bp.frequency);
+      n.connect(bp); bp.connect(g); g.connect(ac.destination); envelope(g, t0, 0.12);
+      [n, lfo].forEach(x => { x.start(t0); x.stop(t0 + 2.1); });
+    } }
+];
+const list = document.getElementById('list');
+for (const p of PROBEN) {
+  const d = document.createElement('div'); d.className = 'probe';
+  d.innerHTML = '<h2><b>' + p.k + '</b>' + p.name + '</h2><p>' + p.text + '</p>';
+  const b = document.createElement('button'); b.textContent = '▶ Abspielen'; if (p.k === 'D') b.className = 'alt';
+  b.addEventListener('click', () => { ctx(); const t0 = ac.currentTime + 0.05; if (document.getElementById('motor').checked) motor(t0); p.play(t0); });
+  d.appendChild(b); list.appendChild(d);
+}
+</script>
+</body>
+</html>
