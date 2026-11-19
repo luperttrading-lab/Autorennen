@@ -282,7 +282,7 @@
         <div class="map" id="startMap"></div>
         <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
-        <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb</div>
+        <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb<br>Etappe auf der Karte antippen: ab dort starten</div>
         <div class="small" id="diag"></div>
         <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
     </div>
@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.38';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.39';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -3395,14 +3395,14 @@ function showStart() {
     document.getElementById('sammlung').textContent = tr ? 'Etappe auf der Karte antippen' : collectionText();
     document.getElementById('startHelp').hidden = tr;
     document.getElementById('trainHelp').hidden = !tr;
-    startMap.innerHTML = mapSVG(null, tr);
+    startMap.innerHTML = mapSVG(null, true);
     setupTrip('S');
 }
 // Training: nach dem Antippen einer Etappe den Startpunkt wählen (Anfang oder einer der drei Abschnitte, v3.29)
 const secScreen = document.getElementById('secScreen');
 startMap.addEventListener('click', (e) => {
     const g = e.target.closest && e.target.closest('[data-id]');
-    if (!g || mode !== 'training' || phase !== 'menu') return;
+    if (!g || phase !== 'menu') return;   // seit v3.39 auch im Rennmodus: ab dieser Etappe starten
     const id = g.getAttribute('data-id'), st = STAGES[id];
     document.getElementById('secTitle').textContent = st.name.toUpperCase();
     const list = document.getElementById('secList');
@@ -3417,8 +3417,11 @@ startMap.addEventListener('click', (e) => {
     secScreen.hidden = false;
 });
 document.getElementById('secBack').addEventListener('click', () => { secScreen.hidden = true; });
+let lastStart = null;                                  // gewählter Startpunkt (Etappe, Abschnitt); NOCHMAL startet wieder dort
 function startAt(id, k) {
+    lastStart = [id, k];
     setupTrip(id);
+    trip.free = id !== 'S' || k > 0;                   // freier Start zählt nicht für die Sammlung
     if (k > 0) {                                       // kurz vor dem Checkpoint des gewählten Abschnitts aufstellen
         const seg0 = cur.cps[k - 1] - 40;
         position = seg0 * segmentLength - PLAYER_Z; playerX = 0;
@@ -3456,7 +3459,7 @@ function finishTrip() {
     trip.times.push(raceTime - cur.t0);
     const st = STAGES[cur.id], key = trip.route.join('-');
     let note = '';
-    if (!trip.training && trip.route[0] === 'S') {
+    if (!trip.training && !trip.free && trip.route[0] === 'S') {
         const prev = save.routes[key];
         if (prev === undefined) note = 'Neue Route entdeckt!';
         else if (raceTime < prev) note = 'Bestzeit auf dieser Route! (vorher ' + fmtTime(prev) + ')';
@@ -3466,13 +3469,13 @@ function finishTrip() {
         storeSave();
     }
     showEnd('ZIEL: ' + st.short, [
-        note || (trip.training ? 'Training – zählt nicht für die Sammlung' : ''),
+        note || (trip.training ? 'Training – zählt nicht für die Sammlung' : trip.free ? 'Freier Start – zählt nicht für die Sammlung' : ''),
         'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · Gesamtzeit ' + fmtTime(raceTime),
         stageLines(),
         trip.training ? '' : collectionText()
     ].filter(Boolean));
 }
-document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') startRace(); });
+document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') { lastStart = null; startRace(); } });
 document.getElementById('btnKnoepfe').addEventListener('click', () => { if (phase === 'menu') setEdit(true); });
 document.getElementById('editDone').addEventListener('click', () => {
     setEdit(false);
@@ -3523,6 +3526,7 @@ document.getElementById('editReset').addEventListener('click', () => { delete kn
 for (const id of ['btnKnoepfe', 'editDone', 'editReset']) document.getElementById(id).addEventListener('pointerdown', (e) => e.stopPropagation());
 btnAgain.addEventListener('click', () => {
     if (trip.training) { showStart(); return; }
+    if (trip.free && lastStart) { startAt(lastStart[0], lastStart[1]); return; }
     setupTrip('S'); startRace();
 });
 // Versteckter Modus-Wechsel: Versionsnummer auf dem Startbildschirm 2 s halten
