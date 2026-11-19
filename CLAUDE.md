@@ -14,10 +14,10 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 
 ## Steuerung
 
-Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
+Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), danach Countdown 3–2–1–LOS mit Piepton (seit v3.2), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
 `fragen-allgemein/spiele/passfahrt`). Bedienfeld nur 20 % der Höhe (120–170 px, Nutzer: vorher zu groß). Darin ein runder Knüppel, der dorthin rückt, wo der Daumen aufsetzt, und nur
 seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
-Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen bei schneller Kurvenfahrt und Vollbremsung.
+Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen nur bei krassem Lenken (Knüppel > 60 %) und hohem Tempo (> 80 %) sowie bei Vollbremsung (Nutzer 19.11., v3.2).
 
 ## Spielablauf (seit v3.0: Konzept Schritt 1)
 
@@ -29,7 +29,7 @@ segmentweise gemischt) → Hauptteil → Schilderbrücken (300) → Gabel (120) 
 das am Gabeltor vorn abgeschnitten wird (`commitFork`, `rebase`); die gewählte Fahrbahn wird zur Mitte.
 Zeit: 2 Checkpoints (1/3, 2/3) + Tor; jedes Tor schreibt die Zeit fürs nächste Drittel gut = Bot-Zeit × 1,30/1,20/1,12
 (Küste/Land/Gebirge, `calibrate`, läuft beim Laden der Etappe), von der Restzeit geht nur die Hälfte mit (`BONUS_SHARE`).
-Game Over = von vorn. Tageslauf über die ganze Fahrt (`TOD`): Lichtfarbe per `source-atop`, Himmel per `destination-over`.
+Game Over = von vorn. Karte (`mapSVG`, `MAP_POS`) als Landkarte in Fahrtrichtung: Start unten, Ziele oben, Meer links, Gebirge rechts. Tageslauf über die ganze Fahrt (`TOD`): Lichtfarbe per `source-atop`, Himmel per `destination-over`.
 Sammlung im localStorage `autorennen.sammlung` (Routen mit Bestzeit, Ziele). Versteckter Trainingsmodus: Versionsnummer
 auf dem Startbildschirm 2 s halten → RENNEN/TRAINING (`autorennen.modus`); Training: Etappe auf der Karte antippen,
 kein Game Over, keine Rekorde, Tipp auf die Leiste oben = zurück zur Karte. Landschaften (`LANDS`) bisher nur aus den

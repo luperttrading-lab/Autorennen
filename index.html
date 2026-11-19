@@ -70,7 +70,7 @@
         .overlay[hidden] { display: none; }
         .overlay { gap: 10px; padding: 46px 10px 12px; box-sizing: border-box; overflow-y: auto; justify-content: safe center; }
         .overlay [hidden] { display: none; }
-        .map svg { display: block; width: min(86vw, 330px); height: auto; max-height: 40vh; }
+        .map svg { display: block; width: min(86vw, 320px); height: auto; max-height: 46vh; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
         #modeScreen { background: rgba(10, 8, 20, 0.88); z-index: 16; }
         .startBtn.alt { background: #2a6fd6; box-shadow: 0 6px 0 #123a7a, 0 10px 20px rgba(0,0,0,.4); }
         /* Leiste oben: Etappe, km, Fortschritt mit Checkpoint-Marken */
@@ -82,7 +82,7 @@
         #miniMap { position: absolute; z-index: 13; left: 50%; top: calc(max(env(safe-area-inset-top), 14px) + 30px); transform: translateX(-50%);
             background: rgba(10, 8, 20, 0.82); border-radius: 12px; padding: 6px; pointer-events: none; opacity: 0; transition: opacity .25s; }
         #miniMap.an { opacity: 1; }
-        #miniMap svg { display: block; width: min(60vw, 220px); height: auto; }
+        #miniMap svg { display: block; width: min(60vw, 210px); height: auto; border-radius: 10px; }
         body.menu #bar, body.menu #ui { visibility: hidden; }
         #barTop { display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
         #barName { overflow: hidden; text-overflow: ellipsis; }
@@ -96,6 +96,11 @@
             opacity: 0; transition: opacity .3s;
         }
         #msg.an { opacity: 1; }
+        #count { position: absolute; left: 0; right: 0; top: 34%; z-index: 14; text-align: center; pointer-events: none;
+            font: bold 120px 'Courier New', Courier, monospace; color: #fff; text-shadow: 5px 5px 0 #000; opacity: 0; }
+        #count.an { animation: cnt 0.9s ease-out forwards; }
+        #count.go { color: #7ddc6a; font-size: 90px; }
+        @keyframes cnt { 0% { opacity: 0; transform: scale(1.8); } 15% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(0.9); } }
         #msg .t { font-size: 26px; font-weight: bold; padding: 0 8px; }
         #msg .s { font-size: 16px; margin-top: 6px; color: #ffe066; }
         .overlay .big { font-size: 40px; font-weight: bold; line-height: 1.1; }
@@ -231,6 +236,7 @@
     <div id="bar"><div id="barTop"><span id="barName"></span><span id="barMode"></span><span id="barKm"></span></div>
         <div id="barTrack"><div id="barFill"></div><i style="left:33.3%"></i><i style="left:66.7%"></i></div></div>
     <div id="miniMap"></div>
+    <div id="count"></div>
     <div class="overlay" id="startScreen">
         <div class="big" id="startTitle">AUTORENNEN</div>
         <div class="map" id="startMap"></div>
@@ -270,7 +276,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.1';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.2';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1738,12 +1744,37 @@ function setupTrip(id) {
 function startRace() {
     initAudio();
     if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().then(showSound, () => {});
-    setPhase('race');
+    setPhase('count');                                 // erst Countdown 3 – 2 – 1 – LOS
+    countT = 3; countShown = 0;
     startScreen.hidden = true;
     gameOverScreen.hidden = true;
     modeScreen.hidden = true;
-    const st = STAGES[cur.id];
-    showMsg((st.row + 1) + '/5 ' + st.short, ROW_NAME[st.row] + ' · ' + COL_NAME[st.col] + ' · ' + cur.G[0] + ' s bis zum Checkpoint', 3);
+}
+// Countdown: große Zahl mitten im Bild, je Zahl ein kurzer Piep, bei LOS ein hoher
+let countT = 0, countShown = 0;
+const countEl = document.getElementById('count');
+function beep(f, len) {
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'square'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + len + 0.02);
+}
+function showCount(txt, go) {
+    countEl.textContent = txt;
+    countEl.classList.remove('an', 'go'); void countEl.offsetWidth;
+    countEl.classList.add('an'); if (go) countEl.classList.add('go');
+}
+function updateCount(dt) {
+    countT -= dt;
+    const n = Math.ceil(countT);
+    if (n > 0 && n !== countShown) { countShown = n; showCount(String(n)); beep(523, 0.15); }
+    if (countT <= 0) {
+        setPhase('race'); showCount('LOS!', true); beep(1046, 0.45);
+        setTimeout(() => countEl.classList.remove('an'), 700);
+        const st = STAGES[cur.id];
+        showMsg((st.row + 1) + '/5 ' + st.short, ROW_NAME[st.row] + ' · ' + COL_NAME[st.col] + ' · ' + cur.G[0] + ' s bis zum Checkpoint', 3);
+    }
 }
 // Restzeit am Tor: nur die Hälfte geht mit (im Training kann sie negativ sein, dann geht nichts mit)
 function carry() { return Math.max(0, timeLeft) * BONUS_SHARE; }
@@ -1800,33 +1831,68 @@ function collectionText() {
     return 'Ziele ' + nZ + '/3 · Routen ' + nR + '/41' + (isFinite(best) ? ' · Bestzeit ' + fmtTime(best) : '');
 }
 
-// --- KARTE als SVG: Spalten Küste/Land/Gebirge, Reihen Morgen bis Nacht ---
+// --- KARTE als Landkarte (SVG): unten Start am Morgen, oben die Ziele in der Nacht, in Fahrtrichtung nach oben.
+// Links Meer und Küste, Mitte Land, rechts Gebirge; Straßen als geschwungene Abschnitte zwischen den Orten.
+const MAP_POS = {                                      // Lage der Orte (leicht versetzt, damit es nicht wie ein Raster wirkt)
+    S: [150, 318], K2: [62, 252], L2: [152, 256], G2: [240, 250], K3: [56, 186], L3: [148, 190], G3: [246, 184],
+    K4: [64, 120], L4: [154, 124], G4: [238, 118], K5: [58, 52], L5: [150, 56], G5: [244, 50]
+};
 function mapSVG(route, clickable) {
-    const X = [52, 150, 248], Y = (r) => 22 + r * 62, on = new Set(route || []);
-    const edgeOn = new Set();
+    const on = new Set(route || []), edgeOn = new Set();
     for (let k = 1; k < (route || []).length; k++) edgeOn.add(route[k - 1] + '>' + route[k]);
-    let s = '<svg viewBox="0 0 300 294" xmlns="http://www.w3.org/2000/svg" style="text-shadow:none">';
+    const P = (id) => MAP_POS[id];
+    const road = (a, b) => { const [x1, y1] = P(a), [x2, y2] = P(b), m = (y1 - y2) * 0.45;
+        return 'M' + x1 + ',' + y1 + ' C' + x1 + ',' + (y1 - m) + ' ' + x2 + ',' + (y2 + m) + ' ' + x2 + ',' + y2; };
+    let s = '<svg viewBox="0 0 300 340" xmlns="http://www.w3.org/2000/svg" style="text-shadow:none">' +
+        '<defs><linearGradient id="mzeit" x1="0" y1="1" x2="0" y2="0">' +
+        '<stop offset="0" stop-color="#ffcf8a" stop-opacity="0.18"/><stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>' +
+        '<stop offset="0.7" stop-color="#ff8a4a" stop-opacity="0.12"/><stop offset="1" stop-color="#0a0e3a" stop-opacity="0.55"/></linearGradient>' +
+        '<clipPath id="mclip"><rect width="300" height="340" rx="14"/></clipPath></defs><g clip-path="url(#mclip)">';
+    // Land, Meer mit Küstenlinie und Strand, Gebirge mit Schneegipfeln, Wüste/Canyon, Vulkan, Stadt
+    s += '<rect width="300" height="340" fill="#78b552"/>';
+    s += '<path d="M0,0 H92 C80,40 106,70 96,104 C86,140 104,170 92,206 C82,240 100,270 90,300 C84,320 96,332 92,340 H0 Z" fill="#e8d9a0"/>';
+    s += '<path d="M0,0 H82 C70,40 96,70 86,104 C76,140 94,170 82,206 C72,240 90,270 80,300 C74,320 86,332 82,340 H0 Z" fill="#3d86c6"/>';
+    s += '<path d="M0,0 H60 C50,60 74,120 58,190 C46,250 66,300 56,340 H0 Z" fill="#2f6fae"/>';
+    for (const [x, y] of [[30, 210], [44, 160], [24, 175]]) s += '<ellipse cx="' + x + '" cy="' + y + '" rx="9" ry="5" fill="#e8d9a0"/><circle cx="' + x + '" cy="' + (y - 2) + '" r="3" fill="#3f8a3a"/>';
+    s += '<path d="M206,340 C200,300 214,270 204,230 C196,190 212,150 200,110 C192,70 208,30 200,0 H300 V340 Z" fill="#9aa0a6"/>';
+    for (const [x, y, h] of [[222, 300, 22], [262, 290, 28], [280, 230, 30], [218, 210, 26], [262, 160, 34], [226, 140, 28], [286, 110, 30], [214, 80, 26], [258, 70, 36], [282, 20, 32], [224, 18, 30]]) {
+        s += '<path d="M' + (x - h * 0.8) + ',' + y + ' L' + x + ',' + (y - h) + ' L' + (x + h * 0.8) + ',' + y + ' Z" fill="#7d838b"/>';
+        s += '<path d="M' + (x - h * 0.3) + ',' + (y - h * 0.62) + ' L' + x + ',' + (y - h) + ' L' + (x + h * 0.3) + ',' + (y - h * 0.62) + ' Z" fill="#f4f7fa"/>';
+    }
+    s += '<path d="M112,150 C130,132 178,134 196,150 C200,110 186,40 160,30 C130,26 110,60 112,100 Z" fill="#d9b483" opacity="0.9"/>';
+    s += '<path d="M128,140 C140,128 168,128 180,140 C176,118 170,108 154,106 C138,108 130,120 128,140 Z" fill="#c46e3c"/>';
+    s += '<path d="M48,132 L64,104 L80,132 Z" fill="#3b3533"/><path d="M60,111 L64,104 L68,111 Z" fill="#ff5a1e"/>';
+    for (let i = 0; i < 6; i++) s += '<rect x="' + (36 + i * 7) + '" y="' + (30 - (i * 7 % 13)) + '" width="5" height="' + (12 + (i * 7 % 13)) + '" fill="#4a5060"/>';
+    s += '<path d="M0,250 C40,256 100,262 152,256 C200,250 250,262 300,256" fill="none" stroke="#5aa0d8" stroke-width="3" opacity="0.8"/>';   // Fluss
+    s += '<rect width="300" height="340" fill="url(#mzeit)"/>';
+    // Tageszeiten am rechten Rand
+    ROW_NAME.forEach((n, r) => { const y = MAP_POS[stageAt(r, 1)][1]; s += '<text x="296" y="' + (y + 3) + '" text-anchor="end" font-family="sans-serif" font-size="8" fill="#fff" opacity="0.85">' + n + '</text>'; });
+    // Straßen: grau mit Mittellinie, gefahrene Abschnitte golden leuchtend
     for (const id in STAGES) for (const nx of nextStages(id)) {
-        const a = STAGES[id], b = STAGES[nx];
-        s += '<line x1="' + X[a.col] + '" y1="' + (Y(a.row) + 16) + '" x2="' + X[b.col] + '" y2="' + (Y(b.row) - 16) +
-             '" stroke="rgba(255,255,255,0.28)" stroke-width="2"/>';
+        const d = road(id, nx);
+        s += '<path d="' + d + '" fill="none" stroke="#2c2c30" stroke-width="5" stroke-linecap="round"/>';
+        s += '<path d="' + d + '" fill="none" stroke="#d8d8d8" stroke-width="1" stroke-dasharray="3 3"/>';
     }
-    if (route && route.length > 1) {
-        const pts = route.map(id => X[STAGES[id].col] + ',' + Y(STAGES[id].row)).join(' ');
-        s += '<polyline points="' + pts + '" fill="none" stroke="rgba(255,216,74,0.35)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>';
-        s += '<polyline points="' + pts + '" fill="none" stroke="#ffd84a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+    for (const e of edgeOn) {
+        const [a, b] = e.split('>'), d = road(a, b);
+        s += '<path d="' + d + '" fill="none" stroke="rgba(255,216,74,0.45)" stroke-width="11" stroke-linecap="round"/>';
+        s += '<path d="' + d + '" fill="none" stroke="#ffd84a" stroke-width="4" stroke-linecap="round"/>';
     }
+    // Orte: Punkt in der Farbe der Spalte, Name mit hellem Rand, darunter die Schwierigkeit
     for (const id in STAGES) {
-        const st = STAGES[id], x = X[st.col], y = Y(st.row), hit = on.has(id);
-        s += '<g' + (clickable ? ' data-id="' + id + '" style="cursor:pointer"' : '') + '>';
-        s += '<rect x="' + (x - 46) + '" y="' + (y - 17) + '" width="92" height="34" rx="8" fill="' + COL_COLOR[st.col] + '" fill-opacity="' +
-             (hit || clickable || !route ? 1 : 0.55) + '" stroke="' + (hit ? '#ffd84a' : '#1b1730') + '" stroke-width="' + (hit ? 3 : 1.5) + '"/>';
-        s += '<text x="' + x + '" y="' + (y - 1) + '" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="11" fill="#14121c">' + st.name.split(' ')[0] + '</text>';
-        s += '<text x="' + x + '" y="' + (y + 11) + '" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#14121c">' +
-             '●'.repeat(st.col + 1) + '○'.repeat(2 - st.col) + (st.row === ROWS - 1 && save.ziele[id] ? ' ★' : '') + '</text>';
+        const st = STAGES[id], [x, y] = P(id), hit = on.has(id), dim = route && !hit;
+        s += '<g' + (clickable ? ' data-id="' + id + '" style="cursor:pointer"' : '') + (dim ? ' opacity="0.75"' : '') + '>';
+        if (clickable) s += '<circle cx="' + x + '" cy="' + y + '" r="26" fill="#000" fill-opacity="0.001"/>';
+        s += '<circle cx="' + x + '" cy="' + y + '" r="' + (hit ? 9 : 7) + '" fill="' + COL_COLOR[st.col] + '" stroke="' + (hit ? '#ffd84a' : '#1b1730') + '" stroke-width="' + (hit ? 3 : 2) + '"/>';
+        if (st.row === 0) s += '<path d="M' + (x + 6) + ',' + (y - 6) + ' v-16 l12,4 l-12,4" fill="#fff" stroke="#111" stroke-width="1"/>';
+        if (st.row === ROWS - 1) s += '<text x="' + x + '" y="' + (y + 3.5) + '" text-anchor="middle" font-size="9" fill="' + (save.ziele[id] ? '#c08a00' : '#333') + '">★</text>';
+        const lbl = st.name.split(' ')[0];
+        s += '<text x="' + x + '" y="' + (y - 13) + '" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="11" fill="#111" stroke="#fff" stroke-width="3" paint-order="stroke">' + lbl + '</text>';
+        s += '<text x="' + x + '" y="' + (y + 19) + '" text-anchor="middle" font-family="sans-serif" font-size="8" fill="#111" stroke="#fff" stroke-width="2.5" paint-order="stroke">' +
+             '●'.repeat(st.col + 1) + '○'.repeat(2 - st.col) + '</text>';
         s += '</g>';
     }
-    return s + '</svg>';
+    return s + '</g></svg>';
 }
 
 // --- BILDSCHIRME ---
@@ -1845,7 +1911,7 @@ const startScreen = document.getElementById('startScreen');
 const modeScreen = document.getElementById('modeScreen');
 const btnAgain = document.getElementById('btnAgain');
 const startMap = document.getElementById('startMap');
-function setPhase(p) { phase = p; document.body.classList.toggle('menu', p !== 'race'); }
+function setPhase(p) { phase = p; document.body.classList.toggle('menu', p !== 'race' && p !== 'count'); }
 function showStart() {
     setPhase('menu');
     gameOverScreen.hidden = true; modeScreen.hidden = true; startScreen.hidden = false;
@@ -1973,6 +2039,7 @@ function updateFlakes(dt, curve, sp) {
 
 // --- SPIEL-LOGIK ---
 function update(dt) {
+    if (phase === 'count') updateCount(dt);
     if (phase !== 'race') {
         if (phase === 'done' && speed > 0) {           // nach dem Ziel ausrollen (gebremst)
             const st = { position, playerX, speed };
@@ -2057,8 +2124,9 @@ function update(dt) {
     const speedPercent = speed / maxSpeed;
     const carSeg = segAt(position + PLAYER_Z);
     const offRoadNow = roadDist(carSeg, playerX) > 1;
-    const lat = speedPercent * speedPercent * (Math.abs(s) * 0.7 + Math.abs(ph.pSeg.curve) / 6 * 0.7);
-    const sqCurve = Math.max(0, Math.min(1, (lat - 0.55) / 0.35));
+    // nur wenn man krass einlenkt (Knüppel über 60 %) und dabei sehr schnell ist (über 80 %); enge Kurven verstärken
+    const hard = Math.max(0, (Math.abs(s) - 0.6) / 0.4), fast = Math.max(0, (speedPercent - 0.8) / 0.2);
+    const sqCurve = Math.min(1, hard * fast * (0.7 + 0.3 * Math.min(1, Math.abs(ph.pSeg.curve) / 5)));
     const sqBrake = brk * Math.max(0, Math.min(1, (speedPercent - 0.5) / 0.5)) * 0.8;
     const onGravelNow = carSeg.gravel;
     squealAmt = offRoadNow || onGravelNow || slipTime > 0 ? 0 : Math.max(sqCurve, sqBrake);
