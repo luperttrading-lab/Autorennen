@@ -127,9 +127,7 @@
         #panel {
             flex: 0 0 auto;
             position: relative;
-            height: 16vh;                 /* niedriger als früher (20 %): mehr Platz fürs Spielbild */
-            max-height: 136px;
-            min-height: 108px;
+            height: calc(108px + max(env(safe-area-inset-bottom), 4px));   /* Variante A (Nutzer 19.11.): flach, Knüppel am Rand */
             display: flex;
             align-items: center;
             gap: 12px;
@@ -141,7 +139,7 @@
         /* Knöpfe getauscht: Turbo links, Knüppel rechts */
         #panel.swap { flex-direction: row-reverse; padding-left: 16px; padding-right: 0; }
         #swap {
-            position: absolute; left: 4px; bottom: max(env(safe-area-inset-bottom), 4px); z-index: 21;
+            position: absolute; left: 50%; margin-left: -15px; bottom: max(env(safe-area-inset-bottom), 4px); z-index: 21;
             width: 30px; height: 26px; padding: 0; border: 1px solid rgba(241,239,230,.35); border-radius: 8px;
             background: rgba(0,0,0,.3); color: rgba(241,239,230,.8); font: bold 15px sans-serif; touch-action: manipulation;
         }
@@ -284,7 +282,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.5';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.6';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -343,7 +341,7 @@ swapBtn.addEventListener('click', () => {
     try { localStorage.setItem('autorennen.tausch', swapped ? 'ja' : 'nein'); } catch (_) {}
     stickHome();
 });
-function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
+function steerRange() { return 50; } // Fingerweg für Volleinschlag in px: kurz, weil der Knüppel am Rand sitzt (bis v3.5: 22 % der Breite)
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
 function stickHome() {
     const r = steerZone.getBoundingClientRect();
@@ -352,8 +350,8 @@ function stickHome() {
     if (window.innerWidth > window.innerHeight) {          // Querformat: unten in der Ecke, nicht über dem Auto
         stickBase.style.left = (swapped ? r.width - R - 20 : R + 20) + 'px';
         stickBase.style.top = (r.height - R - 10) + 'px';
-    } else {                                               // Hochformat: mittig, ganz unten im Bedienfeld
-        stickBase.style.left = (r.width / 2) + 'px';
+    } else {                                               // Hochformat: am äußeren Rand, ganz unten im Bedienfeld
+        stickBase.style.left = (swapped ? r.width - R - 12 : R + 12) + 'px';
         stickBase.style.top = (r.height - R - 2) + 'px';
     }
 }
@@ -363,7 +361,7 @@ function steerMove(x, y) {
     const a = off / range, m = Math.abs(a);
     steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
     // senkrecht: nach vorn (oben) = Gas, zurück (unten) = Bremse; Vollausschlag nach 60 % des Seitenwegs
-    const vr = range * 0.35;                           // Gas/Bremse: voller Ausschlag schon nach 35 % des Seitenwegs (Nutzer: vorher zu weit)
+    const vr = 30;                                     // Gas/Bremse: voller Ausschlag 30 px über/unter der Knüppelmitte
     const b = Math.max(-1, Math.min(1, -(y - steerY0) / vr)), mb = Math.abs(b);
     const v = mb < 0.12 ? 0 : Math.sign(b) * (mb - 0.12) / 0.88;
     throttle = Math.max(0, v); brake = Math.max(0, -v);
