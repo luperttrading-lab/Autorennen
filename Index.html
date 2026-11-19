@@ -1,1 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <!-- Diese Tags machen es zur Vollbild-App auf dem iPhone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Mini OutRun</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #87CEEB; /* Himmelblau */
+            touch-action: none; /* Verhindert Scrollen/Zoomen beim Spielen */
+            font-family: sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            pointer-events: none;
+        }
+        #controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            display: flex;
+        }
+        .control-btn {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            margin: 5px;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 30px;
+            user-select: none;
+        }
+        .control-btn:active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
 
+<canvas id="gameCanvas"></canvas>
+<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h</div>
+
+<!-- Touch-Steuerung -->
+<div id="controls">
+    <div class="control-btn" id="btnLeft">⬅️</div>
+    <div class="control-btn" id="btnRight">➡️</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const speedDisplay = document.getElementById('speedDisplay');
+
+// Bildschirmgröße anpassen
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- SPIELVARIABLEN ---
+let position = 0; // Z-Position auf der Straße
+let playerX = 0; // X-Position des Spielers (-1 bis 1)
+let speed = 0;
+const maxSpeed = 200;
+const accel = 0.5;
+const decel = 0.2;
+const offRoadDecel = 2;
+
+// Tastenstatus
+let keys = { left: false, right: false, up: true, down: false };
+
+// Touch-Steuerung
+const btnLeft = document.getElementById('btnLeft');
+const btnRight = document.getElementById('btnRight');
+
+btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
+btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
+btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+
+// Tastatur-Steuerung (für den PC-Test)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = true;
+    if (e.key === 'ArrowRight') keys.right = true;
+    if (e.key === 'ArrowUp') keys.up = true;
+    if (e.key === 'ArrowDown') keys.down = true;
+});
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = false;
+    if (e.key === 'ArrowRight') keys.right = false;
+    if (e.key === 'ArrowUp') keys.up = false;
+    if (e.key === 'ArrowDown') keys.down = false;
+});
+
+// --- STRASSEN-GENERATOR (Pseudo-3D) ---
+const segmentLength = 200;
+const rumbleLength = 3;
+const roadWidth = 2000;
+const lanes = 3;
+let trackLength = 0;
+let segments = [];
+
+function addSegment(curve, y) {
+    const n = segments.length;
+    segments.push({
+        index: n,
+        p1: { world: { y: lastY(), z: n * segmentLength }, camera: {}, screen: {} },
+        p2: { world: { y: y, z: (n + 1) * segmentLength }, camera: {}, screen: {} },
+        curve: curve,
+        color: Math.floor(n / rumbleLength) % 2 ? 'dark' : 'light'
+    });
+}
+function lastY() { return (segments.length === 0) ? 0 : segments[segments.length - 1].p2.world.y; }
+
+// Strecke bauen
+function buildTrack() {
+    segments = [];
+    addStraight(50);
+    addCurve(50, 5);
+    addStraight(50);
+    addCurve(50, -5);
+    addHill(50, 100);
+    addStraight(100);
+    trackLength = segments.length * segmentLength;
+}
+function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
+function addCurve(num, curve) { for(let i=0; i<num; i++) addSegment(curve, lastY()); }
+function addHill(num, height) {
+    const startY = lastY();
+    for(let i=0; i<num; i++) {
+        let y = startY + Math.sin((i/num) * Math.PI) * height;
+        addSegment(0, y);
+    }
+}
+buildTrack();
+
+// Kamera Einstellungen
+const cameraHeight = 1000;
+const cameraDepth = 1 / Math.tan((100 / 2) * Math.PI / 180);
+const drawDistance = 150;
+
+// --- RENDERING FUNKTIONEN ---
+function project(p, cameraX, cameraY, cameraZ) {
+    p.camera.x = (p.world.x || 0) - cameraX;
+    p.camera.y = (p.world.y || 0) - cameraY;
+    p.camera.z = (p.world.z || 0) - cameraZ;
+    p.screen.scale = cameraDepth / p.camera.z;
+    p.screen.x = Math.round((canvas.width/2) + (p.screen.scale * p.camera.x * canvas.width/2));
+    p.screen.y = Math.round((canvas.height/2) - (p.screen.scale * p.camera.y * canvas.height/2));
+    p.screen.w = Math.round(p.screen.scale * roadWidth * canvas.width/2);
+}
+
+function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.lineTo(x4, y4);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function render() {
+    // Himmel
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height/2);
+    // Gras
+    ctx.fillStyle = '#004d00';
+    ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+
+    const baseSegment = Math.floor(position / segmentLength);
+    const basePercent = (position % segmentLength) / segmentLength;
+    const playerSegment = segments[baseSegment];
+    
+    // Spieler X-Position relativ zur Straße
+    const playerZ = position;
+    
+    let maxy = canvas.height;
+    let x = 0;
+    let dx = -(playerSegment.curve * basePercent);
+
+    // Straße zeichnen
+    for(let n = 0; n < drawDistance; n++) {
+        const segment = segments[(baseSegment + n) % segments.length];
+        segment.looped = segment.index < baseSegment;
+        segment.fog = 1 - (n / drawDistance);
+        
+        const cameraX = playerX * roadWidth - x;
+        const cameraY = cameraHeight + (playerSegment.p1.world.y || 0); // Vereinfachte Kamera-Y
+        const cameraZ = position;
+
+        project(segment.p1, cameraX, cameraY, cameraZ);
+        project(segment.p2, cameraX - dx, cameraY, cameraZ);
+
+        x += dx;
+        dx += segment.curve;
+
+        // Nicht zeichnen, wenn hinter uns
+        if (segment.p1.camera.z <= cameraDepth || segment.p2.screen.y >= segment.p1.screen.y || segment.p2.screen.y >= maxy) continue;
+
+        const p1 = segment.p1.screen;
+        const p2 = segment.p2.screen;
+
+        // Gras / Rumble
+        let grassColor = segment.color === 'light' ? '#00b300' : '#00cc00';
+        let rumbleColor = segment.color === 'light' ? '#ff0000' : '#ffffff';
+        let roadColor = segment.color === 'light' ? '#555555' : '#666666';
+
+        // Gras
+        ctx.fillStyle = grassColor;
+        ctx.fillRect(0, p2.y, canvas.width, p1.y - p2.y);
+
+        // Rumble Strips
+        const r1 = p1.w / 5;
+        const r2 = p2.w / 5;
+        drawPolygon(p1.x - p1.w - r1, p1.y, p1.x - p1.w, p1.y, p2.x - p2.w, p2.y, p2.x - p2.w - r2, p2.y, rumbleColor); // Links
+        drawPolygon(p1.x + p1.w + r1, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x + p2.w + r2, p2.y, rumbleColor); // Rechts
+
+        // Straße
+        drawPolygon(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y, p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, roadColor);
+
+        // Fahrspuren
+        if (segment.color === 'light') {
+            const l1 = p1.w / 10;
+            const l2 = p2.w / 10;
+            const lw1 = p1.w / 40;
+            const lw2 = p2.w / 40;
+            // Linke Spur
+            drawPolygon(p1.x - l1 - lw1, p1.y, p1.x - l1 + lw1, p1.y, p2.x - l2 + lw2, p2.y, p2.x - l2 - lw2, p2.y, '#ffffff');
+            // Rechte Spur
+            drawPolygon(p1.x + l1 - lw1, p1.y, p1.x + l1 + lw1, p1.y, p2.x + l2 + lw2, p2.y, p2.x + l2 - lw2, p2.y, '#ffffff');
+        }
+
+        maxy = p2.y;
+    }
+
+    // Spieler-Auto zeichnen (Einfaches rotes Rechteck als Platzhalter)
+    const carW = canvas.width * 0.2;
+    const carH = canvas.height * 0.15;
+    const carX = (canvas.width / 2) - (carW / 2) + (playerX * canvas.width * 0.2);
+    const carY = canvas.height - carH - 50; // Über den Steuerungsknöpfen
+
+    // Schatten
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(canvas.width / 2 + (playerX * canvas.width * 0.2), carY + carH, carW/2, carH/4, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Auto Karosserie
+    ctx.fillStyle = '#e60000'; // Ferrari Rot
+    ctx.fillRect(carX, carY, carW, carH);
+    // Fenster
+    ctx.fillStyle = '#333';
+    ctx.fillRect(carX + carW*0.1, carY + carH*0.1, carW*0.8, carH*0.4);
+    // Räder
+    ctx.fillStyle = '#111';
+    ctx.fillRect(carX - 10, carY + carH*0.6, 15, carH*0.4);
+    ctx.fillRect(carX + carW - 5, carY + carH*0.6, 15, carH*0.4);
+}
+
+// --- SPIEL-LOGIK ---
+function update(dt) {
+    // Geschwindigkeit
+    if (keys.up) {
+        speed += accel * dt;
+    } else if (keys.down) {
+        speed -= decel * dt;
+    } else {
+        speed -= decel * dt * 0.5; // Motorbremsung
+    }
+    
+    // Abbremsen auf Gras (off-road)
+    if (playerX < -1 || playerX > 1) {
+        speed -= offRoadDecel * dt;
+    }
+
+    // Limits
+    if (speed > maxSpeed) speed = maxSpeed;
+    if (speed < 0) speed = 0;
+
+    // Position updaten
+    position += speed * dt;
+    while (position >= trackLength) {
+        position -= trackLength;
+    }
+
+    // Lenken
+    const playerSegment = segments[Math.floor(position / segmentLength) % segments.length];
+    const speedPercent = speed / maxSpeed;
+    const dx = dt * 2 * speedPercent; // Lenkgeschwindigkeit
+
+    if (keys.left) {
+        playerX -= dx;
+    } else if (keys.right) {
+        playerX += dx;
+    }
+    
+    // Zentrifugalkraft (zieht dich in Kurven nach außen)
+    playerX -= (dx * speedPercent * playerSegment.curve * 0.5);
+
+    // Begrenzung der X-Position
+    if (playerX < -2) playerX = -2;
+    if (playerX > 2) playerX = 2;
+
+    // UI Update
+    speedDisplay.innerText = Math.floor(speed * 1.5); // Fake km/h
+}
+
+// --- GAME LOOP ---
+let lastTime = performance.now();
+function gameLoop(time) {
+    const dt = Math.min(1, (time - lastTime) / 1000); // Delta time in Sekunden
+    lastTime = time;
+
+    update(dt);
+    render();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
