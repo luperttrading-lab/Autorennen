@@ -31,29 +31,42 @@
             text-shadow: 2px 2px 0 #000;
             pointer-events: none;
         }
-        #controls {
+        /* Lenkung: Finger irgendwo aufsetzen und seitlich schieben */
+        #steerZone {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 30%;
-            display: flex;
+            inset: 0;
+            touch-action: none;
         }
-        .control-btn {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.2);
+        #steerBar {
+            position: absolute;
+            height: 56px;
+            margin-top: -28px;
+            border-radius: 28px;
+            background: rgba(0, 0, 0, 0.25);
             border: 2px solid rgba(255, 255, 255, 0.5);
-            margin: 5px;
-            border-radius: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 30px;
-            user-select: none;
+            pointer-events: none;
+            display: none;
         }
-        .control-btn:active {
-            background: rgba(255, 255, 255, 0.4);
+        #steerKnob {
+            position: absolute;
+            top: 50%;
+            width: 48px;
+            height: 48px;
+            margin: -24px 0 0 -24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+        }
+        #hint {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 70px;
+            text-align: center;
+            color: white;
+            font-size: 18px;
+            text-shadow: 1px 1px 0 #000;
+            pointer-events: none;
+            transition: opacity 0.5s;
         }
     </style>
 </head>
@@ -62,11 +75,10 @@
 <canvas id="gameCanvas"></canvas>
 <div id="ui">SPEED: <span id="speedDisplay">0</span> km/h</div>
 
-<!-- Touch-Steuerung -->
-<div id="controls">
-    <div class="control-btn" id="btnLeft">⬅️</div>
-    <div class="control-btn" id="btnRight">➡️</div>
-</div>
+<!-- Touch-Steuerung: ganze Fläche, Finger seitlich schieben -->
+<div id="steerZone"></div>
+<div id="steerBar"><div id="steerKnob"></div></div>
+<div id="hint">Finger aufsetzen und nach links / rechts schieben</div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -91,19 +103,56 @@ const accel = maxSpeed / 5;          // in 5 s auf Höchstgeschwindigkeit
 const decel = maxSpeed;              // Bremse
 const offRoadDecel = maxSpeed / 2;
 const offRoadLimit = maxSpeed / 4;   // im Gras nie langsamer als das, sonst bleibt man stecken
-const centrifugal = 0.3;
+const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) braucht man halben Einschlag
 
 // Tastenstatus
 let keys = { left: false, right: false, up: true, down: false };
 
 // Touch-Steuerung
-const btnLeft = document.getElementById('btnLeft');
-const btnRight = document.getElementById('btnRight');
-
-btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
-btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
-btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
-btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+// Analoge Lenkung: steer von -1 (voll links) bis +1 (voll rechts).
+// Maßgeblich ist der Abstand des Fingers zum Aufsetzpunkt, nicht die absolute Position.
+let steer = 0;
+const steerZone = document.getElementById('steerZone');
+const steerBar = document.getElementById('steerBar');
+const steerKnob = document.getElementById('steerKnob');
+const hint = document.getElementById('hint');
+let steerPtr = null, steerX0 = 0;
+function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
+function steerShow(x, y) {
+    const r = steerRange();
+    steerBar.style.left = (x - r - 28) + 'px';
+    steerBar.style.top = y + 'px';
+    steerBar.style.width = (2 * r + 56) + 'px';
+    steerBar.style.display = 'block';
+}
+function steerMove(x) {
+    const r = steerRange();
+    const off = Math.max(-r, Math.min(r, x - steerX0));
+    const a = off / r, m = Math.abs(a);
+    steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
+    steerKnob.style.left = (r + 28 + off) + 'px';
+}
+function steerEnd(e) {
+    if (e.pointerId !== steerPtr) return;
+    steerPtr = null;
+    steer = 0;
+    steerBar.style.display = 'none';
+}
+steerZone.addEventListener('pointerdown', (e) => {
+    if (steerPtr !== null) return;
+    steerPtr = e.pointerId;
+    try { steerZone.setPointerCapture(e.pointerId); } catch (x) {}
+    steerX0 = e.clientX;
+    steerShow(e.clientX, e.clientY);
+    steerMove(e.clientX);
+    hint.style.opacity = 0;
+    e.preventDefault();
+});
+steerZone.addEventListener('pointermove', (e) => {
+    if (e.pointerId === steerPtr) { steerMove(e.clientX); e.preventDefault(); }
+});
+steerZone.addEventListener('pointerup', steerEnd);
+steerZone.addEventListener('pointercancel', steerEnd);
 
 // Tastatur-Steuerung (für den PC-Test)
 window.addEventListener('keydown', (e) => {
@@ -265,13 +314,13 @@ function render() {
     // Spieler-Auto zeichnen (Einfaches rotes Rechteck als Platzhalter)
     const carW = canvas.width * 0.2;
     const carH = canvas.height * 0.15;
-    const carX = (canvas.width / 2) - (carW / 2) + (playerX * canvas.width * 0.2);
-    const carY = canvas.height - carH - 50; // Über den Steuerungsknöpfen
+    const carX = (canvas.width / 2) - (carW / 2); // Auto bleibt mittig, die Straße wandert (Kamera folgt playerX)
+    const carY = canvas.height - carH - 50;
 
     // Schatten
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.beginPath();
-    ctx.ellipse(canvas.width / 2 + (playerX * canvas.width * 0.2), carY + carH, carW/2, carH/4, 0, 0, Math.PI*2);
+    ctx.ellipse(canvas.width / 2, carY + carH, carW/2, carH/4, 0, 0, Math.PI*2);
     ctx.fill();
 
     // Auto Karosserie
@@ -317,11 +366,10 @@ function update(dt) {
     const speedPercent = speed / maxSpeed;
     const dx = dt * 2 * speedPercent; // Lenkgeschwindigkeit
 
-    if (keys.left) {
-        playerX -= dx;
-    } else if (keys.right) {
-        playerX += dx;
-    }
+    let s = steer;
+    if (keys.left) s = -1;
+    else if (keys.right) s = 1;
+    playerX += dx * s;
     
     // Zentrifugalkraft (zieht dich in Kurven nach außen)
     playerX -= (dx * speedPercent * playerSegment.curve * centrifugal);
