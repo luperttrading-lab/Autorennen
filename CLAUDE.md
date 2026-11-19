@@ -1,6 +1,6 @@
 # Autorennen
 
-Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`), ausgeliefert über GitHub Pages aus `main`:
+Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.webmanifest`, App-Symbole `apple-touch-icon.png` 180 px und `icon-192/512.png`), ausgeliefert über GitHub Pages aus `main`:
 [luperttrading-lab.github.io/Autorennen](https://luperttrading-lab.github.io/Autorennen/) (Groß-/Kleinschreibung im Pfad zählt).
 
 ## Ausliefern
@@ -14,17 +14,18 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`), ausgeliefer
 
 ## Steuerung
 
-Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach Ablauf der Zeit NOCHMAL-Knopf. Danach ist Gas immer an (`keys.up: true`). Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
+Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
 `fragen-allgemein/spiele/passfahrt`). Bedienfeld nur 20 % der Höhe (120–170 px, Nutzer: vorher zu groß). Darin ein runder Knüppel, der dorthin rückt, wo der Daumen aufsetzt, und nur
 seitlich lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite Fingerweg), rechts daneben der Turbo-Knopf.
-Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten, Turbo Shift/Leertaste.
+Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen bei schneller Kurvenfahrt und Vollbremsung.
 
 ## Spielablauf
 
-Jede Runde ist eine Etappe mit Zieltor (Schachbrett auf Segment 0/1). Grundzeit 25 s, je Etappe 1 s weniger (min. 16 s).
+Strecke: Wiese, Wald, Berge (Auffahrt in Kehren, Passhöhe im Schnee mit Schneefall, Abfahrt), Wüste, Nacht; 1250 Segmente. Bergauf weniger Höchsttempo (Steigung 0,15 → 76 %), bergab etwas mehr. Ferne Berge wachsen beim Heranfahren.
+Jede Runde ist eine Etappe mit Zieltor (Schachbrett auf Segment 0/1). Grundzeit `STAGE_BASE` 32 s, je Etappe 1 s weniger (min. `STAGE_MIN` 23 s).
 Durchs Ziel vor Ablauf: 50 % der Restzeit werden gutgeschrieben (`BONUS_SHARE`), neue Deko, gerade Etappen gespiegelt,
-Gegner je Etappe 3 Prozentpunkte schneller. Rekord (geschaffte Etappen) im localStorage. Messung 19.11.: fehlerfreie
-Runde ≈ 15 s, erste Etappe ≈ 20 s (Anfahren).
+Gegner je Etappe 3 Prozentpunkte schneller. Rekord (geschaffte Etappen) im localStorage. Messung 19.11. (v2.5): fehlerfreie
+Runde ≈ 21 s, erste Etappe ≈ 23,5 s (Anfahren).
 
 ## Eingefügter HTML-Code aus anderen Chats
 

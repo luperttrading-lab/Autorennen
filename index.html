@@ -7,6 +7,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Autorennen</title>
+    <meta name="apple-mobile-web-app-title" content="Autorennen">
+    <meta name="theme-color" content="#1b1550">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="manifest" href="manifest.webmanifest">
     <style>
         /* Versionsnummer oben rechts: Tipp prüft auf Update */
         #ver {
@@ -182,6 +187,9 @@
         }
         #stickBase .l { left: 9px; }
         #stickBase .r { right: 9px; }
+        #stickBase .u, #stickBase .d { left: 0; right: 0; text-align: center; margin: 0; font: bold 9px sans-serif; letter-spacing: .05em; }
+        #stickBase .u { top: 7px; color: #7ddc6a; }
+        #stickBase .d { top: auto; bottom: 7px; color: #ff8a5c; }
         #stickKnob {
             position: absolute; left: 50%; top: 50%;
             width: 46px; height: 46px; margin: -23px 0 0 -23px;
@@ -198,7 +206,7 @@
     <div class="overlay" id="startScreen">
         <div class="big">AUTORENNEN</div>
         <button class="startBtn" id="btnStart" type="button">START</button>
-        <div class="small">Unten Knüppel seitlich = lenken · TURBO halten = schneller</div>
+        <div class="small">Knüppel: nach vorn = Gas · zurück = Bremse · seitlich = lenken<br>TURBO halten = schneller</div>
         <div class="small">Jede Runde ist eine Etappe: vor Ablauf der Zeit durchs ZIEL.<br>Die Hälfte der Restzeit wird gutgeschrieben.</div>
         <div class="small" id="recordStart"></div>
     </div>
@@ -208,12 +216,12 @@
         <button class="startBtn" id="btnAgain" type="button">NOCHMAL</button>
     </div>
 </div>
-<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 25</span> <span id="stageDisplay">ETAPPE 1</span></div>
+<div id="ui">SPEED: <span id="speedDisplay">0</span> km/h<br><span id="timeDisplay" class="red">TIME: 32</span> <span id="stageDisplay">ETAPPE 1</span></div>
 
 <!-- Bedienfeld unten: links/Mitte lenken, rechts Turbo -->
 <div id="panel">
     <div id="steerZone">
-        <div id="stickBase"><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
+        <div id="stickBase"><span class="u">GAS</span><span class="d">BREMSE</span><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
 </div>
@@ -225,7 +233,7 @@
 </div>
 
 <script>
-const APP_VERSION = '2.4';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '2.5';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -256,7 +264,8 @@ const offRoadLimit = maxSpeed / 4;   // im Gras nie langsamer als das, sonst ble
 const centrifugal = 0.1;          // bei Vollgas in der engsten Kurve (curve 5) braucht man halben Einschlag
 
 // Tastenstatus
-let keys = { left: false, right: false, up: true, down: false };
+let keys = { left: false, right: false, up: false, down: false };
+let throttle = 0, brake = 0;                          // vom Knüppel: 0..1
 
 // Touch-Steuerung: Knüppel im Bedienfeld
 // Analoge Lenkung: steer von -1 (voll links) bis +1 (voll rechts).
@@ -265,7 +274,7 @@ let steer = 0;
 const steerZone = document.getElementById('steerZone');
 const stickBase = document.getElementById('stickBase');
 const stickKnob = document.getElementById('stickKnob');
-let steerPtr = null, steerX0 = 0;
+let steerPtr = null, steerX0 = 0, steerY0 = 0;
 function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
 function stickHome() {
@@ -280,17 +289,25 @@ function stickHome() {
         stickBase.style.top = (r.height / 2 - 2) + 'px';
     }
 }
-function steerMove(x) {
+function steerMove(x, y) {
     const range = steerRange();
     const off = Math.max(-range, Math.min(range, x - steerX0));
     const a = off / range, m = Math.abs(a);
     steer = m < 0.08 ? 0 : Math.sign(a) * (m - 0.08) / 0.92; // kleine Totzone gegen Zittern
-    stickKnob.style.transform = 'translateX(' + (a * (stickR() - 20)).toFixed(1) + 'px)';
+    // senkrecht: nach vorn (oben) = Gas, zurück (unten) = Bremse; Vollausschlag nach 60 % des Seitenwegs
+    const vr = range * 0.6;
+    const b = Math.max(-1, Math.min(1, -(y - steerY0) / vr)), mb = Math.abs(b);
+    const v = mb < 0.12 ? 0 : Math.sign(b) * (mb - 0.12) / 0.88;
+    throttle = Math.max(0, v); brake = Math.max(0, -v);
+    let kx = a * (stickR() - 20), ky = -b * (stickR() - 20);
+    const L = Math.hypot(kx, ky), maxL = stickR() - 20;
+    if (L > maxL) { kx *= maxL / L; ky *= maxL / L; }
+    stickKnob.style.transform = 'translate(' + kx.toFixed(1) + 'px,' + ky.toFixed(1) + 'px)';
 }
 function steerEnd(e) {
     if (e.pointerId !== steerPtr) return;
     steerPtr = null;
-    steer = 0;
+    steer = 0; throttle = 0; brake = 0;
     stickKnob.style.transform = '';
     stickBase.classList.remove('on');
     stickHome();
@@ -305,12 +322,12 @@ steerZone.addEventListener('pointerdown', (e) => {
     stickBase.style.left = cx + 'px';
     stickBase.style.top = cy + 'px';
     stickBase.classList.add('on');
-    steerX0 = e.clientX;
-    steerMove(e.clientX);
+    steerX0 = e.clientX; steerY0 = e.clientY;
+    steerMove(e.clientX, e.clientY);
     e.preventDefault();
 });
 steerZone.addEventListener('pointermove', (e) => {
-    if (e.pointerId === steerPtr) { steerMove(e.clientX); e.preventDefault(); }
+    if (e.pointerId === steerPtr) { steerMove(e.clientX, e.clientY); e.preventDefault(); }
 });
 steerZone.addEventListener('pointerup', steerEnd);
 steerZone.addEventListener('pointercancel', steerEnd);
@@ -336,6 +353,7 @@ turboBtn.addEventListener('lostpointercapture', turboEnd);
 
 // --- MOTORSOUND (Web Audio) ---
 // Startet erst bei der ersten Berührung: iOS spielt Ton nur nach einer Nutzeraktion.
+let squealGain = null, squealFilter = null, squealAmt = 0;
 let audioCtx = null, engineOsc1 = null, engineOsc2 = null, engineGain = null, engineFilter = null, noiseGain = null;
 let muted = false;
 try { muted = localStorage.getItem('autorennen.ton') === 'aus'; } catch (_) {}
@@ -392,6 +410,17 @@ function initAudio() {
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioCtx.destination);
     noiseSrc.start();
+    // Reifenquietschen: Rauschen durch einen schmalen Bandpass um 2,6 kHz, Frequenz leicht wobbelnd
+    const sqSrc = audioCtx.createBufferSource();
+    sqSrc.buffer = buf; sqSrc.loop = true;
+    squealFilter = audioCtx.createBiquadFilter();
+    squealFilter.type = 'bandpass'; squealFilter.frequency.value = 2600; squealFilter.Q.value = 14;
+    const lfo = audioCtx.createOscillator(), lfoGain = audioCtx.createGain();
+    lfo.frequency.value = 7; lfoGain.gain.value = 250;
+    lfo.connect(lfoGain); lfoGain.connect(squealFilter.frequency);
+    squealGain = audioCtx.createGain(); squealGain.gain.value = 0;
+    sqSrc.connect(squealFilter); squealFilter.connect(squealGain); squealGain.connect(audioCtx.destination);
+    sqSrc.start(); lfo.start();
     engineOsc1.start();
     engineOsc2.start();
     unlockBlip();
@@ -414,7 +443,7 @@ muteBtn.addEventListener('click', () => {
     try { localStorage.setItem('autorennen.ton', muted ? 'aus' : 'an'); } catch (_) {}
     if (audioCtx) {                                    // sofort umschalten, nicht erst ausblenden
         const t = audioCtx.currentTime;
-        for (const g of [engineGain, noiseGain]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(muted ? 0 : g.gain.value, t); }
+        for (const g of [engineGain, noiseGain, squealGain]) { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(muted ? 0 : g.gain.value, t); }
     }
     showSound();
 });
@@ -432,6 +461,7 @@ function updateAudio() {
     engineFilter.frequency.setTargetAtTime(200 + s * 1.5, t, 0.1);
     engineGain.gain.setTargetAtTime(muted ? 0 : (isTurbo ? 0.08 : 0.04), t, 0.1);
     noiseGain.gain.setTargetAtTime(muted ? 0 : Math.max(0, (s - 100) / 300) * 0.05, t, 0.1);
+    if (squealGain) squealGain.gain.setTargetAtTime(muted ? 0 : squealAmt * 0.12, t, 0.05);
 }
 
 // Tastatur-Steuerung (für den PC-Test)
@@ -457,12 +487,13 @@ const lanes = 3;
 let trackLength = 0;
 let segments = [];
 
-// Landschaften: 0 Wiese, 1 Wald, 2 Wüste, 3 Nacht
+// Landschaften: 0 Wiese, 1 Wald, 2 Wüste, 3 Nacht, 4 Berge (Schnee); Reihenfolge auf der Strecke: 0, 1, 4, 2, 3
 const THEMES = [
     { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#3a6ea5', grass: ['#00b300', '#00cc00'], base: '#004d00' },
     { sky: ['#1E90FF', '#87CEEB'], sun: '#FFD700', mount: '#2f5d50', grass: ['#004400', '#003300'], base: '#002a00' },
     { sky: ['#ffaa00', '#ffdd88'], sun: '#ff4500', mount: '#b5653a', grass: ['#d2b48c', '#c2a47c'], base: '#a88a60' },
-    { sky: ['#050520', '#0b0b30'], sun: '#eeeeee', mount: '#16163a', grass: ['#111111', '#000000'], base: '#000000', night: true }
+    { sky: ['#050520', '#0b0b30'], sun: '#eeeeee', mount: '#16163a', grass: ['#111111', '#000000'], base: '#000000', night: true },
+    { sky: ['#2f74d0', '#bfe1ff'], sun: '#fff6c8', mount: '#9fb2c9', grass: ['#eef3f7', '#dfe7ee'], base: '#d0dae3', snow: true }
 ];
 let currentTheme = 0;
 function addSegment(curve, y) {
@@ -487,6 +518,13 @@ function buildTrack(mirror = false) {
     addStraight(50); addCurve(50, 4); addHill(50, 200); addStraight(50);
     currentTheme = 1;
     addCurve(100, -5); addStraight(50); addHill(50, -100); addStraight(50);
+    // Berge: lange Auffahrt in Kehren, Passhöhe im Schnee, Abfahrt
+    currentTheme = 4;
+    mountainStart = segments.length;
+    addRamp(60, 1200, 3); addRamp(60, 1200, -4);
+    addCurve(40, 5); addStraight(30); addCurve(40, -5);
+    addRamp(60, -1200, -3); addRamp(60, -1200, 4);
+    mountainEnd = segments.length;
     currentTheme = 2;
     addCurve(50, 6); addStraight(100); addCurve(50, -6); addStraight(50);
     currentTheme = 3;
@@ -501,17 +539,27 @@ function buildTrack(mirror = false) {
             if (i % 8 === 0) segments[i].sprites.push({ type: 'lamp', offset: (i % 16 === 0 ? -1 : 1) * 1.15, scale: 1 });
             continue;
         }
-        const every = th === 1 ? 3 : 4, chance = th === 1 ? 0.85 : 0.55;
+        const every = th === 1 || th === 4 ? 3 : 4, chance = th === 1 ? 0.85 : th === 4 ? 0.75 : 0.55;
         if (i % every !== 0 || Math.random() > chance) continue;
         const side = Math.random() > 0.5 ? 1 : -1;
         const type = th === 0 ? pick(['tree', 'tree', 'tree', 'bush', 'bush'])
                    : th === 1 ? pick(['fir', 'fir', 'fir', 'fir', 'bush'])
+                   : th === 4 ? pick(['snowfir', 'snowfir', 'snowfir', 'snowrock'])
                    : pick(['cactus', 'cactus', 'rock', 'rock', 'rock']);
-        const near = type === 'bush' || type === 'rock' ? 1.3 : 1.45;
+        const near = type === 'bush' || type === 'rock' || type === 'snowrock' ? 1.3 : 1.45;
         segments[i].sprites.push({ type, offset: side * (near + Math.random() * 0.5), scale: 0.8 + Math.random() * 0.5, v: Math.floor(Math.random() * 3) });
     }
 }
 function addStraight(num) { for(let i=0; i<num; i++) addSegment(0, lastY()); }
+let mountainStart = 0, mountainEnd = 0;
+// Rampe: Höhenänderung dh weich ein- und auslaufend (smoothstep), optional mit Kurve
+function addRamp(num, dh, curve = 0) {
+    const y0 = lastY();
+    for (let i = 0; i < num; i++) {
+        const f = (i + 1) / num, e = f * f * (3 - 2 * f);
+        addSegment(curve * curveSign, y0 + dh * e);
+    }
+}
 let curveSign = 1;                                     // -1 = Kurven gespiegelt (gerade Etappen)
 function addCurve(num, curve) { for(let i=0; i<num; i++) addSegment(curve * curveSign, lastY()); }
 function addHill(num, height) {
@@ -721,7 +769,7 @@ function spriteBush(seed) {                            // Busch 36 x 20
     blobs(g, r, 18, 10, 7, 3, 6, 1, 2, '#5aa84d', -4, -2);
     return pixelize(c, '#0f3215', 0.1, seed);
 }
-function spriteFir(seed) {                             // Tanne 32 x 72, gezackte Stufen
+function spriteFir(seed, snow = false) {               // Tanne 32 x 72, gezackte Stufen (optional verschneit)
     const c = makeCanvas(32, 72), g = c.getContext('2d'), r = rng(seed);
     g.fillStyle = '#4a2e17'; g.fillRect(14, 62, 4, 10);
     for (let k = 0; k < 6; k++) {
@@ -740,7 +788,15 @@ function spriteFir(seed) {                             // Tanne 32 x 72, gezackt
         g.fillStyle = '#2d8443';
         for (let i = 0; i < 4; i++) g.fillRect(16 - half * 0.6 + r() * half * 0.5, by - 4 - r() * 8, 1, 1);
     }
-    return pixelize(c, '#082812', 0.08, seed);
+    if (snow) {                                        // Schnee auf den Stufen, oben links am meisten
+        g.fillStyle = '#f4f8fb';
+        for (let k = 0; k < 6; k++) {
+            const by = 64 - k * 10, half = 15 - k * 2.2, ty = by - 16;
+            g.beginPath(); g.moveTo(16, ty); g.lineTo(16 - half * 0.55, ty + 9); g.lineTo(16 - half * 0.15, ty + 7); g.lineTo(16 + half * 0.3, ty + 9); g.closePath(); g.fill();
+            g.fillRect(16 - half, by - 2, half * 1.1, 2);
+        }
+    }
+    return pixelize(c, snow ? '#0b2a1a' : '#082812', 0.08, seed);
 }
 function spriteCactus(seed) {                          // Säulenkaktus 24 x 44
     const c = makeCanvas(24, 44), g = c.getContext('2d');
@@ -751,14 +807,18 @@ function spriteCactus(seed) {                          // Säulenkaktus 24 x 44
     g.fillStyle = '#ff7fb0'; g.fillRect(11, 1, 2, 2);                                                       // Blüte
     return pixelize(c, '#103d17', 0.06, seed);
 }
-function spriteRock(seed) {                            // Felsbrocken 40 x 24
+function spriteRock(seed, snow = false) {              // Felsbrocken 40 x 24 (optional mit Schneehaube)
     const c = makeCanvas(40, 24), g = c.getContext('2d'), r = rng(seed);
     const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(p => g.lineTo(p[0], p[1])); g.closePath(); g.fill(); };
     poly([[2, 24], [5, 13], [12, 5], [22, 3], [31, 7], [37, 15], [39, 24]], '#8a7660');
     poly([[21, 24], [22, 3], [31, 7], [37, 15], [39, 24]], '#665441');
     poly([[5, 13], [12, 5], [22, 3], [18, 9], [9, 14]], '#b29c80');
     g.fillStyle = '#4e3f30'; for (let i = 0; i < 10; i++) g.fillRect(4 + r() * 32, 8 + r() * 14, 1, 1);  // Körnung
-    return pixelize(c, '#3a2e22', 0.1, seed);
+    if (snow) {
+        poly([[5, 13], [12, 5], [22, 3], [31, 7], [37, 15], [30, 11], [22, 8], [13, 10]], '#f4f8fb');
+        g.fillStyle = '#d5e0ea'; g.fillRect(14, 9, 10, 1);
+    }
+    return pixelize(c, snow ? '#4a4f57' : '#3a2e22', 0.1, seed);
 }
 function spriteLamp() {                                // Laterne 16 x 64, Arm zeigt nach links
     const c = makeCanvas(16, 64), g = c.getContext('2d');
@@ -776,9 +836,11 @@ const SPR = {
     fir: [spriteFir(3), spriteFir(17)],
     cactus: [spriteCactus(1)],
     rock: [spriteRock(4), spriteRock(13)],
+    snowfir: [spriteFir(5, true), spriteFir(21, true)],
+    snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9 };   // Höhe in halben Straßenbreiten
+const SPR_H = { tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -812,7 +874,8 @@ const MOUNT = [
     { far: ['#9db6d6', '#7d9bc1', '#5f7da6'], snow: '#f1f5fa', near: ['#5a9a50', '#3f7a3c', '#2c5e2c'], trees: '#24502a' },
     { far: ['#8eaccb', '#6f8fae', '#526f8f'], snow: '#e8eef5', near: ['#3a7a48', '#2a6038', '#1b4428'], trees: '#113420' },
     { far: ['#e6a873', '#d08b55', '#a96638'], snow: null,      near: ['#c7854c', '#a8683a', '#83492a'], trees: null },
-    { far: ['#343a6e', '#262a52', '#1b1e3d'], snow: '#5d6396', near: ['#1c1f3a', '#15172e', '#0e0f20'], trees: '#0a0b16' }
+    { far: ['#343a6e', '#262a52', '#1b1e3d'], snow: '#5d6396', near: ['#1c1f3a', '#15172e', '#0e0f20'], trees: '#0a0b16' },
+    { far: ['#c9d6e6', '#9fb2c9', '#7489a3'], snow: '#ffffff', near: ['#eef3f7', '#d3dde7', '#b2c0cf'], trees: '#2d4a3a' }
 ];
 const MOUNT_PX = 3;
 const mountCache = {};
@@ -863,7 +926,7 @@ function getMountains(theme, W, H) {
 // Werte in Pixeln pro Bild bei 60 Bildern/s, mit dt umgerechnet.
 const dustParticles = [];
 let prevDustSpeed = 0;
-const DUST_RGB = ['150,140,110', '120,110,85', '215,185,140', '110,110,110'];   // je Landschaft
+const DUST_RGB = ['150,140,110', '120,110,85', '215,185,140', '110,110,110', '240,245,250'];   // Berge: Schneestaub   // je Landschaft
 function updateDust(dt) {
     const k = dt * 60;
     for (let i = dustParticles.length - 1; i >= 0; i--) {
@@ -932,6 +995,18 @@ function drawDust() {
 
 // Hintergrund: Himmelsverlauf, Sonne, Berge (wandern in Kurven seitlich mit)
 let bgOffset = 0;
+// Wie hoch die fernen Berge gezeichnet werden: wachsen auf den letzten 250 Segmenten vor dem Gebirge,
+// im Gebirge doppelt so hoch, nach der Abfahrt wieder kleiner
+function mountainScale(baseSegment) {
+    const len = segments.length;
+    if (baseSegment >= mountainStart && baseSegment < mountainEnd) return 2.0;
+    const ahead = (mountainStart - baseSegment + len) % len;
+    const behind = (baseSegment - mountainEnd + len) % len;
+    let m = 1;
+    if (ahead < 250) m = Math.max(m, 1 + (1 - ahead / 250));
+    if (behind < 150) m = Math.max(m, 2 - behind / 150);
+    return m;
+}
 function drawBackground(theme) {
     const T = THEMES[theme];
     const W = canvas.width, H = canvas.height, hz = H / 2;
@@ -958,8 +1033,9 @@ function drawBackground(theme) {
     }
     const M = getMountains(theme, W, H);
     ctx.imageSmoothingEnabled = false;
-    for (const [layer, par] of [[M.far, 0.5], [M.near, 1]]) {
-        const lw = layer.width * MOUNT_PX, lh = layer.height * MOUNT_PX;
+    const mScale = mountainScale(Math.floor(position / segmentLength) % segments.length);
+    for (const [layer, par, sc] of [[M.far, 0.5, mScale], [M.near, 1, 1 + (mScale - 1) * 0.4]]) {
+        const lw = layer.width * MOUNT_PX, lh = layer.height * MOUNT_PX * sc;
         const off = ((bgOffset * par * W) % lw + lw) % lw;
         for (let x0 = -off; x0 < W; x0 += lw) ctx.drawImage(layer, Math.floor(x0), Math.ceil(hz + 1 - lh), lw, lh);
     }
@@ -1158,6 +1234,12 @@ function render() {
         ctx.restore();
     }
 
+    // Schneefall im Gebirge
+    if (THEMES[playerSegment.theme].snow) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        for (const f of flakes) ctx.fillRect(f.x * canvas.width, f.y * canvas.height, f.s, f.s);
+    }
+
     // Turbo: Geschwindigkeitsstreifen
     if (isTurbo) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
@@ -1180,9 +1262,10 @@ function render() {
 
 // --- START, ETAPPEN, ZEIT UND NEUSTART ---
 // Jede Runde ist eine Etappe mit eigener Zeit. Wer vor Ablauf durchs Ziel fährt, bekommt die Hälfte der
-// Restzeit auf die nächste Etappe gutgeschrieben. Die Grundzeit sinkt je Etappe um 1 s (bis 16 s).
+// Restzeit auf die nächste Etappe gutgeschrieben. Die Grundzeit sinkt je Etappe um 1 s (bis STAGE_MIN).
 const BONUS_SHARE = 0.5;
-function stageTime(n) { return Math.max(16, 25 - (n - 1)); }
+function stageTime(n) { return Math.max(STAGE_MIN, STAGE_BASE - (n - 1)); }
+const STAGE_BASE = 32, STAGE_MIN = 23;   // gemessen: fehlerfreie Runde ≈ 21 s, erste ≈ 23,5 s
 let stage = 1, dist = 0;                               // dist: gefahrene Strecke seit dem Start
 let timeLeft = stageTime(1), isGameOver = false, started = false;
 let record = 0;
@@ -1239,10 +1322,21 @@ document.getElementById('btnStart').addEventListener('click', startRace);
 btnAgain.addEventListener('click', () => { resetGame(); startRace(); });
 for (const b of [document.getElementById('btnStart'), btnAgain]) b.addEventListener('pointerdown', (e) => e.stopPropagation());
 
+// Schneeflocken: Anteile der Bildgröße, fallen und treiben in Kurven seitlich
+const flakes = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), s: 1 + Math.floor(Math.random() * 3), v: 0.15 + Math.random() * 0.2 }));
+function updateFlakes(dt, curve, sp) {
+    for (const f of flakes) {
+        f.y += (f.v + sp * 0.35) * dt;
+        f.x += (-curve * 0.02 * sp + Math.sin(f.y * 12 + f.v * 50) * 0.02) * dt;
+        if (f.y > 1) { f.y -= 1; f.x = Math.random(); }
+        if (f.x < 0) f.x += 1; else if (f.x > 1) f.x -= 1;
+    }
+}
+
 // --- SPIEL-LOGIK ---
 function update(dt) {
     if (!started || isGameOver) {
-        speed = 0; isTurbo = false;
+        speed = 0; isTurbo = false; squealAmt = 0;
         speedDisplay.innerText = 0;
         updateDust(dt);
         updateAudio();
@@ -1261,14 +1355,15 @@ function update(dt) {
     }
     timeDisplay.innerText = 'TIME: ' + Math.ceil(timeLeft);
 
-    // Geschwindigkeit
-    if (keys.up) {
-        speed += accel * dt;
-    } else if (keys.down) {
-        speed -= decel * dt;
-    } else {
-        speed -= accel * dt * 0.5; // Motorbremsung
-    }
+    // Geschwindigkeit: Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
+    const gas = Math.max(throttle, keys.up ? 1 : 0), brk = Math.max(brake, keys.down ? 1 : 0);
+    speed += accel * gas * dt;
+    speed -= decel * brk * dt;
+    speed -= accel * 0.35 * (1 - gas) * dt;            // Ausrollen / Motorbremse
+    // Steigung: bergauf zieht die Schwerkraft, bergab schiebt sie (Steigung = Höhe pro Weg)
+    const carSeg = segments[Math.floor((position + PLAYER_Z) / segmentLength) % segments.length];
+    const slope = (carSeg.p2.world.y - carSeg.p1.world.y) / segmentLength;
+    speed -= accel * 2.5 * slope * dt;
     
     // Abbremsen auf Gras (off-road)
     if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
@@ -1285,7 +1380,9 @@ function update(dt) {
     }
     turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
     turboBtn.classList.toggle('an', isTurbo);
-    const topSpeed = isTurbo ? maxSpeed * TURBO_FACTOR : maxSpeed;
+    // Höchsttempo: bergauf weniger (Steigung 0,15 -> 76 %), bergab etwas mehr (bis +12 %)
+    const hill = Math.max(0.6, Math.min(1.12, 1 - 1.6 * slope));
+    const topSpeed = (isTurbo ? maxSpeed * TURBO_FACTOR : maxSpeed) * hill;
 
     // Limits: über dem Höchsttempo (nach dem Turbo) sanft abbremsen statt springen
     if (speed > topSpeed) speed = Math.max(topSpeed, speed - accel * dt * 2);
@@ -1337,6 +1434,14 @@ function update(dt) {
     // Begrenzung der X-Position
     if (playerX < -2) playerX = -2;
     if (playerX > 2) playerX = 2;
+
+    // Reifenquietschen: schnell in die Kurve oder hart lenken, oder Vollbremsung aus hohem Tempo
+    const offRoadNow = playerX < -1 || playerX > 1;
+    const lat = speedPercent * speedPercent * (Math.abs(s) * 0.7 + Math.abs(playerSegment.curve) / 6 * 0.7);
+    const sqCurve = Math.max(0, Math.min(1, (lat - 0.55) / 0.35));
+    const sqBrake = brk * Math.max(0, Math.min(1, (speedPercent - 0.5) / 0.5)) * 0.8;
+    squealAmt = offRoadNow ? 0 : Math.max(sqCurve, sqBrake);
+    updateFlakes(dt, playerSegment.curve, speedPercent);
 
     // UI Update
     speedDisplay.innerText = Math.floor(speed / maxSpeed * 300); // Fake km/h
