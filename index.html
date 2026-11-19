@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.39';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.40';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1290,7 +1290,7 @@ function decorate(a, b, r) {
             if (off !== null) seg.sprites.push({ type: 'smoke', offset: off, scale: 1 + r() * 0.7, v: i % 7 });
         }
         for (const lw of [seg.water, seg.water2]) if (lw && lw.T.hot && lw.s < 3 && i % 47 === (lw.side > 0 ? 19 : 0) && r() < 0.8)   // Lavafontänen
-            seg.sprites.push({ type: 'spout', offset: lw.side * (lw.s + 0.4 + r() * (Math.min(lw.w, 4) - 0.8)), scale: 0.8 + r() * 0.6, v: i % 2 });
+            seg.sprites.push({ type: 'spout', offset: lw.side * (lw.s + 0.4 + r() * (Math.min(lw.w, 4) - 0.8)), scale: 0.8 + r() * 0.6, v: i % 2, sd: r() });
         if (seg.bridge || seg.edgeL && seg.edgeL.k === 'canyon') {   // Brücke, Schlucht: nur Boote, sonst nichts am Rand
             const wb = seg.water;
             if (z0.boats && wb && i % z0.boats === z0.boats >> 1) seg.sprites.push({ type: 'boat', offset: (i % (2 * z0.boats) < z0.boats ? -1 : 1) * (2.6 + r() * 3), scale: 1 + r() * 0.4, v: i % 2 });
@@ -2149,16 +2149,19 @@ function drawSmoke(sp, x, y, size) {                  // Rauchsäule (v3.35): Ba
     }
 }
 function drawSpout(sp, x, y, size) {                   // Lavafontäne (v3.35): Strahl pulsiert, Glutbrocken fliegen im Bogen
-    const img = SPR.spout[(sp.v || 0) % 2], ph = (sp.v || 0) * 0.37 + sp.offset;
-    const k = 0.65 + 0.45 * Math.abs(Math.sin(waveT * 2.1 + ph)) + 0.1 * Math.sin(waveT * 7.3 + ph);
-    const h0 = size * (sp.scale || 1) * SPR_H.spout, w = h0 * img.width / img.height, h = h0 * k;
+    const img = SPR.spout[(sp.v || 0) % 2], sd = sp.sd || 0.5, fr = (q) => (sd * q) % 1, ph = sd * 40;
+    // v3.40: jede Fontäne eigen: Takt, Höhe, Breite, Zahl der Brocken; manche brechen nur stoßweise aus
+    const f1 = 1.1 + 2.6 * fr(7.31), f2 = 4 + 6 * fr(3.17), burst = fr(11.7) > 0.55, hs = 0.7 + 0.8 * fr(5.93), nb = 4 + Math.floor(fr(13.1) * 8), spread = 0.6 + 0.9 * fr(2.71);
+    let k = burst ? 0.25 + 1.0 * Math.pow(Math.max(0, Math.sin(waveT * f1 * 0.55 + ph)), 6) : 0.6 + 0.45 * Math.abs(Math.sin(waveT * f1 + ph));
+    k = (k + 0.1 * Math.sin(waveT * f2 + ph)) * hs;
+    const h0 = size * (sp.scale || 1) * SPR_H.spout, w = h0 * img.width / img.height * (0.8 + 0.4 * fr(17.3)), h = h0 * k;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0, img.width, 44, x - w / 2, y - h0 * 12 / 56 - h * 44 / 56, w, h * 44 / 56);   // Strahl, gestreckt
     ctx.drawImage(img, 0, 44, img.width, 12, x - w / 2, y - h0 * 12 / 56, w, h0 * 12 / 56);              // Schlackenkegel
     const ps = Math.max(1, w * 0.09);
-    for (let m = 0; m < 8; m++) {
-        const t = (waveT * 0.8 + m / 8 + ph * 0.1) % 1, sd = m % 2 ? 1 : -1;
-        const bx = x + sd * w * (0.25 + 0.12 * (m >> 1)) * t * 2, by = y - h0 * 0.2 - h * 1.3 * (t * 2 - t * t * 2) * (0.6 + 0.1 * (m >> 1));
+    for (let m = 0; m < nb; m++) {
+        const t = (waveT * (0.6 + 0.5 * fr(19.7)) + m / nb + ph) % 1, dir = (m + Math.floor(sd * 10)) % 2 ? 1 : -1, j = ((m * 7919 + Math.floor(sd * 997)) % 5) / 5;
+        const bx = x + dir * w * spread * (0.2 + 0.3 * j) * t * 2, by = y - h0 * 0.2 - h * 1.3 * (t * 2 - t * t * 2) * (0.5 + 0.4 * j);
         ctx.fillStyle = t < 0.5 ? '#ffd23a' : t < 0.8 ? '#ff8a1e' : '#b8320c';
         ctx.fillRect(bx - ps / 2, by - ps / 2, ps, ps);
     }
@@ -2685,13 +2688,7 @@ function drawStruct(seg, W) {
             quad(d, GH, GH, 0, 0, light ? '#b8392a' : '#a83426'); quad(d, GH * 0.35, GH * 0.35, 0, 0, '#7e261c');
             if (i % 3 === 0 && seg.cable > GH + 0.05) { ctx.fillStyle = '#a8483a'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - GH) * p1.w); }
         }
-        if (seg.pylon) {
-            const lw = p1.w * 0.13, top = p1.y - 3.6 * p1.w;
-            ctx.fillStyle = '#c8402f'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw / 2, top, lw, 3.6 * p1.w + p1.w * 0.05);
-            ctx.fillStyle = '#9a2f22'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) + (sd > 0 ? -lw / 2 : lw * 0.1), top, lw * 0.4, 3.6 * p1.w);
-            ctx.fillStyle = '#b8392a'; ctx.fillRect(X1(-1.5), p1.y - 3.5 * p1.w, p1.w * 3, p1.w * 0.16); ctx.fillRect(X1(-1.5), p1.y - 2.3 * p1.w, p1.w * 3, p1.w * 0.12);
-            ctx.fillStyle = '#ffe9a0'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw * 0.3, top - p1.w * 0.08, lw * 0.6, p1.w * 0.08);
-        }
+        if (seg.pylon) drawPylonTop(c1, p1.y, p1.w);
     }
     if (roof) {                                        // Decke mit Lampen
         const y1 = p1.y - 1.5 * p1.w, y2 = p2.y - 1.5 * p2.w;
@@ -2711,6 +2708,13 @@ function drawStruct(seg, W) {
         ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.rect(X1(-1.62), top - p1.w * 0.22, p1.w * 3.24, p1.w * 0.22); ctx.fill();    // Betonsturz
         ctx.fillRect(X1(-1.62), top, p1.w * 0.2, p1.y - top); ctx.fillRect(X1(1.42), top, p1.w * 0.2, p1.y - top);
     }
+}
+function drawPylonTop(cx, y, w) {                      // Pylon-Portal der Hängebrücke über der Fahrbahn (Beine, zwei Querriegel, Lampen oben)
+    const X = (d) => cx + w * d, lw = Math.max(1, w * 0.13), top = y - 3.6 * w;
+    ctx.fillStyle = '#c8402f'; for (const sd of [-1, 1]) ctx.fillRect(X(sd * 1.5) - lw / 2, top, lw, 3.6 * w + w * 0.05);
+    ctx.fillStyle = '#9a2f22'; for (const sd of [-1, 1]) ctx.fillRect(X(sd * 1.5) + (sd > 0 ? -lw / 2 : lw * 0.1), top, lw * 0.4, 3.6 * w);
+    ctx.fillStyle = '#b8392a'; ctx.fillRect(X(-1.5), y - 3.5 * w, w * 3, Math.max(1, w * 0.16)); ctx.fillRect(X(-1.5), y - 2.3 * w, w * 3, Math.max(1, w * 0.12));
+    ctx.fillStyle = '#ffe9a0'; for (const sd of [-1, 1]) ctx.fillRect(X(sd * 1.5) - lw * 0.3, top - w * 0.08, lw * 0.6, Math.max(1, w * 0.08));
 }
 function drawTunnelCap(seg) {                          // Blick in den Tunnel hinein: hinten dunkel statt Himmel
     const p = seg.p2.screen, c = p.x + p.w * seg.roads2[0];
@@ -2739,24 +2743,41 @@ function render() {
 
     // Hochbrücke (v3.37): das Meer liegt tief unter der Fahrbahn. Erst alle Brückensegmente projizieren und das Meer
     // von hinten nach vorn malen (mit Brückenschatten und Pfeilerfüßen), danach die Straße wie gewohnt darüber.
-    let anyDrop = false;
-    for (let n = 0; n < drawDistance && baseSegment + n < segments.length; n++) if (segments[baseSegment + n].drop) { anyDrop = true; break; }
-    if (anyDrop) {
-        const sea = [];
+    const FAR = 520;                                   // so weit voraus sieht man die Pylone der Hängebrücke (v3.40: vorher Aufploppen bei 150)
+    let anyDrop = false, anyCable = false;
+    for (let n = 0; n < FAR && baseSegment + n < segments.length; n += 8) { const g = segments[baseSegment + n]; if (g.cable !== undefined) anyCable = true; if (g.drop && n < drawDistance + 8) anyDrop = true; }
+    if (anyDrop || anyCable) {
+        const sea = [], far = [];
         let sx = 0, sdx = dx;
-        for (let n = 0; n < drawDistance; n++) {
+        for (let n = 0; n < FAR; n++) {
             const idx = baseSegment + n;
             if (idx >= segments.length) break;
             const g = segments[idx];
             const cX = playerX * roadWidth - sx;
             project(g.p1, cX, cameraY, position); project(g.p2, cX - sdx, cameraY, position);
             sx += sdx; sdx += g.curve;
+            if (n >= drawDistance - 1) { if (g.cable !== undefined && g.p1.camera.z > cameraDepth) far.push(g); continue; }
             if (!g.drop || g.p1.camera.z <= cameraDepth) continue;
             const q1 = g.p1.screen, q2 = g.p2.screen, k = H / (roadWidth * W);
             sea.push({ g, x1: q1.x + q1.w * g.roads[0], x2: q2.x + q2.w * g.roads2[0], w1: q1.w, w2: q2.w,
                        y1: q1.y + g.drop * q1.w * k, y2: q2.y + g.drop2 * q2.w * k, dy1: g.drop * q1.w * k, z: g.p1.camera.z });
         }
         if (sea.length) { ctx.fillStyle = '#5f9cc8'; ctx.fillRect(0, hz, W, H - hz); }   // Meer bis zum Horizont (im Dunst)
+        if (far.length) {                              // ferner Teil der Brücke: Tragseile als Linien, Pylone im Dunst
+            const ex = (g) => { const c = g.p1.camera, sc = cameraDepth / c.z; return { x: W / 2 + sc * c.x * W / 2, y: H / 2 - sc * c.y * H / 2, w: sc * roadWidth * W / 2 }; };   // ungerundet: sonst Knicke im Seil
+            ctx.strokeStyle = 'rgba(200,64,47,0.8)'; ctx.lineWidth = 1;
+            for (const sd of [-1, 1]) { ctx.beginPath(); far.forEach((g, j) => { const q = ex(g), xx = q.x + q.w * (g.roads[0] + sd * 1.5), yy = q.y - g.cable * q.w; j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }); ctx.stroke(); }
+            for (let j = far.length - 1; j >= 0; j--) {
+                const g = far[j]; if (!g.pylon) continue;
+                const q = ex(g), fz = Math.min(1, g.p1.camera.z / (FAR * segmentLength));
+                ctx.globalAlpha = Math.max(0.35, 1 - 0.75 * fz);
+                const k = H / (roadWidth * W), dyp = (g.drop || 0) * q.w * k, cx = q.x + q.w * g.roads[0];
+                ctx.fillStyle = '#c8402f'; for (const sd of [-1, 1]) ctx.fillRect(cx + sd * 1.5 * q.w - Math.max(1, q.w * 0.13) / 2, q.y, Math.max(1, q.w * 0.13), dyp);   // Beine bis ins Wasser
+                ctx.fillStyle = '#9a8f86'; ctx.fillRect(cx - 1.5 * q.w, q.y, q.w * 3, Math.max(1, q.w * 0.12));                       // Fahrbahnplatte
+                drawPylonTop(cx, q.y, q.w);
+                ctx.globalAlpha = 1;
+            }
+        }
         for (let m = sea.length - 1; m >= 0; m--) {
             const e = sea[m], g = e.g, light = g.color === 'light';
             if (e.y2 >= e.y1) continue;
