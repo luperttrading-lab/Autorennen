@@ -15,7 +15,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
   Himmelsfarbe (folgt dem Tageslauf, `setEdgeColor`), unten Farbe des Bedienfelds. Bekannter iOS-26-Fehler (Home-Bildschirm-App mit viewport-fit=cover + black-translucent: Höhe um die Statusleiste zu kurz). Seit v3.10 macht `fitScreen()` das DOKUMENT höher (html + body in Pixeln), ein nur fest positioniertes Element (v3.8/3.9) half auf dem Gerät nicht. Seit v3.11 KEINE automatische Erkennung mehr (griff auf dem Gerät des Nutzers nicht): Knöpfe ▼/▲ rechts oben auf Start-/Endbildschirm verschieben das untere Ende in 10-px-Schritten (`autorennen.tiefpx`, 0–160, Standard 0; seit v3.13 im Einstellmodus der Knöpfe). Veraltet: Seit v3.8 `fitScreen()`: in der
   Home-Bildschirm-App endet das Layout ≈ 60 pt über dem unteren Rand; body wird um (screen.height − innerHeight)/2 nach
   unten verlängert, Knopf ▲/▼ im Bedienfeld schaltet das ab (`autorennen.tief`). Kleine Diagnosezeile auf dem Startbildschirm.
-- v3.14 (Experiment): viewport-fit=cover und status-bar-style black-translucent entfernt (→ "black"), weil genau diese
+- v3.14 (wirkt, Nutzer bestätigt): viewport-fit=cover und status-bar-style black-translucent entfernt (→ "black"), weil genau diese
   Kombination den iOS-26-Fehler auslöst (Screenshot: oben ≈ 60 pt Statusleiste, unten ≈ 62 pt gesperrt, Seite nur 752 pt
   von 874 pt). Home-Bildschirm-Symbol muss danach evtl. neu angelegt werden. Knöpfe lassen sich nicht in den abgeschnittenen Bereich ziehen.
 - Pages braucht nach dem Push 1–2 Minuten. Vorher zeigt die App noch die alte Version an; das ist kein Fehler.
@@ -28,7 +28,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 
 Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), danach Countdown 3–2–1–LOS mit Piepton (seit v3.2), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
 `fragen-allgemein/spiele/passfahrt`). Bedienfeld flach (108 px + Safe-Area). Seit v3.13 sind Knüppel (100 px, Fangbereich 220 px) und Turbo FREI
-platzierbar (Nutzer 19.11.: feste Lagen trafen auf dem iPhone nie): Startbildschirm → „KNÖPFE EINSTELLEN“ → mit dem Finger
+platzierbar (Nutzer 19.11.: feste Lagen trafen auf dem iPhone nie): Zahnrad ⚙ KNÖPFE unten zwischen Knüppel und Turbo (nur Start-/Endbildschirm, ab v3.15) → mit dem Finger
 ziehen → FERTIG; gespeichert je Hoch-/Querformat in `autorennen.knoepfe` (Bildschirmkoordinaten der Mitten), STANDARD
 setzt zurück, dort auch ▼/▲ für das untere Ende der Seite. Steuerung: Fingerlage relativ zur Knüppelmitte zählt,
 links/rechts lenkt (Volleinschlag nach 50 px), oberhalb Gas, unterhalb Bremse (voll nach 30 px).
@@ -75,3 +75,4 @@ Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst
 je Schritt eine frische Sitzung. `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
 im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
 Seit v3.9 ist Klang B im Spiel ein tonaler Quietschton (zwei Sägezähne um 950 Hz, Tonhöhe steigt mit dem Rutschen); das Rubbeln aus der Hörprobe B klang im Spiel wie Scheppern (Nutzer 19.11.).
+Seit v3.15 Klang B rau/kreischend (Sägezahn + Rechteck, Tonhöhe zittert, übersteuert, rattert); v3.9 klang wie Windpfeifen.
