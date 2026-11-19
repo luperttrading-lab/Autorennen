@@ -10,6 +10,9 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 - Bei JEDER Änderung an `index.html` die Versionsnummer `APP_VERSION` hochzählen (nur hoch, nie zurück). Die App prüft
   beim Öffnen, beim Zurückholen aus dem Hintergrund und beim Tipp auf die Nummer oben rechts, ob eine neuere Fassung
   online ist. Ohne neue Nummer erkennt sie das Update nicht.
+- Seite füllt den Bildschirm über `body { position: fixed; top/left/right/bottom: 0 }`, NICHT über 100vh/100dvh: in der
+  iPhone-Home-Bildschirm-App blieb damit unten ein Streifen frei (Nutzer 19.11., v3.7). Ränder außerhalb des Spiels: oben
+  Himmelsfarbe (folgt dem Tageslauf, `setEdgeColor`), unten Farbe des Bedienfelds.
 - Pages braucht nach dem Push 1–2 Minuten. Vorher zeigt die App noch die alte Version an; das ist kein Fehler.
 
 ## Steuerung

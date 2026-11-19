@@ -44,18 +44,22 @@
         .update[hidden] { display: none; }
         .update.info { background: #2d2d33; color: #f2f2f7; font-weight: 500; }
         .update button { padding: 8px 14px; font: 600 15px sans-serif; border: 0; border-radius: 9px; background: #06240e; color: #fff; cursor: pointer; }
+        /* Ränder außerhalb des Spiels (Statusleiste, Home-Leiste): oben Himmelsfarbe, unten Farbe des Bedienfelds.
+           Die obere Farbe folgt dem Tageslauf (setEdgeColor). */
+        html { height: 100%; background: linear-gradient(to bottom, #7fb2e0 0 50%, #242833 50% 100%) #242833; }
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #87CEEB; /* Himmelblau */
+            background-color: transparent;
             touch-action: none; /* Verhindert Scrollen/Zoomen beim Spielen */
             -webkit-user-select: none; user-select: none;      /* langes Drücken markiert keinen Text */
             -webkit-touch-callout: none;                      /* kein Lupen-/Kopiermenü auf iOS */
             -webkit-tap-highlight-color: transparent;
             font-family: sans-serif;
-            height: 100vh;
-            height: 100dvh;
+            /* füllt den ganzen sichtbaren Bereich, ohne vh/dvh: die rechnen in der iPhone-Home-Bildschirm-App zu kurz
+               (unten blieb ein Streifen frei, Nutzer 19.11.) */
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             display: flex;
             flex-direction: column;
         }
@@ -127,13 +131,13 @@
         #panel {
             flex: 0 0 auto;
             position: relative;
-            height: calc(108px + max(env(safe-area-inset-bottom), 4px));   /* Variante A (Nutzer 19.11.): flach, Knüppel am Rand */
+            height: calc(108px + max(env(safe-area-inset-bottom) - 14px, 4px));   /* Variante A (Nutzer 19.11.): flach, Knüppel am Rand, so tief wie möglich */
             display: flex;
             align-items: center;
             gap: 12px;
             background: #242833;
             border-top: 3px solid #11131a;
-            padding: 0 16px max(env(safe-area-inset-bottom), 4px) 0;
+            padding: 0 16px max(env(safe-area-inset-bottom) - 14px, 4px) 0;
             box-sizing: border-box;
         }
         /* Knöpfe getauscht: Turbo links, Knüppel rechts */
@@ -282,7 +286,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.6';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.7';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1468,6 +1472,15 @@ function drawPolygon(x1, y1, x2, y2, x3, y3, x4, y4, color) {
     ctx.fill();
 }
 
+// Rand oben (Statusleiste) in der aktuellen Himmelsfarbe, unten wie das Bedienfeld
+let edgeColor = '';
+const themeMeta = document.querySelector('meta[name="theme-color"]');
+function setEdgeColor(c) {
+    if (c === edgeColor) return;
+    edgeColor = c;
+    document.documentElement.style.background = 'linear-gradient(to bottom, ' + c + ' 0 50%, #242833 50% 100%) #242833';
+    if (themeMeta) themeMeta.setAttribute('content', c);
+}
 let glows = [], curDark = 0;                           // Lichtpunkte, die nach dem Abdunkeln leuchten
 function render() {
     const W = canvas.width, H = canvas.height, hz = H / 2;
@@ -1478,6 +1491,7 @@ function render() {
     const playerSegment = segments[baseSegment];
     const tod = timeOfDay(dayPos());
     curDark = tod.dark;
+    setEdgeColor(tod.top);
     glows = [];
     drawMountains(playerSegment, W, H);
     ctx.fillStyle = playerSegment.base;                // Boden unter dem Horizont
