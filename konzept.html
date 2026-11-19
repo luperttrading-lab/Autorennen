@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Autorennen – Konzept Karte und Strecken</title>
+<style>
+  :root { --bg: #16131f; --card: #221d30; --ink: #f2eefb; --dim: #b9b0cc; --k: #3aa7d8; --l: #7cc35a; --g: #e3e8ef; --acc: #ffb347; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: max(env(safe-area-inset-top), 18px) 16px 40px; }
+  h1 { font-size: 23px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 28px 0 8px; color: var(--acc); }
+  h3 { font-size: 15px; margin: 16px 0 4px; }
+  p { margin: 6px 0; }
+  .lead { color: var(--dim); }
+  .card { background: var(--card); border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid #3a3150; vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 7px; border-radius: 9px; margin-right: 4px; color: #111; font-weight: 600; }
+  .k { background: var(--k); } .l { background: var(--l); } .g { background: var(--g); }
+  .q { border-left: 3px solid var(--acc); padding-left: 10px; }
+  svg { width: 100%; height: auto; display: block; }
+  .small { font-size: 13px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<h1>Autorennen – Konzept: Karte, Strecken, Abwechslung</h1>
+<p class="lead">Stand 19.11.2026, Entwurf zum Abstimmen. Noch nichts davon ist programmiert.</p>
+
+<h2>1 · Die Grundidee in einem Satz</h2>
+<div class="card">
+<p>Eine <b>Tagesreise</b> über eine feste Karte: Start am Morgen auf dem Land, an jedem Etappenende eine
+<b>Gabelung</b>, nach vier Etappen eines von <b>drei Zielen</b> in der Nacht. Jede Route sieht bei jeder Fahrt
+<b>genau gleich</b> aus. Wer eine Route kennt, fährt sie schneller, und genau das ist der Reiz.</p>
+</div>
+
+<h2>2 · Die Karte</h2>
+<p>Drei Spalten nach Schwierigkeit, vier Reihen nach Tageszeit. An jedem Etappenende geht es geradeaus oder eine Spalte
+nach links oder rechts.</p>
+<div class="card">
+<svg viewBox="0 0 360 420" role="img" aria-label="Karte: 1 Start, dann 3 mal 3 Etappen, 3 Ziele">
+  <defs>
+    <marker id="pf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a80a3"/></marker>
+  </defs>
+  <g font-size="10" fill="#b9b0cc">
+    <text x="2" y="44">Morgen</text><text x="2" y="144">Mittag</text><text x="2" y="244">Abend</text><text x="2" y="344">Nacht</text>
+  </g>
+  <g stroke="#8a80a3" stroke-width="2" marker-end="url(#pf)" fill="none">
+    <!-- Start -> Reihe 2 -->
+    <line x1="210" y1="58" x2="112" y2="118"/><line x1="210" y1="58" x2="210" y2="118"/><line x1="210" y1="58" x2="308" y2="118"/>
+    <!-- Reihe 2 -> 3 -->
+    <line x1="110" y1="158" x2="110" y2="218"/><line x1="110" y1="158" x2="206" y2="218"/>
+    <line x1="210" y1="158" x2="114" y2="218"/><line x1="210" y1="158" x2="210" y2="218"/><line x1="210" y1="158" x2="306" y2="218"/>
+    <line x1="310" y1="158" x2="214" y2="218"/><line x1="310" y1="158" x2="310" y2="218"/>
+    <!-- Reihe 3 -> 4 -->
+    <line x1="110" y1="258" x2="110" y2="318"/><line x1="110" y1="258" x2="206" y2="318"/>
+    <line x1="210" y1="258" x2="114" y2="318"/><line x1="210" y1="258" x2="210" y2="318"/><line x1="210" y1="258" x2="306" y2="318"/>
+    <line x1="310" y1="258" x2="214" y2="318"/><line x1="310" y1="258" x2="310" y2="318"/>
+  </g>
+  <g font-size="10" text-anchor="middle">
+    <rect x="164" y="22" width="92" height="36" rx="8" fill="#7cc35a"/><text x="210" y="37" fill="#111" font-weight="700">START</text><text x="210" y="50" fill="#111">Morgenland</text>
+    <rect x="64" y="122" width="92" height="36" rx="8" fill="#3aa7d8"/><text x="110" y="137" fill="#111" font-weight="700">K2</text><text x="110" y="150" fill="#111">Küstenstraße</text>
+    <rect x="164" y="122" width="92" height="36" rx="8" fill="#7cc35a"/><text x="210" y="137" fill="#111" font-weight="700">L2</text><text x="210" y="150" fill="#111">Weinland &amp; Fluss</text>
+    <rect x="264" y="122" width="92" height="36" rx="8" fill="#e3e8ef"/><text x="310" y="137" fill="#111" font-weight="700">G2</text><text x="310" y="150" fill="#111">Alpenauffahrt</text>
+    <rect x="64" y="222" width="92" height="36" rx="8" fill="#3aa7d8"/><text x="110" y="237" fill="#111" font-weight="700">K3</text><text x="110" y="250" fill="#111">Bucht &amp; Dünen</text>
+    <rect x="164" y="222" width="92" height="36" rx="8" fill="#7cc35a"/><text x="210" y="237" fill="#111" font-weight="700">L3</text><text x="210" y="250" fill="#111">Canyon</text>
+    <rect x="264" y="222" width="92" height="36" rx="8" fill="#e3e8ef"/><text x="310" y="237" fill="#111" font-weight="700">G3</text><text x="310" y="250" fill="#111">Gletscherpass</text>
+    <rect x="64" y="322" width="92" height="36" rx="8" fill="#3aa7d8"/><text x="110" y="337" fill="#111" font-weight="700">ZIEL K</text><text x="110" y="350" fill="#111">Hafenstadt</text>
+    <rect x="164" y="322" width="92" height="36" rx="8" fill="#7cc35a"/><text x="210" y="337" fill="#111" font-weight="700">ZIEL L</text><text x="210" y="350" fill="#111">Oase der Lichter</text>
+    <rect x="264" y="322" width="92" height="36" rx="8" fill="#e3e8ef"/><text x="310" y="337" fill="#111" font-weight="700">ZIEL G</text><text x="310" y="350" fill="#111">Sternwarte</text>
+  </g>
+  <g font-size="10" fill="#b9b0cc" text-anchor="middle">
+    <text x="110" y="385">leicht</text><text x="210" y="385">mittel</text><text x="310" y="385">schwer</text>
+    <text x="210" y="408">10 Etappen · 17 verschiedene Routen · 3 Ziele</text>
+  </g>
+</svg>
+<p class="small">Rechnung zu den 17 Routen: Vom Start gibt es 3 Wege. Danach kann man vom Rand aus 2 Spalten
+erreichen, aus der Mitte 3. Anzahl Wege je Spalte nach jeder Reihe: [1, 1, 1] → [2, 3, 2] → [5, 7, 5], zusammen 17.
+Mit einer fünften Reihe wären es [12, 17, 12] = 41 Routen.</p>
+</div>
+
+<h3>Warum diese Form</h3>
+<ul>
+  <li><b>Wiedererkennbar:</b> Links liegt immer das Meer, in der Mitte das Land, rechts das Gebirge. Man weiß
+      an jeder Gabelung, worauf man sich einlässt.</li>
+  <li><b>Tageszeit als roter Faden:</b> Je weiter man kommt, desto später wird es. Die Nacht erreicht nur, wer
+      gut fährt. Das Licht ändert sich innerhalb einer Etappe langsam, nicht mit einem Schnitt.</li>
+  <li><b>Wechseln erlaubt:</b> Wer im Gebirge Zeit verliert, kann zur Küste ausweichen. Die Wahl ist also eine
+      echte Entscheidung und kein reines Würfeln.</li>
+</ul>
+
+<h2>3 · Wie lang wird das?</h2>
+<div class="card">
+<table>
+  <tr><th>Größe</th><th>Vorschlag</th><th>Begründung</th></tr>
+  <tr><td>Etappe</td><td>≈ 4 000 Segmente, fehlerfrei 60–75 s</td><td>heute 1 250 Segmente ≈ 21 s; mit dem
+      Dreifachen hat jede Etappe Platz für 3–4 Abschnitte mit eigenem Charakter</td></tr>
+  <tr><td>Gesamtfahrt</td><td>4 Etappen ≈ 4,5 min fehlerfrei, real 5–6 min</td><td>passt in eine Pause, aber man
+      fährt „richtig weit“</td></tr>
+  <tr><td>Strecke</td><td>≈ 20–25 km Anzeige</td><td>aus dem angezeigten Tempo gerechnet: 280 km/h Schnitt
+      × 4,5 min ≈ 21 km</td></tr>
+</table>
+</div>
+
+<h3>Zeit-System</h3>
+<ul>
+  <li>Jede Etappe hat <b>zwei Zwischen-Checkpoints</b> (bei 1/3 und 2/3) und das Ziel-/Gabeltor am Ende. Jedes Tor
+      schreibt Zeit gut.</li>
+  <li>Die Zeit pro Drittel ist die fehlerfreie Fahrzeit mal einem Faktor: <span class="tag k">Küste 1,30</span>
+      <span class="tag l">Land 1,20</span><span class="tag g">Gebirge 1,12</span>. Beispiel Gebirge: Drittel fehlerfrei
+      22 s → 22 × 1,12 ≈ 25 s Zeit, also nur 3 s Puffer je Drittel.</li>
+  <li>Innerhalb einer Etappe wird die Restzeit voll übertragen, zwischen den Etappen wie heute zur Hälfte.</li>
+  <li>Medaillen je Etappe nach der Restzeit am Tor: Gold, Silber, Bronze.</li>
+</ul>
+
+<h2>4 · Sieht man, wo man ist?</h2>
+<table>
+  <tr><th>Wann</th><th>Was man sieht</th></tr>
+  <tr><td><b>Vor der Fahrt</b></td><td>Startbildschirm mit der Karte: erreichte Ziele (Sammlung „2 von 3“),
+      gefahrene Routen „5 von 17“, Bestzeit. Die Route wählt man <b>nicht</b> vorher, sondern unterwegs.</td></tr>
+  <tr><td><b>Während der Fahrt</b></td><td>Schmale Leiste oben: Name der Etappe, Fortschrittsbalken mit den
+      Checkpoint-Marken, „km 12,4“. Ein Tipp darauf zeigt kurz die Mini-Karte mit dem eigenen Punkt.
+      Vor jeder Gabelung kommen 5 s vorher große Wegweiser („← KÜSTE · GEBIRGE →“).</td></tr>
+  <tr><td><b>Am Ende</b></td><td>Die Karte mit der gefahrenen Route als leuchtende Linie, Kilometer, Gesamtzeit,
+      Zeiten und Medaillen je Etappe, „Neue Route entdeckt!“ oder „Bestzeit auf dieser Route!“.</td></tr>
+</table>
+
+<h3>Die Gabelung selbst</h3>
+<p>Die Straße teilt sich sichtbar in zwei oder drei Fahrbahnen, die auseinanderlaufen. Man <b>lenkt einfach in die
+gewünschte Fahrbahn</b>, ohne Menü und ohne Halt. Wer in die Mitte des Trenndreiecks fährt, streift die Leitplanke und
+verliert Tempo, landet dann aber auf der näheren Fahrbahn.</p>
+
+<h2>5 · Die zehn Etappen</h2>
+<table>
+  <tr><th>Etappe</th><th>Charakter</th><th>Besonderes Streckenelement</th><th>Wetter / Licht</th></tr>
+  <tr><td><span class="tag l">START</span> Morgenland</td><td>Felder, Allee, Dorf mit Kirchturm, Rapsfelder</td>
+      <td>Allee mit Schattenstreifen auf der Straße, Traktoren</td><td>Morgensonne, flaches Licht</td></tr>
+  <tr><td><span class="tag k">K2</span> Küstenstraße</td><td>Meer links, Strand, Palmen, Leuchtturm</td>
+      <td>Felswand rechts, Abgrund mit Leitplanke links zum Meer</td><td>klar, Möwen</td></tr>
+  <tr><td><span class="tag l">L2</span> Weinland &amp; Fluss</td><td>Weinberg-Terrassen, Fluss neben der Straße</td>
+      <td><b>Autobahnbrücke</b> über das Tal: links und rechts geht es tief runter, Seitenwind</td><td>Mittagssonne</td></tr>
+  <tr><td><span class="tag g">G2</span> Alpenauffahrt</td><td>Almwiesen, Tannen, Kühe am Rand</td>
+      <td>Kehren mit Bremszwang, <b>Lawinengalerie</b> (halber Tunnel mit Pfeilern)</td><td>wechselnd, erster Schnee</td></tr>
+  <tr><td><span class="tag k">K3</span> Bucht &amp; Dünen</td><td>Dünen, Hafenkräne in der Ferne</td>
+      <td><b>Hängebrücke</b> über die Bucht, Sand verweht auf der Straße (rutschig)</td><td>Abendrot</td></tr>
+  <tr><td><span class="tag l">L3</span> Canyon</td><td>Rote Felswände, Tafelberge, Tankstelle, Staudamm</td>
+      <td>Straße auf der <b>Dammkrone</b> (Wasser links, Abgrund rechts), enge Schlucht</td><td>Sandsturm-Abschnitt (kürzere Sicht)</td></tr>
+  <tr><td><span class="tag g">G3</span> Gletscherpass</td><td>Gletscher, Schneewände links und rechts</td>
+      <td><b>Tunnel</b> durch den Berg (Motor hallt), Eisplatten, Steinschlag</td><td>Schneefall, Dämmerung</td></tr>
+  <tr><td><span class="tag k">ZIEL K</span> Hafenstadt</td><td>Hochhäuser, Neon, Hafen</td>
+      <td>Stadtbrücke mit Lichterketten, Busse und Taxis</td><td>Nacht, Regen, spiegelnde Straße</td></tr>
+  <tr><td><span class="tag l">ZIEL L</span> Oase der Lichter</td><td>Wüstenstadt mit Leuchtreklame, Palmen</td>
+      <td>lange Gerade mit Hochgeschwindigkeit, Motorräder</td><td>klare Nacht, Sterne</td></tr>
+  <tr><td><span class="tag g">ZIEL G</span> Sternwarte</td><td>Hochgebirge über den Wolken, Kuppel am Ziel</td>
+      <td>Schlussanstieg im Nebel, Wolkenmeer unter der Straße</td><td>Nacht, Nebel, Milchstraße</td></tr>
+</table>
+
+<h2>6 · Baukasten der Streckenelemente</h2>
+<p>Jede Etappe wird aus Bausteinen zusammengesetzt. Jeder Baustein soll sich <b>anders fahren</b>, nicht nur anders
+aussehen.</p>
+<div class="card">
+<table>
+  <tr><th>Baustein</th><th>Wie es aussieht</th><th>Wie es sich fährt</th></tr>
+  <tr><td>Brücke über Tal</td><td>Boden neben der Straße fällt weg, unten Fluss und Bäume klein, Geländer und Pfeiler</td><td>Leitplanke statt Gras: Berühren kostet Tempo und gibt Funken, Seitenwindböen</td></tr>
+  <tr><td>Felswand einseitig</td><td>senkrechte Wand auf einer Seite, auf der anderen Abgrund oder Meer</td><td>Wand streifen = harter Tempoverlust, man fährt zur Abgrundseite hin enger</td></tr>
+  <tr><td>Tunnel</td><td>Decke mit Lampen, Wände, Licht beim Ein- und Ausfahren</td><td>schmaler, Motor hallt, kurze Blendung beim Ausfahren</td></tr>
+  <tr><td>Galerie</td><td>halbe Tunnelröhre, außen Pfeiler mit Blick ins Tal</td><td>Licht-Schatten-Flackern, eine Seite Wand</td></tr>
+  <tr><td>Kehren / Serpentinen</td><td>enge Kurven übereinander am Hang</td><td>zu schnell = man fliegt raus, Bremse wird wichtig, Quietschen</td></tr>
+  <tr><td>Kuppe mit Sprung</td><td>steile Kuppe</td><td>Auto hebt kurz ab, Lenken wirkt in der Luft nicht</td></tr>
+  <tr><td>Dammkrone</td><td>Wasser auf einer Seite, Staumauer auf der anderen</td><td>schmal, keine Ausweichfläche</td></tr>
+  <tr><td>Allee</td><td>Bäume dicht beidseits, Schattenstreifen</td><td>Bäume = Hindernis statt Wiese</td></tr>
+  <tr><td>Furt / Pfütze</td><td>Wasser über der Straße, Spritzer</td><td>bremst kurz, Spritzwasser verdeckt die Sicht</td></tr>
+  <tr><td>Schneeschneise</td><td>hohe Schneewände links und rechts</td><td>Schnee streifen bremst, Eisplatten rutschen</td></tr>
+  <tr><td>Baustelle</td><td>Pylonen, gelbe Linien, eine Spur gesperrt</td><td>Engstelle mit Verkehr</td></tr>
+  <tr><td>Stadt</td><td>Häuserfronten direkt neben der Straße, Neon</td><td>kein Seitenraum, viel Verkehr</td></tr>
+  <tr><td>Checkpoint-Tor</td><td>Tor mit Uhr, Fahnen</td><td>schreibt Zeit gut, Ansage „+24 s“</td></tr>
+</table>
+</div>
+
+<h2>7 · Wetter, Licht, Verkehr, Hindernisse</h2>
+<h3>Wetter und Tageszeit (fest je Etappe)</h3>
+<ul>
+  <li><b>Tageslauf:</b> Morgen → Mittag → Abendrot → Nacht, mit fließendem Übergang. Himmel, Sonnenstand, Schatten
+      und Laternen ändern sich mit.</li>
+  <li><b>Regen:</b> Tropfen, spiegelnde Straße, Gischt hinter Gegnern. Die Kurven tragen weniger, man rutscht leichter
+      nach außen.</li>
+  <li><b>Nebel:</b> kürzere Sichtweite, Gegner tauchen spät auf.</li>
+  <li><b>Sandsturm:</b> brauner Schleier, Böen von der Seite.</li>
+  <li><b>Schneefall:</b> gibt es schon, dazu Eisplatten.</li>
+  <li><b>Gewitter</b> (nur ein Abschnitt): Blitze erhellen kurz die Landschaft.</li>
+</ul>
+<h3>Verkehr mit Charakter</h3>
+<ul>
+  <li><b>Pkw:</b> wie heute.</li>
+  <li><b>Lkw:</b> breit und langsam, blockiert eineinhalb Spuren.</li>
+  <li><b>Traktor:</b> sehr langsam, nur auf dem Land.</li>
+  <li><b>Motorrad:</b> schnell und schmal, wechselt die Spur.</li>
+  <li><b>Wohnmobil:</b> in den Bergen.</li>
+  <li><b>Bus und Taxi:</b> in der Stadt.</li>
+  <li><b>Rivale:</b> ein gelber Sportwagen, der dich in jeder Etappe einmal überholt und dann vor dir die Spur hält.</li>
+</ul>
+<h3>Hindernisse und Bonus</h3>
+<ul>
+  <li><b>Ölfleck:</b> 1 s rutschig.</li>
+  <li><b>Pylonen:</b> umfahrbar, beim Treffen fliegen sie weg und kosten etwas Tempo.</li>
+  <li><b>Steinschlag:</b> Felsbrocken auf einer Spur im Gebirge.</li>
+  <li><b>Kühe:</b> stehen am Rand der Alm und gehen manchmal auf die Straße.</li>
+  <li><b>Turbo-Kanister:</b> füllt den Turbo-Vorrat auf.</li>
+  <li>Alles liegt bei jeder Fahrt an derselben Stelle, man kann es also lernen.</li>
+</ul>
+
+<h2>8 · Gleich und trotzdem spannend</h2>
+<ul>
+  <li><b>Alles fest:</b> Strecke, Deko, Wetter und Hindernisse sind je Etappe fest gesetzt, nicht mehr zufällig wie
+      heute. Auch die Gegner starten immer gleich, aber dein Fahrstil verschiebt, wo du sie triffst.</li>
+  <li><b>Bestzeiten je Route:</b> Jede der 17 Routen hat ihre eigene Bestzeit.</li>
+  <li><b>Geisterauto</b> (später): Deine Bestfahrt fährt halb durchsichtig mit. Das spornt am stärksten an und kostet
+      nur das Aufzeichnen von Position und Spur alle 0,1 s.</li>
+  <li><b>Sammelbuch:</b> 3 Ziele, 17 Routen, Gold in allen 10 Etappen.</li>
+</ul>
+
+<h2>9 · Umsetzung in Schritten</h2>
+<table>
+  <tr><th>Schritt</th><th>Inhalt</th><th>Danach spielbar?</th></tr>
+  <tr><td>1 Fundament</td><td>Karte 3 × 4, Gabelung mit Lenkwahl, feste Etappen, Checkpoints, Leiste oben, Karte am
+      Ende, Sammlung und Bestzeiten</td><td>ja, mit den heutigen Landschaften</td></tr>
+  <tr><td>2 Streckenelemente</td><td>Brücke mit Abgrund und Leitplanke, Felswand, Tunnel, Galerie, Küste mit Meer,
+      Kehren</td><td>ja</td></tr>
+  <tr><td>3 Tageszeit und Wetter</td><td>Tageslauf, Regen, Nebel, Sandsturm, Eis</td><td>ja</td></tr>
+  <tr><td>4 Verkehr und Hindernisse</td><td>Lkw, Traktor, Motorrad, Rivale, Pylonen, Öl, Steinschlag,
+      Turbo-Kanister</td><td>ja</td></tr>
+  <tr><td>5 Feinschliff</td><td>alle 10 Etappen ausgestalten, Medaillen, Geisterauto, Zielbilder</td><td>ja</td></tr>
+</table>
+<p class="small">Kostenhinweis: Diese Sitzung ist inzwischen sehr lang, und jede Antwort liest den ganzen Verlauf
+neu. Für jeden Schritt lohnt eine <b>frische Sitzung</b>. Die Übergabe steht in der CLAUDE.md des Repos und in dieser
+Seite.</p>
+
+<h2>10 · Was du entscheiden müsstest</h2>
+<div class="card q">
+<ol>
+  <li><b>Kartengröße:</b> 3 × 4 (17 Routen, ≈ 5 min) oder 3 × 5 (41 Routen, ≈ 6 min)?</li>
+  <li><b>Abzweigung:</b> Wahl durch Lenken in die Fahrbahn wie vorgeschlagen, einverstanden?</li>
+  <li><b>Zeit:</b> Zwischen-Checkpoints plus halbe Restzeit zwischen den Etappen, oder lieber nur am Etappenende?</li>
+  <li><b>Game Over:</b> Tour von vorn (klassisch), oder zusätzlich ein Übungsmodus, der jede schon erreichte Etappe
+      direkt startet?</li>
+  <li><b>Tageslauf</b> Morgen → Nacht: ja oder nein?</li>
+  <li><b>Namen und Etappen:</b> Passen die zehn Etappen, oder willst du andere Landschaften (z. B. Vulkan, Stadt am Tag,
+      Herbstwald)?</li>
+</ol>
+</div>
+</main>
+</body>
+</html>

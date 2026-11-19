@@ -38,3 +38,10 @@ und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was überno
 
 `autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D). Gewählt: B (ab v2.1 im Spiel). Gleiche Schnittstelle
 wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funktion ins Spiel übernehmen.
+
+## Konzept (Entwurf, noch nicht umgesetzt)
+
+`konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
+× 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
+Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Offene Entscheidungen des Nutzers stehen in
+Abschnitt 10. Erst nach seiner Freigabe programmieren, je Schritt eine frische Sitzung.
