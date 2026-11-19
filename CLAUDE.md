@@ -15,7 +15,7 @@ Pseudo-3D-Rennspiel als einzelne Seite (`index.html`, dazu `sw.js`, `manifest.we
 ## Steuerung
 
 Das Rennen beginnt erst mit dem START-Knopf (gibt zugleich den Ton frei), danach Countdown 3–2–1–LOS mit Piepton (seit v3.2), nach Ablauf der Zeit NOCHMAL-Knopf. Knüppel nach vorn = Gas, zurück = Bremse (analog), ohne Gas rollt das Auto aus; seitlich lenken. Hochformat: Spielbild oben, dunkles Bedienfeld unten (wie bei Passfahrt in
-`fragen-allgemein/spiele/passfahrt`). Bedienfeld nur 20 % der Höhe (120–170 px, Nutzer: vorher zu groß). Darin ein runder Knüppel, der seit v3.3 FEST steht (Nutzer 19.11.): Fingerlage relativ zur Knüppelmitte zählt,
+`fragen-allgemein/spiele/passfahrt`). Bedienfeld seit v3.5 nur 16 % der Höhe (108–136 px), Knüppel (100 px) ganz unten; kleiner Knopf ⇄ unten links tauscht Knüppel und Turbo (`autorennen.tausch`). Darin ein runder Knüppel, der seit v3.3 FEST steht (Nutzer 19.11.): Fingerlage relativ zur Knüppelmitte zählt,
 links/rechts lenkt (analog, Volleinschlag nach 22 % Bildschirmbreite), oberhalb Gas, unterhalb Bremse (voll nach 35 %
 davon); rechts daneben der Turbo-Knopf.
 Querformat: Bedienfeld durchsichtig über dem unteren Bildrand, Knüppel links unten. Am PC Pfeiltasten (hoch Gas, runter Bremse), Turbo Shift/Leertaste. Reifenquietschen nur bei krassem Lenken (Knüppel > 60 %) und hohem Tempo (> 80 %) sowie bei Vollbremsung (Nutzer 19.11., v3.2).

@@ -126,16 +126,24 @@
         }
         #panel {
             flex: 0 0 auto;
-            height: 20vh;
-            max-height: 170px;
-            min-height: 120px;
+            position: relative;
+            height: 16vh;                 /* niedriger als früher (20 %): mehr Platz fürs Spielbild */
+            max-height: 136px;
+            min-height: 108px;
             display: flex;
             align-items: center;
             gap: 12px;
             background: #242833;
             border-top: 3px solid #11131a;
-            padding: 0 16px max(env(safe-area-inset-bottom), 8px) 0;
+            padding: 0 16px max(env(safe-area-inset-bottom), 4px) 0;
             box-sizing: border-box;
+        }
+        /* Knöpfe getauscht: Turbo links, Knüppel rechts */
+        #panel.swap { flex-direction: row-reverse; padding-left: 16px; padding-right: 0; }
+        #swap {
+            position: absolute; left: 4px; bottom: max(env(safe-area-inset-bottom), 4px); z-index: 21;
+            width: 30px; height: 26px; padding: 0; border: 1px solid rgba(241,239,230,.35); border-radius: 8px;
+            background: rgba(0,0,0,.3); color: rgba(241,239,230,.8); font: bold 15px sans-serif; touch-action: manipulation;
         }
         /* Querformat: Bedienfeld liegt durchsichtig über dem unteren Bildrand */
         @media (orientation: landscape) {
@@ -201,9 +209,9 @@
         }
         #stickBase {
             position: absolute;
-            width: 112px;
-            height: 112px;
-            margin: -56px 0 0 -56px;
+            width: 100px;
+            height: 100px;
+            margin: -50px 0 0 -50px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(36,40,51,.55) 0 58%, rgba(36,40,51,.8) 59%);
             border: 2px solid rgba(241,239,230,.4);
@@ -266,6 +274,7 @@
         <div id="stickBase"><span class="u">GAS</span><span class="d">BREMSE</span><span class="l">‹</span><span class="r">›</span><div id="stickKnob"></div></div>
     </div>
     <button id="turbo" type="button"><div id="turboFill"></div><span>TURBO</span></button>
+    <button id="swap" type="button" aria-label="Knüppel und Turbo tauschen">⇄</button>
 </div>
 <button id="mute" type="button" aria-label="Ton an/aus">🔊</button>
 <button id="ver" type="button"></button>
@@ -275,7 +284,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.4';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.5';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -322,18 +331,30 @@ const steerZone = document.getElementById('steerZone');
 const stickBase = document.getElementById('stickBase');
 const stickKnob = document.getElementById('stickKnob');
 let steerPtr = null, steerX0 = 0, steerY0 = 0;
+// Knöpfe tauschen (kleiner Knopf unten links): Knüppel und Turbo wechseln die Seite, wird gemerkt
+let swapped = false;
+try { swapped = localStorage.getItem('autorennen.tausch') === 'ja'; } catch (_) {}
+const panelEl = document.getElementById('panel'), swapBtn = document.getElementById('swap');
+panelEl.classList.toggle('swap', swapped);
+swapBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+swapBtn.addEventListener('click', () => {
+    swapped = !swapped;
+    panelEl.classList.toggle('swap', swapped);
+    try { localStorage.setItem('autorennen.tausch', swapped ? 'ja' : 'nein'); } catch (_) {}
+    stickHome();
+});
 function steerRange() { return Math.max(60, Math.min(140, window.innerWidth * 0.22)); } // Fingerweg für Volleinschlag in px
 function stickR() { return stickBase.offsetWidth / 2 || 85; }
 function stickHome() {
     const r = steerZone.getBoundingClientRect();
     if (!r.width) return;
     const R = stickR();
-    if (window.innerWidth > window.innerHeight) {          // Querformat: links unten, nicht über dem Auto
-        stickBase.style.left = (R + 20) + 'px';
+    if (window.innerWidth > window.innerHeight) {          // Querformat: unten in der Ecke, nicht über dem Auto
+        stickBase.style.left = (swapped ? r.width - R - 20 : R + 20) + 'px';
         stickBase.style.top = (r.height - R - 10) + 'px';
-    } else {                                               // Hochformat: Mitte des Bedienfelds
+    } else {                                               // Hochformat: mittig, ganz unten im Bedienfeld
         stickBase.style.left = (r.width / 2) + 'px';
-        stickBase.style.top = (r.height / 2 - 2) + 'px';
+        stickBase.style.top = (r.height - R - 2) + 'px';
     }
 }
 function steerMove(x, y) {
