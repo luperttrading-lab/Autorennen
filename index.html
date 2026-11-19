@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.35';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.36';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -960,7 +960,7 @@ const LANDS = {
               spr: { every: 4, chance: 0.55, types: ['rock', 'rock', 'rock', 'cactus'] } },
     vulkan: { grass: ['#3b3533', '#322d2b'], base: '#1d1918', mount: 'vulkan', msc: 1.6, dust: '90,85,85',    sq: 'C',
               spr: { every: 4, chance: 0.5, types: ['rock', 'rock', 'rock', 'bush'] } },
-    stadt:  { grass: ['#5d6168', '#53575e'], base: '#383b41', mount: 'stadt',  msc: 1.0, dust: '130,130,130', sq: 'A', lamps: 8,
+    stadt:  { grass: ['#5d6168', '#53575e'], base: '#383b41', mount: 'stadt',  msc: 1.0, dust: '130,130,130', sq: 'A', lamps: 14,
               spr: { every: 6, chance: 0.4, types: ['bush'] } },
     oase:   { grass: ['#d8bb8e', '#cbad80'], base: '#a88a60', mount: 'wueste', msc: 1.0, dust: '215,185,140', sq: 'C', lamps: 10,
               spr: { every: 5, chance: 0.5, types: ['bush', 'cactus', 'tree'] } }
@@ -1049,7 +1049,7 @@ const STAGES = {
     K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand',
           zones: [{ name: 'Insel mit Hafen', umbrellas: true, water: { t: 'meer', side: -1, s: 2.0 }, every: 4, chance: 0.6, types: ['palm', 'palm', 'bush', 'tree'], boats: 60,
                     marks: [{ type: 'fisher2', at: 0.5, side: 1, d: 2.2 }, { type: 'fisher', at: 0.56, side: 1, d: 2.3 }] },
-                  { name: 'Meeresbrücke', bridge: 'meer', flat: true, span: [0.06, 0.94], lampsOn: 14, boats: 90, pylons: 220 },
+                  { name: 'Meeresbrücke', bridge: 'meer', flat: true, span: [0.06, 0.94], boats: 90, pylons: 220 },
                   { name: 'Insel mit Dünen', water: { t: 'meer', side: 1, s: 1.8 }, every: 4, chance: 0.6, types: ['dune', 'dune', 'palm', 'bush'], boats: 160 }] },
     L3: { row: 2, col: 1, name: 'Weinland und Talbrücke',  short: 'WEINLAND',      land: 'wein',
           zones: [{ name: 'Weinberg-Terrassen', grass: ['#7fae3c', '#5e8a2a'], rows: true, every: 7, chance: 0.4, types: ['tree', 'bush'] },
@@ -2175,12 +2175,12 @@ function drawSprite(sp, x, y, size) {
         ctx.restore();
     } else ctx.drawImage(img, x - w / 2, y - h, w, h);
     if (sp.type === 'spout') glows.push({ x, y: y - h * 0.5, r: w * 1.1, c: '255,120,30', always: true });
-    if (curDark > 0.3 && (sp.type === 'neon' || sp.type === 'neon2')) glows.push({ x, y: y - h * 0.92, r: w * 0.28, c: ['255,63,164', '63,240,255', '255,226,63', '125,255,90'][(sp.v || 0) % 4] });
-    if (curDark > 0.4 && (sp.type === 'tower' || sp.type === 'tower2' || sp.type === 'lighthouse') && w > 6) glows.push({ x, y: y - h * (sp.type === 'lighthouse' ? 0.86 : 0.5), r: w * (sp.type === 'lighthouse' ? 1.2 : 0.22), c: '255,215,130' });
+    if (curDark > 0.3 && (sp.type === 'neon' || sp.type === 'neon2')) glows.push({ x, y: y - h * 0.92, r: w * 0.22, gy: y, c: ['255,63,164', '63,240,255', '255,226,63', '125,255,90'][(sp.v || 0) % 4] });
+    if (curDark > 0.4 && sp.type === 'lighthouse' && w > 6) glows.push({ x, y: y - h * 0.86, r: w * 1.2, c: '255,215,130' });   // Hochhäuser ohne Schein (Fenster leuchten selbst; v3.36)
     if (sp.type === 'lamp' && curDark > 0.05) {        // Lichtschein an der Leuchte, wird nach dem Abdunkeln gemalt
         const k = w / img.width;
         const lx = flip ? x + w / 2 - 3.5 * k : x - w / 2 + 3.5 * k, ly = y - h + 6 * k;
-        glows.push({ x: lx, y: ly, r: size * 0.35 });
+        glows.push({ x: lx, y: ly, r: size * 0.22, core: Math.max(1, size * 0.025), gy: y });
     }
 }
 
@@ -2671,15 +2671,15 @@ function drawStruct(seg, W) {
         const nx = segments[i + 1], cb2 = nx && nx.cable !== undefined ? nx.cable : seg.cable, th = Math.max(1, p1.w * 0.03);
         for (const sd of [-1, 1]) {
             const d = sd * 1.5, y1 = p1.y - seg.cable * p1.w, y2 = p2.y - cb2 * p2.w;
-            drawPolygon(X1(d), y1, X2(d), y2, X2(d), y2 + th, X1(d), y1 + th, '#e8ecf0');
-            if (i % 3 === 0 && seg.cable > 0.3) { ctx.fillStyle = '#b9c0c8'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - 0.14) * p1.w); }
+            drawPolygon(X1(d), y1, X2(d), y2, X2(d), y2 + th, X1(d), y1 + th, '#c8402f');
+            if (i % 3 === 0 && seg.cable > 0.3) { ctx.fillStyle = '#a8483a'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - 0.14) * p1.w); }
         }
         if (seg.pylon) {
             const lw = p1.w * 0.13, top = p1.y - 3.6 * p1.w;
-            ctx.fillStyle = '#dfe3e8'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw / 2, top, lw, 3.6 * p1.w + p1.w * 0.05);
-            ctx.fillStyle = '#b5bbc3'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) + (sd > 0 ? -lw / 2 : lw * 0.1), top, lw * 0.4, 3.6 * p1.w);
-            ctx.fillStyle = '#cfd4da'; ctx.fillRect(X1(-1.5), p1.y - 3.5 * p1.w, p1.w * 3, p1.w * 0.16); ctx.fillRect(X1(-1.5), p1.y - 2.3 * p1.w, p1.w * 3, p1.w * 0.12);
-            ctx.fillStyle = '#d22b2b'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw * 0.3, top - p1.w * 0.08, lw * 0.6, p1.w * 0.08);
+            ctx.fillStyle = '#c8402f'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw / 2, top, lw, 3.6 * p1.w + p1.w * 0.05);
+            ctx.fillStyle = '#9a2f22'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) + (sd > 0 ? -lw / 2 : lw * 0.1), top, lw * 0.4, 3.6 * p1.w);
+            ctx.fillStyle = '#b8392a'; ctx.fillRect(X1(-1.5), p1.y - 3.5 * p1.w, p1.w * 3, p1.w * 0.16); ctx.fillRect(X1(-1.5), p1.y - 2.3 * p1.w, p1.w * 3, p1.w * 0.12);
+            ctx.fillStyle = '#ffe9a0'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw * 0.3, top - p1.w * 0.08, lw * 0.6, p1.w * 0.08);
         }
     }
     if (roof) {                                        // Decke mit Lampen
@@ -2754,7 +2754,7 @@ function render() {
             roadColor = (segment.index & 1) ? '#857c72' : '#776f66';
             rumbleColor = '#a8a7a2';
         }
-        if (segment.vL) rumbleColor = light ? '#a9a7a1' : '#9f9d97';   // im Dorf Bordstein statt Rüttelstreifen
+        if (segment.vL || segment.land === 'stadt' && segment.mix < 0.5) rumbleColor = light ? '#a9a7a1' : '#9f9d97';   // im Dorf und in der Stadt Bordstein statt Rüttelstreifen
         if ((segment.wx === 'rain' || segment.wx === 'storm') && segment.wxA > 0.3) roadColor = light ? '#3d4047' : '#44474e';   // nasse Straße
         if (segment.tunnel || segment.gallery) {       // im Tunnel dunkler, in der Galerie Schattenstreifen der Pfeiler
             roadColor = light ? '#4b4b4f' : '#545458';
@@ -2921,8 +2921,9 @@ function render() {
         ctx.fillStyle = gr;
         ctx.beginPath(); ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2); ctx.fill();
         if (g.sy) ctx.restore();
-        if (wetNow > 0.2 && !g.sy && g.y < H - 40) {   // nasse Straße: Lichter spiegeln sich als senkrechte Streifen
-            const rr = Math.min(g.r, 18), ry = g.y + rr * 2.5;
+        if (g.core) circle(g.x, g.y, g.core, 'rgba(255,248,220,' + (0.9 * Math.min(1, curDark * 1.5)).toFixed(2) + ')');   // heller Lampenkopf
+        if (wetNow > 0.2 && g.gy !== undefined && g.gy < H - 10) {   // nasse Straße: Licht spiegelt sich unter der Lampe auf dem Boden (v3.36: vorher in der Luft)
+            const rr = Math.min(g.r, 14), ry = g.gy + rr * 1.6;
             ctx.save(); ctx.translate(g.x, ry); ctx.scale(0.3, 2.2);
             const gr2 = ctx.createRadialGradient(0, 0, 0, 0, 0, rr);
             gr2.addColorStop(0, 'rgba(' + (g.c || '255,230,150') + ',' + (0.25 * wetNow * (g.always ? 0.8 : curDark)).toFixed(2) + ')');
