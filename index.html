@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.34';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.35';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1061,8 +1061,8 @@ const STAGES = {
                   { name: 'Passhöhe im Schnee' }] },
     K4: { row: 3, col: 0, name: 'Vulkaninsel',             short: 'VULKANINSEL',   land: 'vulkan',
           zones: [{ name: 'Schwarzer Strand', water: { t: 'meer', side: -1, s: 1.75 }, every: 5, chance: 0.5, types: ['rock', 'rock', 'palm'], grass: ['#2b2624', '#24201e'] },
-                  { name: 'Lavafelder', water: { t: 'lava', side: -1, s: 2.1, w: 2.5 }, water2: { t: 'lava', side: 1, s: 2.4, w: 3.5 }, every: 3, chance: 0.6, types: ['smoke', 'rock', 'rock'] },
-                  { name: 'Kraterrand', edge: { R: 'rail' }, water: { t: 'krater', side: 1, s: 1.42, sheer: true }, flat: true, span: [0.1, 0.9], every: 4, chance: 0.5, types: ['rock', 'smoke'] }] },
+                  { name: 'Lavafelder', water: { t: 'lava', side: -1, s: 2.1, w: 2.5 }, water2: { t: 'lava', side: 1, s: 2.4, w: 3.5 }, every: 3, chance: 0.6, types: ['rock', 'rock', 'rock'], smokeAt: 64 },
+                  { name: 'Kraterrand', edge: { R: 'rail' }, water: { t: 'krater', side: 1, s: 1.42, sheer: true }, flat: true, span: [0.1, 0.9], every: 4, chance: 0.5, types: ['rock', 'rock', 'bush'], smokeAt: 90 }] },
     L4: { row: 3, col: 1, name: 'Canyon und Staudamm',     short: 'CANYON',        land: 'canyon',
           zones: [{ name: 'Enge Schlucht', edge: { L: 'canyon', R: 'canyon' }, span: [0.1, 0.95] },
                   { name: 'Dammkrone', edge: { L: 'rail', R: 'rail' }, water: { t: 'see', side: -1, s: 1.4, sheer: true }, water2: { t: 'tal', side: 1, s: 1.4, sheer: true }, flat: true, straight: true, span: [0.2, 0.8] },
@@ -1284,16 +1284,12 @@ function decorate(a, b, r) {
             }
         }
         if (seg.noDeco) continue;
-        if (z0.farms && seg.zone && i % 37 === 0 && r() < 0.8 && segments[i + 4]) {   // Raps: Höfe (Haus, Scheune, Bäume) und Baumgruppen
-            const sd = r() < 0.5 ? -1 : 1, d = 3.6 + r() * 4;
-            if (r() < 0.55) {
-                seg.sprites.push({ type: 'house', offset: sd * d, scale: 1, v: Math.floor(r() * 3) });
-                segments[i + 3].sprites.push({ type: 'barn', offset: sd * (d + 1.3), scale: 1, v: Math.floor(r() * 2) });
-                segments[i + 4].sprites.push({ type: 'tree', offset: sd * (d - 0.9), scale: 1.2, v: i % 3 });
-            } else for (let q = 0; q < 3; q++) segments[i + q * 2].sprites.push({ type: 'tree', offset: sd * (d + (q - 1) * 0.7), scale: 0.9 + r() * 0.4, v: (i + q) % 3 });
+        if (z0.smokeAt && seg.zone && i % z0.smokeAt === 0) {   // Rauch steigt aus der Lava bzw. aus dem Krater auf
+            const lw = seg.water2 && seg.water2.T.hot ? seg.water2 : seg.water && seg.water.T.hot ? seg.water : null;
+            const off = lw ? lw.side * (lw.s + 0.6 + r() * (Math.min(lw.w, 4) - 1.2)) : (seg.water && seg.water.T.deep ? seg.water.side * (3 + r() * 5) : null);
+            if (off !== null) seg.sprites.push({ type: 'smoke', offset: off, scale: 1 + r() * 0.7, v: i % 7 });
         }
-        if (z0.pylons && seg.bridge && i % z0.pylons === 0) seg.sprites.push({ type: 'pylon', offset: -1.5, scale: 1 }, { type: 'pylon', offset: 1.5, scale: 1 });
-        for (const lw of [seg.water, seg.water2]) if (lw && lw.T.hot && lw.s < 3 && i % 23 === (lw.side > 0 ? 7 : 0) && r() < 0.7)   // Lavafontänen
+        for (const lw of [seg.water, seg.water2]) if (lw && lw.T.hot && lw.s < 3 && i % 47 === (lw.side > 0 ? 19 : 0) && r() < 0.8)   // Lavafontänen
             seg.sprites.push({ type: 'spout', offset: lw.side * (lw.s + 0.4 + r() * (Math.min(lw.w, 4) - 0.8)), scale: 0.8 + r() * 0.6, v: i % 2 });
         if (seg.bridge || seg.edgeL && seg.edgeL.k === 'canyon') {   // Brücke, Schlucht: nur Boote, sonst nichts am Rand
             const wb = seg.water;
@@ -1383,7 +1379,7 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
     }
     const nOil = [3, 5, 6][st.col];                    // Ölflecken an festen Stellen, bevorzugt kurz vor oder in Kurven (v3.30)
     const okOil = (i) => {                             // sichtbar (nicht hinter einer Kuppe), kein Tor, kein Tunnel
-        const g = segments[i]; if (!g || g.gates || g.tunnel || g.roads.length > 1 || segments[i + 1].gates) return false;
+        const g = segments[i]; if (!g || g.gates || g.tunnel || g.wx || g.roads.length > 1 || segments[i + 1].gates) return false;
         for (let j = 5; j < 40; j++) if (segments[i - j].p1.world.y > g.p1.world.y + 120 + j * 3) return false;
         return true;
     };
@@ -1490,6 +1486,18 @@ function applyZone(st, z, startSeg, len, k, r) {
             }
         }
     }
+    if (z.farms && z.fields) {                         // Höfe (v3.35): wenige, je auf einem Hofplatz mit Zufahrt von der Straße
+        const fr = rng(hashStr(st.name) + 4242 * k + 9);
+        for (let P = a + 60 + Math.floor(fr() * 40); P < b - 40; P += 150 + Math.floor(fr() * 90)) {
+            const sd = fr() < 0.5 ? -1 : 1, d = 3.4 + fr() * 1.6;
+            for (let j = P - 3; j < P + 14; j++) segments[j].bands.push({ side: sd, s: d - 1.1, w: 3.9, t: 'hof' });
+            for (const j of [P + 4, P + 5]) segments[j].bands.push({ side: sd, s: z.fields.s, w: d - 1.1 - z.fields.s, t: 'weg' });
+            segments[P + 2].sprites.push({ type: 'house', offset: sd * (d + 0.2), scale: 1, v: Math.floor(fr() * 3) });
+            segments[P + 9].sprites.push({ type: 'barn', offset: sd * (d + 1.1), scale: 1, v: Math.floor(fr() * 2) });
+            segments[P + 12].sprites.push({ type: 'tree', offset: sd * (d - 0.6), scale: 1.2, v: P % 3 });
+            segments[P - 1].sprites.push({ type: 'tree', offset: sd * (d + 2.2), scale: 1.1, v: (P + 1) % 3 });
+        }
+    }
     if (z.span) { const n = b - a; b = a + Math.round(n * z.span[1]); a = a + Math.round(n * z.span[0]); }
     const ramp = (i) => { const e = Math.min(1, (i - a) / 45, (b - 1 - i) / 45); return Math.max(0.04, e * e * (3 - 2 * e)); };   // Wände wachsen aus dem Boden
     let curI = a;
@@ -1519,6 +1527,16 @@ function applyZone(st, z, startSeg, len, k, r) {
         } else if (z.kehren && g.hair) g.kehre = true;
     }
     if (z.tunnel) { segments[a].portal = 1; segments[b - 1].portal = -1; }
+    if (z.pylons && z.bridge) {                        // Hängebrücke (v3.35): Pylon-Portale, Tragseil hängt dazwischen durch, Hänger zur Fahrbahn
+        const P = z.pylons, f = Math.ceil((a + 20) / P) * P, l = Math.floor((b - 21) / P) * P, TOP = 3.3;
+        for (let i = a; i < b; i++) {
+            const g = segments[i];
+            if (i < f) g.cable = 0.15 + (TOP - 0.15) * (i - a) / (f - a);
+            else if (i > l) g.cable = 0.15 + (TOP - 0.15) * (b - 1 - i) / (b - 1 - l);
+            else { const u = ((i - f) % P) / P; g.cable = 0.4 + (TOP - 0.4) * (2 * u - 1) ** 2; }
+            if (i >= f && i <= l && (i - f) % P === 0) g.pylon = true;
+        }
+    }
     for (let i = a; i < b - 1; i++) { const g = segments[i], n = segments[i + 1]; if (g.edgeL) g.nxL = n.edgeL; if (g.edgeR) g.nxR = n.edgeR; }
 }
 // Strecke vorn abschneiden: alles vor dem Segment base fällt weg, Positionen rücken nach
@@ -2109,7 +2127,37 @@ const SPR_H = { maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild:
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
+function drawSmoke(sp, x, y, size) {                  // Rauchsäule (v3.35): Ballen steigen auf, werden größer, heller und treiben ab
+    const h = size * (sp.scale || 1) * 3.2, ph = (sp.v || 0) * 0.137;
+    if (h < 3) return;
+    glows.push({ x, y: y - h * 0.03, r: h * 0.12, c: '255,110,30', always: true });
+    for (let k = 0; k < 12; k++) {
+        const u = (waveT * 0.12 + k / 12 + ph) % 1, a = 0.62 * (1 - u) * Math.min(1, u * 10);
+        const px = x + h * (0.22 * u * u + 0.03 * Math.sin(waveT * 0.8 + k * 1.7)), py = y - h * u, rr = h * (0.06 + 0.17 * u);
+        const g = Math.round(70 + 90 * u);
+        ctx.fillStyle = 'rgba(' + g + ',' + (g - 6) + ',' + (g - 10) + ',' + a.toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(px, py, rr, 0, 7); ctx.fill();
+    }
+}
+function drawSpout(sp, x, y, size) {                   // Lavafontäne (v3.35): Strahl pulsiert, Glutbrocken fliegen im Bogen
+    const img = SPR.spout[(sp.v || 0) % 2], ph = (sp.v || 0) * 0.37 + sp.offset;
+    const k = 0.65 + 0.45 * Math.abs(Math.sin(waveT * 2.1 + ph)) + 0.1 * Math.sin(waveT * 7.3 + ph);
+    const h0 = size * (sp.scale || 1) * SPR_H.spout, w = h0 * img.width / img.height, h = h0 * k;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, img.width, 44, x - w / 2, y - h0 * 12 / 56 - h * 44 / 56, w, h * 44 / 56);   // Strahl, gestreckt
+    ctx.drawImage(img, 0, 44, img.width, 12, x - w / 2, y - h0 * 12 / 56, w, h0 * 12 / 56);              // Schlackenkegel
+    const ps = Math.max(1, w * 0.09);
+    for (let m = 0; m < 8; m++) {
+        const t = (waveT * 0.8 + m / 8 + ph * 0.1) % 1, sd = m % 2 ? 1 : -1;
+        const bx = x + sd * w * (0.25 + 0.12 * (m >> 1)) * t * 2, by = y - h0 * 0.2 - h * 1.3 * (t * 2 - t * t * 2) * (0.6 + 0.1 * (m >> 1));
+        ctx.fillStyle = t < 0.5 ? '#ffd23a' : t < 0.8 ? '#ff8a1e' : '#b8320c';
+        ctx.fillRect(bx - ps / 2, by - ps / 2, ps, ps);
+    }
+    glows.push({ x, y: y - h * 0.5, r: w * 1.1 * k, c: '255,120,30', always: true });
+}
 function drawSprite(sp, x, y, size) {
+    if (sp.type === 'smoke') return drawSmoke(sp, x, y, size);
+    if (sp.type === 'spout') return drawSpout(sp, x, y, size);
     const list = SPR[sp.type];
     if (!list) return;
     const img = list[(sp.v || 0) % list.length];
@@ -2551,7 +2599,9 @@ const CROP = {
     acker: { c: ['#9b7149', '#916842'], row: '#74512f', rs: 0.2 },
     wiese: { c: ['#62ad44', '#5aa13e'] },
     pave:  { c: ['#bdb7ab', '#b4aea2'], kerb: '#8e8a82' },
-    plaza: { c: ['#c9bea9', '#c1b6a1'], kerb: '#8e8a82' }
+    plaza: { c: ['#c9bea9', '#c1b6a1'], kerb: '#8e8a82' },
+    hof:   { c: ['#b9a888', '#b09f80'] },
+    weg:   { c: ['#b39b6c', '#aa9264'] }
 };
 function drawBands(seg, p1, p2, W, light) {
     const c1 = p1.x + p1.w * seg.roads[0], c2 = p2.x + p2.w * seg.roads2[0];
@@ -2616,6 +2666,21 @@ function drawStruct(seg, W) {
         } else quad(d, h1, h2, 0, 0, light ? C[0] : C[1]);
         if (e.k === 'snow') { quad(d, h1, h2, h1 - 0.12, h2 - 0.12, '#ffffff'); quad(d, h1 * 0.45, h2 * 0.45, h1 * 0.4, h2 * 0.4, '#b4c6d8'); }
         if (e.k === 'tunnel' && i % 2 === 0) quad(d, 0.12, 0.12, 0, 0, '#d8d4c8');   // heller Sockelstreifen
+    }
+    if (seg.cable !== undefined) {                     // Hängebrücke: Tragseile beidseits, Hänger, Pylon-Portal über der Fahrbahn
+        const nx = segments[i + 1], cb2 = nx && nx.cable !== undefined ? nx.cable : seg.cable, th = Math.max(1, p1.w * 0.03);
+        for (const sd of [-1, 1]) {
+            const d = sd * 1.5, y1 = p1.y - seg.cable * p1.w, y2 = p2.y - cb2 * p2.w;
+            drawPolygon(X1(d), y1, X2(d), y2, X2(d), y2 + th, X1(d), y1 + th, '#e8ecf0');
+            if (i % 3 === 0 && seg.cable > 0.3) { ctx.fillStyle = '#b9c0c8'; ctx.fillRect(X1(d) - th * 0.25, y1, Math.max(1, th * 0.5), (seg.cable - 0.14) * p1.w); }
+        }
+        if (seg.pylon) {
+            const lw = p1.w * 0.13, top = p1.y - 3.6 * p1.w;
+            ctx.fillStyle = '#dfe3e8'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw / 2, top, lw, 3.6 * p1.w + p1.w * 0.05);
+            ctx.fillStyle = '#b5bbc3'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) + (sd > 0 ? -lw / 2 : lw * 0.1), top, lw * 0.4, 3.6 * p1.w);
+            ctx.fillStyle = '#cfd4da'; ctx.fillRect(X1(-1.5), p1.y - 3.5 * p1.w, p1.w * 3, p1.w * 0.16); ctx.fillRect(X1(-1.5), p1.y - 2.3 * p1.w, p1.w * 3, p1.w * 0.12);
+            ctx.fillStyle = '#d22b2b'; for (const sd of [-1, 1]) ctx.fillRect(X1(sd * 1.5) - lw * 0.3, top - p1.w * 0.08, lw * 0.6, p1.w * 0.08);
+        }
     }
     if (roof) {                                        // Decke mit Lampen
         const y1 = p1.y - 1.5 * p1.w, y2 = p2.y - 1.5 * p2.w;
@@ -2816,10 +2881,14 @@ function render() {
         ctx.beginPath();
         ctx.rect(0, 0, W, seg.clip);
         ctx.clip();
-        if ((seg.wx === 'rain' || seg.wx === 'storm') && seg.wxA > 0.3) ell(sx, sy - h * 0.1, w * 0.7, h * 0.35, 'rgba(210,220,235,' + (0.3 * seg.wxA).toFixed(2) + ')');   // Gischt
+        const wet = (seg.wx === 'rain' || seg.wx === 'storm') && seg.wxA > 0.3;
+        if (wet) ell(sx, sy - h * 0.1, w * 0.6, h * 0.3, 'rgba(210,220,235,' + (0.18 * seg.wxA).toFixed(2) + ')');   // Gischt
         drawCar(sx, sy, w, h, o.color);
         ctx.restore();
-        if (curDark > 0.3 && sy - h * 0.15 < seg.clip) for (const s of [-1, 1]) glows.push({ x: sx + s * w * 0.3, y: sy - h * 0.13, r: Math.max(2, w * 0.18), c: '255,40,40' });
+        if ((curDark > 0.3 || wet) && sy - h * 0.15 < seg.clip) for (const s of [-1, 1]) {   // Rücklichter, im Regen größer und auf der nassen Straße gespiegelt
+            glows.push({ x: sx + s * w * 0.3, y: sy - h * 0.13, r: Math.max(wet ? 3 : 2, w * (wet ? 0.28 : 0.18)), c: '255,40,40', always: wet });
+            if (wet) glows.push({ x: sx + s * w * 0.3, y: sy + h * 0.25, r: Math.max(2, w * 0.16), sy: 2.6, c: '255,60,50', always: true });
+        }
     }
 
     // Nebel und Sandsturm (Schritt 3): Dunst nimmt zum Horizont hin zu, ferne Dinge und Gegner verschwinden darin
