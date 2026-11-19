@@ -75,6 +75,9 @@ wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funkti
 
 ## Konzept (Schritt 1 umgesetzt in v3.0, Schritte 2–5 offen)
 
+Plan für Schritt 2: `konzept.html` Abschnitt 2b (19.11.): Tabelle mit 3 Abschnitten je Etappe und 7 Bausteinen in
+Bau-Reihenfolge. Nutzer: Baustein für Baustein bauen, je Baustein eine Version pushen, er testet, dann der nächste.
+
 `konzept.html` (19.11.2026): Tagesreise über eine feste Karte 3 Spalten (Küste leicht, Land mittel, Gebirge schwer)
 × 4 Reihen (Morgen bis Nacht), Gabelung per Lenken, 10 Etappen, 17 Routen, 3 Ziele, alles deterministisch,
 Checkpoints, Baukasten der Streckenelemente, Umsetzung in 5 Schritten. Entscheidungen des Nutzers (19.11.) in Abschnitt 0: Gabelung per Lenken mit großen
