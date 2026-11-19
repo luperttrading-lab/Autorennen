@@ -84,11 +84,14 @@ resize();
 // --- SPIELVARIABLEN ---
 let position = 0; // Z-Position auf der Straße
 let playerX = 0; // X-Position des Spielers (-1 bis 1)
-let speed = 0;
-const maxSpeed = 200;
-const accel = 0.5;
-const decel = 0.2;
-const offRoadDecel = 2;
+let speed = 0; // Welt-Einheiten pro Sekunde (update() rechnet mit dt in Sekunden)
+const segmentLength = 200;
+const maxSpeed = segmentLength * 60; // 60 Segmente pro Sekunde
+const accel = maxSpeed / 5;          // in 5 s auf Höchstgeschwindigkeit
+const decel = maxSpeed;              // Bremse
+const offRoadDecel = maxSpeed / 2;
+const offRoadLimit = maxSpeed / 4;   // im Gras nie langsamer als das, sonst bleibt man stecken
+const centrifugal = 0.3;
 
 // Tastenstatus
 let keys = { left: false, right: false, up: true, down: false };
@@ -117,7 +120,6 @@ window.addEventListener('keyup', (e) => {
 });
 
 // --- STRASSEN-GENERATOR (Pseudo-3D) ---
-const segmentLength = 200;
 const rumbleLength = 3;
 const roadWidth = 2000;
 const lanes = 3;
@@ -212,7 +214,8 @@ function render() {
         
         const cameraX = playerX * roadWidth - x;
         const cameraY = cameraHeight + (playerSegment.p1.world.y || 0); // Vereinfachte Kamera-Y
-        const cameraZ = position;
+        // Segmente vom Streckenanfang, die am Rundenende schon sichtbar sind, liegen eine Runde weiter vorn
+        const cameraZ = position - (segment.looped ? trackLength : 0);
 
         project(segment.p1, cameraX, cameraY, cameraZ);
         project(segment.p2, cameraX - dx, cameraY, cameraZ);
@@ -291,11 +294,11 @@ function update(dt) {
     } else if (keys.down) {
         speed -= decel * dt;
     } else {
-        speed -= decel * dt * 0.5; // Motorbremsung
+        speed -= accel * dt * 0.5; // Motorbremsung
     }
     
     // Abbremsen auf Gras (off-road)
-    if (playerX < -1 || playerX > 1) {
+    if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
         speed -= offRoadDecel * dt;
     }
 
@@ -321,14 +324,14 @@ function update(dt) {
     }
     
     // Zentrifugalkraft (zieht dich in Kurven nach außen)
-    playerX -= (dx * speedPercent * playerSegment.curve * 0.5);
+    playerX -= (dx * speedPercent * playerSegment.curve * centrifugal);
 
     // Begrenzung der X-Position
     if (playerX < -2) playerX = -2;
     if (playerX > 2) playerX = 2;
 
     // UI Update
-    speedDisplay.innerText = Math.floor(speed * 1.5); // Fake km/h
+    speedDisplay.innerText = Math.floor(speed / maxSpeed * 300); // Fake km/h
 }
 
 // --- GAME LOOP ---
