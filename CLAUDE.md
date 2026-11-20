@@ -83,7 +83,7 @@ Dazu: Öl je nach Tempo (Dreher ab 85 %), Startpunkt-Wahl im Training (Etappe an
 Offene Rückmeldungen des Nutzers:
 - Kehren (v3.54) fahren sich gut (Nutzer 20.11.); KEIN Überschlag – in die Leitplanke + abgebremst reicht als Strafe.
 - Feuerwerk gut, Töne okay, etwas kürzer (v3.57: 5,5 s); Palmenoase (v3.56) gut.
-- Wellen flackerten auf dem iPhone (Nutzer 20.11.) → v3.51 geändert, Rückmeldung offen.
+- Wellen flackerten auch nach v3.51 (Nutzer 20.11.) → v3.58: Wasser ruhig ohne Querstreifen, ohne Wellenkämme, ohne Glitzern (nur Tiefenstufen, Dunst, Brandung). Rückmeldung offen.
 - Details der Umgebung: Nutzer will mehr Sorgfalt; Mitte und rechte Route hat er noch nicht gefahren.
 - Schritt 3 (Wetter) und die nicht-linken Etappen von Schritt 2 noch nicht abgenommen.
 

@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.57';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.58';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -2771,7 +2771,7 @@ function drawWater(seg, nx, p1, p2, W, key) {
     const f1 = open ? 0 : s1 + w.w, f2 = open ? 0 : s2 + w2.w;
     const o1 = open ? edge : X1(f1), o2 = open ? edge : X2(f2);
     if (T.bank) drawPolygon(X1(s1 - T.bank), p1.y, X2(s2 - T.bank), p2.y, X2(s2), p2.y, X1(s1), p1.y, T.edge);
-    const band = seg.index % 6 < 3;                    // v3.51: Streifen fest am Ort (vorher mit der Zeit gesprungen → flackerte auf dem iPhone)
+    const band = true;                                 // v3.58: Wasser ohne Querstreifen (Nutzer: flackerte noch; bei Vollgas ≈ 10 Streifen/s)
     if (T.depth) {                                     // Meer/See: flach türkis am Ufer, weiter draußen tiefblau, dazu Wellenkämme
         const far1 = open ? 60 : w.w, far2 = open ? 60 : w2.w;
         const D = [[0, 0.55], [0.55, 1.9], [1.9, Math.max(1.9, far1)]], D2 = [[0, 0.55], [0.55, 1.9], [1.9, Math.max(1.9, far2)]];
@@ -2781,7 +2781,7 @@ function drawWater(seg, nx, p1, p2, W, key) {
             const b1 = (k === 2 && open) ? o1 : X1(s1 + Math.min(D[k][1], far1)), b2 = (k === 2 && open) ? o2 : X2(s2 + Math.min(D2[k][1], far2));
             drawPolygon(a1, p1.y, a2, p2.y, b2, p2.y, b1, p1.y, T.depth[k][band ? 0 : 1]);
         }
-        if (seg.index % 3 === 0) {                      // Wellenkamm: Linie an fester Stelle, Helligkeit läuft weich als Welle durch (kein Springen)
+        if (false) {                                    // Wellenkämme abgeschaltet (v3.58, ruhiges Wasser)
             const hy = Math.max(1, (p1.y - p2.y) * 0.45);
             ctx.fillStyle = T.crest; ctx.globalAlpha = 0.25 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin(waveT * 1.6 - seg.index * 0.21), 2);
             const h0 = (seg.index * 2246822519) >>> 0;
@@ -2813,7 +2813,7 @@ function drawWater(seg, nx, p1, p2, W, key) {
         drawPolygon(X1(s1 - 0.02), p1.y, X2(s2 - 0.02), p2.y, X2(s2 + fw), p2.y, X1(s1 + fw), p1.y, T.edge);
         ctx.globalAlpha = 1;
     }
-    if (p1.w > 25 && band) {                           // Glitzern: kurze helle Striche an festen, flackernden Stellen
+    if (false) {                                       // Glitzern abgeschaltet (v3.58)
         const h = (seg.index * 2654435761) >>> 0, ga = Math.max(0, Math.sin(waveT * 2.2 + seg.index * 1.7));   // weich auf- und abblendend statt an/aus
         if ((h % 100) / 100 < T.glint && ga > 0.05) {
             const span = open ? 6 : w.w - 0.4, d = s1 + 0.25 + ((h >>> 8) % 1000) / 1000 * span;
@@ -2958,7 +2958,7 @@ function drawDeep(g, kind, sd, e, y1, y2, W) {
     const poly = (d0, d1, col) => drawPolygon(X1(d0), y1, X2(d0), y2, d1 === Infinity ? edge : X2(d1), y2, d1 === Infinity ? edge : X1(d1), y1, col);
     const span = g.bridge || g.drop;                   // unter einer Brücke: keine Klippe, das Wasser läuft durch
     if (kind === 'meer' || kind === 'see' || kind === 'hafen' || kind === 'fluss') {
-        const T = WATER[kind], wp = i % 6;
+        const T = WATER[kind], wp = 0;   // v3.58: ohne Streifen
         poly(0, Infinity, T.depth ? T.depth[2][wp < 3 ? 0 : 1] : T.c[wp < 3 ? 0 : 1]);
         if (!span) {
             if (T.depth) poly(1.45, 2.1, T.depth[0][wp < 3 ? 0 : 1]);   // flach und türkis am Fuß der Klippe
@@ -2974,7 +2974,7 @@ function drawDeep(g, kind, sd, e, y1, y2, W) {
                 ctx.fillStyle = '#c8402f'; ctx.fillRect(bx - bs * 0.1, y1 - bs * 0.55, bs * 0.3, Math.max(1, bs * 0.25));
             }
         }
-        if (i % 3 === 0 && T.crest) {                   // Wellenkämme (fest am Ort, weich pulsierend)
+        if (false) {                                    // Wellenkämme abgeschaltet (v3.58)
             ctx.fillStyle = T.crest; ctx.globalAlpha = 0.25 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin(waveT * 1.6 - i * 0.21), 2);
             for (let q = 0; q < 9; q++) { const d = 1.7 + q * 2.1 + ((h0 >>> (q * 3)) % 100) / 60, ln = 0.3 + ((h0 >>> (q + 4)) % 100) / 200;
                 const xa = X1(d), xb = X1(d + ln); if (Math.max(xa, xb) < 0 || Math.min(xa, xb) > W) continue;
