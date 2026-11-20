@@ -340,6 +340,7 @@
     <div class="row" id="rowPitchSens"><span id="pitchSensL">Kippweg</span> <button id="pitchMinus" type="button">−</button> <span id="pitchSensV"></span> <button id="pitchPlus" type="button">+</button></div>
     <div class="row" id="rowPitchMode">Eichhaltung ist <button id="modeGas" type="button">VOLLGAS</button><button id="modeNeutral" type="button">NEUTRAL</button></div>
     <div class="row" id="rowPitchZero">Eichen <button id="pitchZeroBtn" type="button">JETZT SETZEN</button></div>
+    <div class="row">Andere Autos <button id="oppMinus" type="button">−</button> <span id="oppSizeV"></span> <button id="oppPlus" type="button">+</button></div>
     <div id="pitchLive"></div>
     <div class="row"><button id="editReset" type="button">STANDARD</button><button id="editDone" type="button">FERTIG</button>
         <span style="margin-left:6px">Seite unten</span><button id="lowerDown" type="button" aria-label="Seite tiefer">▼</button><button id="lowerUp" type="button" aria-label="Seite höher">▲</button></div>
@@ -353,7 +354,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.58';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.59';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1638,6 +1639,8 @@ const drawDistance = 150;
 // Starten je Etappe immer gleich (fester Zufallskeim). An der Gabel nimmt jeder den Ast, der zu seiner Spur passt.
 const PLAYER_Z = 950;        // Abstand Kamera -> eigenes Auto (dort steht es unten im Bild)
 const CAR_WORLD_W = 450;     // Breite eines Autos in Welt-Einheiten (Straße: 2 * roadWidth = 4000)
+let OPP_SCALE = 1;           // v3.59: Größe der anderen Autos 100–200 % (Einstellungen, `autorennen.gegnergroesse`)
+try { const v = parseFloat(localStorage.getItem('autorennen.gegnergroesse')); if (v >= 1 && v <= 2) OPP_SCALE = v; } catch (_) {}
 const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1a1a', '#00a3a3'];
 let opponents = [];
 function spawnOpponents(st, a, b, r) {
@@ -3317,7 +3320,7 @@ function render() {
         const sy = a.y + (b.y - a.y) * t;
         const sw = a.w + (b.w - a.w) * t;              // halbe Straßenbreite in Pixeln
         const sx = a.x + (b.x - a.x) * t + sw * lat;
-        const w = sw * CAR_WORLD_W / roadWidth;
+        const w = sw * CAR_WORLD_W * OPP_SCALE / roadWidth;
         const h = w * 0.6;
         if (w < 2 || sy - h >= seg.clip) continue;      // zu klein oder ganz hinter der Kuppe
         ctx.save();
@@ -4040,13 +4043,19 @@ function stepSens(which, d) {
     else { PITCH_FULL = Math.max(8, Math.min(40, PITCH_FULL + d)); try { localStorage.setItem('autorennen.kippgrad', String(PITCH_FULL)); } catch (_) {} }
     showTiltButtons();
 }
+function stepOpp(d) {                                  // Größe der anderen Autos in 10-%-Schritten
+    OPP_SCALE = Math.round(Math.max(1, Math.min(2, OPP_SCALE + d)) * 10) / 10;
+    try { localStorage.setItem('autorennen.gegnergroesse', String(OPP_SCALE)); } catch (_) {}
+    document.getElementById('oppSizeV').textContent = Math.round(OPP_SCALE * 100) + ' %';
+}
+document.getElementById('oppSizeV').textContent = Math.round(OPP_SCALE * 100) + ' %';
 function setPitchMode(gas) {
     pitchGasZero = gas;
     try { localStorage.setItem('autorennen.kippmodus', gas ? 'vollgas' : 'neutral'); } catch (_) {}
     showTiltButtons();
 }
 for (const [id, fn] of [['tiltMinus', () => stepSens('t', -2)], ['tiltPlus', () => stepSens('t', 2)], ['pitchMinus', () => stepSens('p', -2)],
-                        ['pitchPlus', () => stepSens('p', 2)], ['modeGas', () => setPitchMode(true)], ['modeNeutral', () => setPitchMode(false)]]) {
+                        ['pitchPlus', () => stepSens('p', 2)], ['modeGas', () => setPitchMode(true)], ['modeNeutral', () => setPitchMode(false)], ['oppMinus', () => stepOpp(-0.1)], ['oppPlus', () => stepOpp(0.1)]]) {
     const el = document.getElementById(id);
     el.addEventListener('click', fn);
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -4266,7 +4275,7 @@ function update(dt) {
         if (lat === null) { opponents.splice(i, 1); continue; }
         const dz = o.z - myZ;
         // Abstand der Mitten < Autobreite (in Einheiten von playerX: 1 = halbe Straße = roadWidth)
-        if (dz > -50 && dz < 250 && Math.abs(playerX - lat) < CAR_WORLD_W / roadWidth && speed > o.speed) {
+        if (dz > -50 && dz < 250 * (0.5 + OPP_SCALE / 2) && Math.abs(playerX - lat) < CAR_WORLD_W * (1 + OPP_SCALE) / 2 / roadWidth && speed > o.speed) {
             speed = o.speed * 0.8;
             const back = position - Math.max(0, o.z - PLAYER_Z - 400);
             position -= back; dist -= back;            // hinter den Gegner zurücksetzen
