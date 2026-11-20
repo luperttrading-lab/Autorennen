@@ -183,7 +183,7 @@
             font: 22px sans-serif; line-height: 1; padding: 4px 0 0; touch-action: manipulation; cursor: pointer; }
         #btnKnoepfe span { display: block; font: bold 8px sans-serif; letter-spacing: .03em; margin-top: 3px; }
         body:not(.menu) #btnKnoepfe, body.edit #btnKnoepfe { display: none; }
-        @media (orientation: landscape) { #btnKnoepfe { top: auto; bottom: 8px; margin-top: 0; } }
+        @media (orientation: landscape) { #btnKnoepfe { left: max(12px, env(safe-area-inset-left)); top: 12px; margin: 0; } }   /* v3.55: oben links statt über START */
         body.edit #stickBase, body.edit #turbo { outline: 3px dashed #ffd84a; outline-offset: 4px; }
         body.edit #steerZone { background: rgba(255, 216, 74, 0.08); border-radius: 28px; }
         #diag { display: none; }
@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.54';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.55';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
