@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.50';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.51';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1085,7 +1085,7 @@ const STAGES = {
     K5: { row: 4, col: 0, name: 'Hafenstadt',              short: 'HAFENSTADT',    land: 'stadt',
           zones: [{ name: 'Hafen mit Kränen', water: { t: 'hafen', side: -1, s: 1.6 }, every: 3, chance: 0.6, types: ['crane', 'container', 'container'], boats: 200, landSide: 1 },
                   { name: 'Stadtbrücke im Gewitter', weather: 'storm', bridge: 'hafen', lights: true, flat: true, span: [0.12, 0.88] },
-                  { name: 'Innenstadt mit Neon und Regen', weather: 'rain', houses: { types: ['tower', 'tower2', 'neon', 'tower', 'neon2'], every: 3 } }] },
+                  { name: 'Innenstadt mit Neon und Regen', weather: 'rain', houses: { types: ['tower', 'tower2', 'neon', 'tower', 'tower2', 'neon2', 'tower'], every: 3 } }] },
     L5: { row: 4, col: 1, name: 'Oase der Lichter',        short: 'OASE',          land: 'oase',
           zones: [{ name: 'Wüste unter Sternen', every: 4, chance: 0.5, types: ['cactus', 'rock', 'dune'] },
                   { name: 'Lange Gerade mit Palmen', straight: true, flat: true, every: 3, chance: 0.9, types: ['palm'] },
@@ -2298,7 +2298,10 @@ function drawSprite(sp, x, y, size) {
         ctx.strokeStyle = gr; ctx.lineWidth = Math.max(1.5, w * 0.03); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - w * 0.6, 0); ctx.stroke(); ctx.restore();
         glows.push({ x: sx, y: sy, r: w * 0.25, c: '255,210,120', always: true });
     }
-    if (curDark > 0.3 && (sp.type === 'neon' || sp.type === 'neon2')) glows.push({ x, y: y - h * 0.92, r: w * 0.22, gy: y, c: ['255,63,164', '63,240,255', '255,226,63', '125,255,90'][(sp.v || 0) % 4] });
+    if (curDark > 0.3 && (sp.type === 'neon' || sp.type === 'neon2') && w > 5) {   // v3.51: Leuchtschrift scharf nachzeichnen (wurde vom Abdunkeln stumpf)
+        const k = h / img.height, sd = (sp.type === 'neon' ? [0, 1, 2] : [3, 1])[(sp.v || 0) % (sp.type === 'neon' ? 3 : 2)], c = ['255,63,164', '63,240,255', '255,226,63', '125,255,90'][sd % 4];
+        glows.push({ bar: true, x: x - w / 2 + 2 * k, y: y - h + 2 * k, w: w - 4 * k, h: 9 * k, c, gy: y, r: 0 });
+    }
     if (curDark > 0.4 && sp.type === 'lighthouse' && w > 6) glows.push({ x, y: y - h * 0.86, r: w * 1.2, c: '255,215,130' });   // Hochhäuser ohne Schein (Fenster leuchten selbst; v3.36)
     if (sp.type === 'lamp' && curDark > 0.05) {        // Lichtschein an der Leuchte, wird nach dem Abdunkeln gemalt
         const k = w / img.width;
@@ -2691,7 +2694,7 @@ function drawWater(seg, nx, p1, p2, W, key) {
     const f1 = open ? 0 : s1 + w.w, f2 = open ? 0 : s2 + w2.w;
     const o1 = open ? edge : X1(f1), o2 = open ? edge : X2(f2);
     if (T.bank) drawPolygon(X1(s1 - T.bank), p1.y, X2(s2 - T.bank), p2.y, X2(s2), p2.y, X1(s1), p1.y, T.edge);
-    const wp = ((seg.index + Math.floor(waveT * T.flow)) % 6 + 6) % 6, band = wp < 3;
+    const band = seg.index % 6 < 3;                    // v3.51: Streifen fest am Ort (vorher mit der Zeit gesprungen → flackerte auf dem iPhone)
     if (T.depth) {                                     // Meer/See: flach türkis am Ufer, weiter draußen tiefblau, dazu Wellenkämme
         const far1 = open ? 60 : w.w, far2 = open ? 60 : w2.w;
         const D = [[0, 0.55], [0.55, 1.9], [1.9, Math.max(1.9, far1)]], D2 = [[0, 0.55], [0.55, 1.9], [1.9, Math.max(1.9, far2)]];
@@ -2701,9 +2704,9 @@ function drawWater(seg, nx, p1, p2, W, key) {
             const b1 = (k === 2 && open) ? o1 : X1(s1 + Math.min(D[k][1], far1)), b2 = (k === 2 && open) ? o2 : X2(s2 + Math.min(D2[k][1], far2));
             drawPolygon(a1, p1.y, a2, p2.y, b2, p2.y, b1, p1.y, T.depth[k][band ? 0 : 1]);
         }
-        if (wp === 0 || wp === 3) {                     // Wellenkamm: unterbrochene helle Linie quer übers Wasser
-            const hy = Math.max(1, (p1.y - p2.y) * (wp === 0 ? 0.55 : 0.3));
-            ctx.fillStyle = T.crest;
+        if (seg.index % 3 === 0) {                      // Wellenkamm: Linie an fester Stelle, Helligkeit läuft weich als Welle durch (kein Springen)
+            const hy = Math.max(1, (p1.y - p2.y) * 0.45);
+            ctx.fillStyle = T.crest; ctx.globalAlpha = 0.25 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin(waveT * 1.6 - seg.index * 0.21), 2);
             const h0 = (seg.index * 2246822519) >>> 0;
             for (let m = 0; m < 7; m++) {
                 const d0 = 0.15 + m * 0.85 + ((h0 >>> (m * 3)) % 100) / 100 * 0.4, ln = 0.2 + ((h0 >>> (m * 2 + 5)) % 100) / 100 * 0.35;
@@ -2712,6 +2715,7 @@ function drawWater(seg, nx, p1, p2, W, key) {
                 if ((xa < -20 && xb < -20) || (xa > W + 20 && xb > W + 20)) continue;
                 ctx.fillRect(Math.min(xa, xb), p1.y - hy, Math.abs(xb - xa), hy);
             }
+            ctx.globalAlpha = 1;
         }
         const fz = Math.min(1, seg.p1.camera.z / (drawDistance * segmentLength));   // zum Horizont hin heller, Meer und Himmel verschwimmen
         if (fz > 0.1) drawPolygon(X1(s1), p1.y, X2(s2), p2.y, o2, p2.y, o1, p1.y, 'rgba(176,212,236,' + (0.6 * (fz - 0.1)).toFixed(3) + ')');
@@ -2733,11 +2737,11 @@ function drawWater(seg, nx, p1, p2, W, key) {
         ctx.globalAlpha = 1;
     }
     if (p1.w > 25 && band) {                           // Glitzern: kurze helle Striche an festen, flackernden Stellen
-        const h = (seg.index * 2654435761 + Math.floor(waveT * 3) * 40503) >>> 0;
-        if ((h % 100) / 100 < T.glint) {
+        const h = (seg.index * 2654435761) >>> 0, ga = Math.max(0, Math.sin(waveT * 2.2 + seg.index * 1.7));   // weich auf- und abblendend statt an/aus
+        if ((h % 100) / 100 < T.glint && ga > 0.05) {
             const span = open ? 6 : w.w - 0.4, d = s1 + 0.25 + ((h >>> 8) % 1000) / 1000 * span;
             const gx = X1(d), gl = p1.w * 0.12;
-            ctx.fillStyle = 'rgba(' + (T.glintC || '255,255,255') + ',0.75)';
+            ctx.fillStyle = 'rgba(' + (T.glintC || '255,255,255') + ',' + (0.75 * ga).toFixed(2) + ')';
             ctx.fillRect(gx - gl / 2, p1.y - Math.max(1, (p1.y - p2.y) * 0.5), gl, Math.max(1, (p1.y - p2.y) * 0.35));
         }
     }
@@ -2877,18 +2881,28 @@ function drawDeep(g, kind, sd, e, y1, y2, W) {
     const poly = (d0, d1, col) => drawPolygon(X1(d0), y1, X2(d0), y2, d1 === Infinity ? edge : X2(d1), y2, d1 === Infinity ? edge : X1(d1), y1, col);
     const span = g.bridge || g.drop;                   // unter einer Brücke: keine Klippe, das Wasser läuft durch
     if (kind === 'meer' || kind === 'see' || kind === 'hafen' || kind === 'fluss') {
-        const T = WATER[kind], wp = ((i + Math.floor(waveT * (T.flow || 1))) % 6 + 6) % 6;
+        const T = WATER[kind], wp = i % 6;
         poly(0, Infinity, T.depth ? T.depth[2][wp < 3 ? 0 : 1] : T.c[wp < 3 ? 0 : 1]);
         if (!span) {
             if (T.depth) poly(1.45, 2.1, T.depth[0][wp < 3 ? 0 : 1]);   // flach und türkis am Fuß der Klippe
             poly(1.2, 1.5, light ? '#6f6656' : '#665e50');
             if (kind === 'meer') { const f = 0.05 + 0.08 * Math.max(0, Math.sin(waveT * 2.2 - i * 0.33)); poly(1.5, 1.5 + f, '#f4f8fb'); }
         }
-        if (wp === 0 && T.crest) {                       // Wellenkämme
-            ctx.fillStyle = T.crest;
+        const bs = 900 * e.w1 * e.k;                   // Größenvergleich: kleine Boote weit unten (≈ 7 m)
+        if (kind === 'meer' && bs > 0.8 && h0 % 23 === 0) {
+            const d = 3 + ((h0 >>> 6) % 100) / 100 * 9, bx = X1(d);
+            if (bx > -10 && bx < W + 10) {
+                ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(bx - bs * 1.6, y1 - bs * 0.05, bs * 1.2, Math.max(1, bs * 0.12));   // Kielwasser
+                ctx.fillStyle = '#f4f4f0'; ctx.fillRect(bx - bs * 0.4, y1 - bs * 0.3, bs * 0.8, Math.max(1, bs * 0.3));
+                ctx.fillStyle = '#c8402f'; ctx.fillRect(bx - bs * 0.1, y1 - bs * 0.55, bs * 0.3, Math.max(1, bs * 0.25));
+            }
+        }
+        if (i % 3 === 0 && T.crest) {                   // Wellenkämme (fest am Ort, weich pulsierend)
+            ctx.fillStyle = T.crest; ctx.globalAlpha = 0.25 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin(waveT * 1.6 - i * 0.21), 2);
             for (let q = 0; q < 9; q++) { const d = 1.7 + q * 2.1 + ((h0 >>> (q * 3)) % 100) / 60, ln = 0.3 + ((h0 >>> (q + 4)) % 100) / 200;
                 const xa = X1(d), xb = X1(d + ln); if (Math.max(xa, xb) < 0 || Math.min(xa, xb) > W) continue;
                 ctx.fillRect(Math.min(xa, xb), y1 - Math.max(1, (y1 - y2) * 0.5), Math.abs(xb - xa), Math.max(1, (y1 - y2) * 0.5)); }
+            ctx.globalAlpha = 1;
         }
     } else if (kind === 'tal') {                        // Talgrund: Wiesen und Felder, ein Bach, Waldstücke
         poly(0, Infinity, light ? '#6d9a52' : '#679349');
@@ -2896,6 +2910,13 @@ function drawDeep(g, kind, sd, e, y1, y2, W) {
             const blk = Math.floor((i + q * 37) / 23), hb = (blk * 2654435761 + q * 97 + (sd > 0 ? 5 : 0)) >>> 0;
             const d0 = 1.6 + q * 3.2 + (hb % 100) / 60;
             poly(d0, d0 + 1.6 + ((hb >>> 8) % 100) / 80, ['#8fb35a', '#b8a55a', '#4f7a3c', '#a3c46a', '#3f6a34'][hb % 5]);
+        }
+        const ts = 1400 * e.w1 * e.k;                  // Größenvergleich: Bäume tief unten (≈ 10 m hoch)
+        if (ts > 0.6 && (h0 % 3) === 0) for (let q = 0; q < 2; q++) {
+            const d = 2.3 + (((h0 >>> (q * 7)) % 100) / 100) * 10, tx = X1(d), th = ts * (0.8 + ((h0 >>> (q * 5 + 3)) % 10) / 20);
+            if (tx < -10 || tx > W + 10) continue;
+            ctx.fillStyle = (h0 >>> q) & 1 ? '#2f5a2c' : '#3a6a30';
+            ctx.beginPath(); ctx.moveTo(tx, y1 - th); ctx.lineTo(tx - th * 0.35, y1); ctx.lineTo(tx + th * 0.35, y1); ctx.closePath(); ctx.fill();
         }
         const rv = 4 + 2.5 * Math.sin(i * 0.02 + sd), rv2 = 4 + 2.5 * Math.sin((i + 1) * 0.02 + sd);   // Bach
         drawPolygon(X1(rv), y1, X2(rv2), y2, X2(rv2 + 0.35), y2, X1(rv + 0.35), y1, '#5f93b0');
@@ -3012,7 +3033,7 @@ function render() {
             const nx = segments[g.index + 1] || g;
             for (const sd of [-1, 1]) {
                 const D1 = sd < 0 ? g.dL : g.dR, D2 = (sd < 0 ? nx.dL : nx.dR) || D1; if (!D1) continue;
-                const kind = sd < 0 ? g.dKL : g.dKR, sw1 = 1.5 + D1 / 2600, sw2 = 1.5 + D2 / 2600;
+                const kind = sd < 0 ? g.dKL : g.dKR, sw1 = 1.5 + D1 / 4200, sw2 = 1.5 + D2 / 4200;   // v3.51 steiler: wirkt wie eine Wand
                 const ya1 = e.q1.y, ya2 = e.q2.y, yb1 = sd < 0 ? e.yL1 : e.yR1, yb2 = sd < 0 ? e.yL2 : e.yR2;
                 if (yb2 >= yb1 && ya2 >= ya1) continue;
                 const X1 = (d) => e.x1 + sd * e.w1 * d, X2 = (d) => e.x2 + sd * e.w2 * d, light = g.color === 'light';
@@ -3022,6 +3043,11 @@ function render() {
                 const mid = (t) => [X1(1.5 + (sw1 - 1.5) * t), ya1 + (yb1 - ya1) * t, X2(1.5 + (sw2 - 1.5) * t), ya2 + (yb2 - ya2) * t];
                 const [a1, b1, a2, b2] = mid(0.12), [c1, d1, c2, d2] = mid(0.2);
                 drawPolygon(a1, b1, a2, b2, c2, d2, c1, d1, C[2]);   // Kante / Schichtband im Hang
+                const [g1, h1, g2, h2] = mid(0.5), [k1, l1, k2, l2] = mid(0.56);
+                drawPolygon(g1, h1, g2, h2, k2, l2, k1, l1, C[2]);   // zweites Schichtband
+                const [s1, t1, s2, t2] = mid(0.6);
+                drawPolygon(s1, t1, s2, t2, X2(sw2), yb2, X1(sw1), yb1, 'rgba(0,0,0,0.22)');   // unten im Schatten
+                if (g.index % 5 === 0) drawPolygon(X1(1.5), ya1, X2(1.5), ya2, X2(sw2), yb2, X1(sw1), yb1, 'rgba(0,0,0,0.16)');   // Rinnen im Fels
                 if (kind === 'meer' || kind === 'tal') { const [e1, f1, e2, f2] = mid(0.06); drawPolygon(X1(1.5), ya1, X2(1.5), ya2, e2, f2, e1, f1, light ? '#5f8a3e' : '#58803a'); }   // Gras an der Abbruchkante
                 const fz = Math.min(1, e.z / (drawDistance * segmentLength));
                 if (fz > 0.3) drawPolygon(X1(1.5), ya1, X2(1.5), ya2, X2(sw2), yb2, X1(sw1), yb1, 'rgba(176,212,236,' + (0.45 * (fz - 0.3)).toFixed(3) + ')');
@@ -3243,6 +3269,18 @@ function render() {
     ctx.globalCompositeOperation = 'source-over';
     const wetNow = (wxSeg.wx === 'rain' || wxSeg.wx === 'storm') ? wxA : 0;
     for (const g of glows) {                           // Laternen und Rücklichter im Dunkeln
+        if (g.bar) {                                   // Leuchtreklame: weicher Schein, kräftige Farbe, heller Kern, Spiegelung auf nasser Straße
+            const a = Math.min(1, curDark * 1.4);
+            ctx.fillStyle = 'rgba(' + g.c + ',' + (0.14 * a).toFixed(2) + ')'; ctx.fillRect(g.x - g.h * 0.3, g.y - g.h * 0.3, g.w + g.h * 0.6, g.h * 1.6);
+            ctx.fillStyle = 'rgba(' + g.c + ',' + (0.95 * a).toFixed(2) + ')'; ctx.fillRect(g.x, g.y, g.w, g.h);
+            ctx.fillStyle = 'rgba(255,255,255,' + (0.85 * a).toFixed(2) + ')'; ctx.fillRect(g.x + g.h * 0.25, g.y + g.h * 0.35, g.w - g.h * 0.5, Math.max(1, g.h * 0.3));
+            if (wetNow > 0.2 && g.gy < H - 10) {
+                const gr = ctx.createLinearGradient(0, g.gy, 0, g.gy + g.w * 0.45);
+                gr.addColorStop(0, 'rgba(' + g.c + ',' + (0.22 * wetNow * a).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(' + g.c + ',0)');
+                ctx.fillStyle = gr; ctx.fillRect(g.x + g.w * 0.35, g.gy, g.w * 0.3, g.w * 0.45);
+            }
+            continue;
+        }
         if (g.sy) { ctx.save(); ctx.translate(g.x, g.y); ctx.scale(1, g.sy); ctx.translate(-g.x, -g.y); }   // Spiegelung: senkrecht gestreckt
         g.r = Math.min(g.r, 70);
         const gr = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
