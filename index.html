@@ -48,6 +48,7 @@
         .update button { padding: 8px 14px; font: 600 15px sans-serif; border: 0; border-radius: 9px; background: #06240e; color: #fff; cursor: pointer; }
         /* Ränder außerhalb des Spiels (Statusleiste, Home-Leiste): oben Himmelsfarbe, unten Farbe des Bedienfelds.
            Die obere Farbe folgt dem Tageslauf (setEdgeColor). */
+        * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }   /* v3.63: auf JEDEM Element, sonst Lupe auf iOS */
         html { height: 100%; overflow: hidden; background: linear-gradient(to bottom, #7fb2e0 0 50%, #242833 50% 100%) #242833; }
         body {
             margin: 0;
@@ -354,7 +355,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.62';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.63';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -364,6 +365,13 @@ const speedDisplay = document.getElementById('speedDisplay');
 // Langes Drücken: kein Markieren, kein Kontextmenü
 document.addEventListener('selectstart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => e.preventDefault());
+// v3.63: iOS zeigt bei langem Drücken/Doppeltipp-Halten die Lupe, auch mit user-select: none. Berührungen außerhalb von
+// Tipp-Zielen (Knöpfe, Karten, Leiste, Versionsnummer, Update-Hinweis) daher sofort abfangen; Pointer-Ereignisse
+// (Knüppel, Turbo, Knöpfe ziehen) kommen trotzdem an.
+document.addEventListener('touchstart', (e) => {
+    if (e.target.closest && e.target.closest('button, input, select, a, label, .map, #bar, #ver, #update')) return;
+    e.preventDefault();
+}, { passive: false });
 
 // Bildschirmgröße anpassen
 const gameEl = document.getElementById('game');
