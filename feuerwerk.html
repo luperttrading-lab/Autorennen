@@ -2,146 +2,203 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Autorennen – Feuerwerk im Ziel (Entwürfe)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Autorennen – Feuerwerk im Ziel (Entwürfe 2)</title>
 <style>
-    body { margin: 0; background: #0b0d1a; color: #e8ecf4; font-family: system-ui, -apple-system, sans-serif; }
-    h1 { font-size: 20px; margin: 16px 16px 4px; }
-    p.intro { margin: 0 16px 12px; font-size: 14px; opacity: .8; line-height: 1.4; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; padding: 0 12px 24px; }
-    .card { background: #151a2e; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 18px rgba(0,0,0,.4); }
-    .card canvas { display: block; width: 100%; height: 240px; }
-    .card .t { padding: 10px 12px 12px; font-size: 14px; line-height: 1.35; }
-    .card .t b { font-size: 16px; color: #ffd84a; }
+    html, body { margin: 0; height: 100%; background: #000; color: #e8ecf4; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
+    #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+           background: linear-gradient(transparent, rgba(0,0,0,.75)); }
+    button { font: bold 15px system-ui; color: #fff; background: #2a2f4a; border: 2px solid #4a5280; border-radius: 10px; padding: 9px 12px; }
+    button.on { background: #c8102e; border-color: #ff6b6b; }
+    #ton { background: #1f6f2f; border-color: #57c46b; }
+    #info { position: fixed; top: 10px; left: 0; right: 0; text-align: center; font-size: 14px; opacity: .85; text-shadow: 0 1px 2px #000; padding: 0 12px; }
 </style>
 </head>
 <body>
-<h1>Feuerwerk im Ziel – vier Entwürfe</h1>
-<p class="intro">Alle laufen live. Sag mir den Buchstaben (oder eine Mischung, z. B. „A + B abwechselnd“), dann baue ich ihn ins Ziel ein.
-Unten im Bild steht jeweils das Zieltor als Größenvergleich.</p>
-<div class="grid">
-    <div class="card"><canvas id="A"></canvas><div class="t"><b>A · Pfingstrose</b><br>Rakete steigt mit Funkenschweif auf, platzt zu einer
-        gefüllten Kugel (3D verteilt, nicht als Ring). Sterne mit Leuchtspur, Luftwiderstand und Schwerkraft, glimmen am Ende aus.</div></div>
-    <div class="card"><canvas id="B"></canvas><div class="t"><b>B · Goldregen</b><br>Goldene Sterne mit langen Schweifen, die
-        weit herabhängen wie eine Trauerweide und langsam verglühen. Ruhig und edel.</div></div>
-    <div class="card"><canvas id="C"></canvas><div class="t"><b>C · Chrysantheme mit Knistern</b><br>Farbwechsel im Flug
-        (z. B. weiß → rot), am Ende knistern die Sterne in vielen kleinen Blitzen auf. Lebhaft.</div></div>
-    <div class="card"><canvas id="D"></canvas><div class="t"><b>D · Finale (Mischung)</b><br>Mehrere Raketen gleichzeitig: Pfingstrosen,
-        Ringe, Palmen (wenige dicke Arme) und Goldregen durcheinander, zum Schluss eine dichte Salve.</div></div>
+<canvas id="c"></canvas>
+<div id="info">Feuerwerk im Ziel · Entwürfe 2 · erst <b>TON AN</b> tippen</div>
+<div id="bar">
+    <button id="ton">🔊 TON AN</button>
+    <button data-v="A" class="on">A Pfingstrose</button>
+    <button data-v="B">B Goldregen</button>
+    <button data-v="C">C Knistern</button>
+    <button data-v="D">D Finale</button>
 </div>
 <script>
-const COLS = ['#ff4d4d', '#ffd84a', '#4dc3ff', '#7dff7a', '#ff6bff', '#ffffff', '#ff9a3a'];
-const rnd = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
-function hexA(h, a) { const n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a.toFixed(3) + ')'; }
-
-function Show(id, plan) {
-    const cv = document.getElementById(id), g = cv.getContext('2d');
-    let W = 0, H = 0;
-    const fit = () => { const r = cv.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); W = cv.width = Math.round(r.width * d); H = cv.height = Math.round(r.height * d); };
-    fit(); addEventListener('resize', fit);
-    const rockets = [], stars = [], sparks = [];
-    let t = 0, next = 0, wave = 0;
-    // Rakete: steigt mit leichter Krümmung auf, hinterlässt Funken, platzt im Scheitel
-    function launch(kind, x) {
-        rockets.push({ x: (x !== undefined ? x : rnd(0.2, 0.8)) * W, y: H * 0.98, vx: rnd(-0.03, 0.03) * W, vy: -rnd(0.95, 1.15) * H, kind, col: pick(COLS), col2: pick(COLS) });
-    }
-    function burst(r) {
-        const S = Math.min(W, H), k = r.kind;
-        if (k === 'peony' || k === 'chrys') {
-            const n = k === 'chrys' ? 120 : 100, sp = rnd(0.55, 0.7) * S;
-            for (let i = 0; i < n; i++) {           // gleichmäßig auf einer Kugel verteilt, in die Bildebene projiziert → gefüllte Kugel
-                const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
-                const v = sp * rnd(0.9, 1.05);
-                stars.push({ x: r.x, y: r.y, vx: Math.cos(a) * s * v, vy: Math.sin(a) * s * v, life: rnd(1.4, 1.9), age: 0, col: r.col, col2: k === 'chrys' ? r.col2 : null,
-                             drag: 2.2, g: 0.18 * S, trail: [], tl: 7, crackle: k === 'chrys', size: S * 0.008 });
-            }
-        } else if (k === 'willow') {
-            const n = 70, sp = rnd(0.35, 0.45) * S;
-            for (let i = 0; i < n; i++) {
-                const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
-                stars.push({ x: r.x, y: r.y, vx: Math.cos(a) * s * sp, vy: Math.sin(a) * s * sp, life: rnd(2.8, 3.6), age: 0, col: '#ffcf6a', drag: 1.6, g: 0.22 * S, trail: [], tl: 26, size: S * 0.006, gold: true });
-            }
-        } else if (k === 'ring') {
-            const n = 48, sp = rnd(0.45, 0.5) * S, tilt = rnd(0.35, 0.7), rot = rnd(0, Math.PI);
-            for (let i = 0; i < n; i++) {
-                const a = i / n * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a) * tilt;
-                stars.push({ x: r.x, y: r.y, vx: (cx * Math.cos(rot) - cy * Math.sin(rot)) * sp, vy: (cx * Math.sin(rot) + cy * Math.cos(rot)) * sp, life: 1.6, age: 0, col: r.col, drag: 2, g: 0.15 * S, trail: [], tl: 6, size: S * 0.009 });
-            }
-        } else if (k === 'palm') {
-            const n = 9, sp = 0.5 * S;
-            for (let i = 0; i < n; i++) {
-                const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.42 + rnd(-0.05, 0.05);
-                stars.push({ x: r.x, y: r.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.8, life: 2.2, age: 0, col: '#ffd27a', drag: 1.2, g: 0.32 * S, trail: [], tl: 30, size: S * 0.014, gold: true });
-            }
-        }
-        sparks.push({ x: r.x, y: r.y, flash: 0.18 });  // kurzer Lichtblitz im Zerlegepunkt
-    }
-    function step(dt) {
-        t += dt; next -= dt;
-        if (next <= 0) { next = plan(launch, t) || 1; }
-        for (const r of rockets) {
-            r.vy += 0.9 * H * dt; r.x += r.vx * dt; r.y += r.vy * dt;
-            if (Math.random() < 0.9) sparks.push({ x: r.x, y: r.y, vx: rnd(-20, 20), vy: rnd(10, 60), life: 0.5, age: 0 });
-            if (r.vy > -0.08 * H) { r.dead = true; burst(r); }
-        }
-        for (const s of stars) {
-            s.age += dt;
-            const dr = Math.exp(-s.drag * dt); s.vx *= dr; s.vy = s.vy * dr + s.g * dt;
-            s.trail.push(s.x, s.y); if (s.trail.length > s.tl * 2) s.trail.splice(0, 2);
-            s.x += s.vx * dt; s.y += s.vy * dt;
-            if (s.crackle && s.age > s.life * 0.72 && !s.cr) { s.cr = true;   // Knistern: viele kleine Blitze am Ende
-                for (let k = 0; k < 5; k++) sparks.push({ x: s.x + rnd(-6, 6), y: s.y + rnd(-6, 6), vx: rnd(-30, 30), vy: rnd(-30, 30), life: rnd(0.08, 0.25), age: -rnd(0, 0.3), white: true }); }
-        }
-        for (const p of sparks) { p.age = (p.age || 0) + dt; if (p.vx !== undefined) { p.x += p.vx * dt; p.y += p.vy * dt; } if (p.flash) p.flash -= dt; }
-        for (let i = rockets.length - 1; i >= 0; i--) if (rockets[i].dead) rockets.splice(i, 1);
-        for (let i = stars.length - 1; i >= 0; i--) if (stars[i].age > stars[i].life) stars.splice(i, 1);
-        for (let i = sparks.length - 1; i >= 0; i--) if (sparks[i].flash !== undefined ? sparks[i].flash <= 0 : sparks[i].age > sparks[i].life) sparks.splice(i, 1);
-    }
-    function draw() {
-        // Nachthimmel, Horizont mit Stadt-/Bergsilhouette und Zieltor
-        const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#05061a'); sky.addColorStop(1, '#1b1f45');
-        g.globalCompositeOperation = 'source-over'; g.fillStyle = sky; g.fillRect(0, 0, W, H);
-        g.globalCompositeOperation = 'lighter';
-        for (const s of stars) {
-            const k = s.age / s.life, fade = k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25;
-            const tw = s.gold ? 0.75 + 0.25 * Math.sin(s.age * 40 + s.x) : 1;
-            const col = s.col2 && k > 0.45 ? s.col2 : s.col;
-            g.lineCap = 'round';
-            for (let i = 2; i < s.trail.length; i += 2) {   // Leuchtspur: nach hinten dünner und blasser
-                const a = i / s.trail.length;
-                g.strokeStyle = hexA(col, 0.55 * a * fade * tw); g.lineWidth = s.size * (0.4 + 0.8 * a);
-                g.beginPath(); g.moveTo(s.trail[i - 2], s.trail[i - 1]); g.lineTo(i + 2 < s.trail.length ? s.trail[i] : s.x, i + 2 < s.trail.length ? s.trail[i + 1] : s.y); g.stroke();
-            }
-            g.fillStyle = hexA(s.gold ? '#fff2c0' : '#ffffff', 0.9 * fade * tw); g.beginPath(); g.arc(s.x, s.y, s.size * 0.8, 0, 7); g.fill();
-            g.fillStyle = hexA(col, 0.35 * fade); g.beginPath(); g.arc(s.x, s.y, s.size * 2.2, 0, 7); g.fill();
-        }
-        for (const p of sparks) {
-            if (p.flash !== undefined) { const gr = g.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.min(W, H) * 0.25);
-                gr.addColorStop(0, 'rgba(255,240,210,' + (p.flash * 2.5).toFixed(2) + ')'); gr.addColorStop(1, 'rgba(255,240,210,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); continue; }
-            if (p.age < 0) continue;
-            const a = 1 - p.age / p.life; g.fillStyle = p.white ? 'rgba(255,255,255,' + a.toFixed(2) + ')' : 'rgba(255,200,120,' + (a * 0.8).toFixed(2) + ')';
-            const z = Math.min(W, H) * (p.white ? 0.006 : 0.004); g.fillRect(p.x - z / 2, p.y - z / 2, z, z);
-        }
-        for (const r of rockets) { g.fillStyle = 'rgba(255,230,180,0.95)'; g.beginPath(); g.arc(r.x, r.y, Math.min(W, H) * 0.006, 0, 7); g.fill(); }
-        g.globalCompositeOperation = 'source-over';
-        g.fillStyle = '#0a0b16';                        // Silhouette
-        g.beginPath(); g.moveTo(0, H); for (let x = 0; x <= W; x += W / 24) g.lineTo(x, H * 0.86 - Math.abs(Math.sin(x * 0.013 + 1)) * H * 0.07); g.lineTo(W, H); g.fill();
-        const gw = W * 0.34, gx = W / 2 - gw / 2, gy = H * 0.74;   // Zieltor als Größenvergleich
-        g.fillStyle = '#c8102e'; g.fillRect(gx, gy, gw, H * 0.05); g.fillStyle = '#ddd'; g.fillRect(gx, gy, W * 0.012, H * 0.26); g.fillRect(gx + gw - W * 0.012, gy, W * 0.012, H * 0.26);
-        g.fillStyle = '#fff'; g.font = 'bold ' + Math.round(H * 0.035) + 'px monospace'; g.textAlign = 'center'; g.fillText('ZIEL', W / 2, gy + H * 0.037);
-    }
-    let last = performance.now();
-    (function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(dt); draw(); requestAnimationFrame(loop); })(last);
+// ---------- Ton (Web Audio): Pfeifen beim Aufstieg, Knall mit Bass, Knistern ----------
+let AC = null, master = null, noiseBuf = null;
+function audioInit() {
+    if (AC) { AC.resume(); return; }
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain(); master.gain.value = 0.9;
+    const comp = AC.createDynamicsCompressor(); master.connect(comp); comp.connect(AC.destination);
+    noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
-// Ablaufpläne: geben die Zeit bis zur nächsten Rakete zurück
-Show('A', (L) => { L('peony'); return rnd(0.7, 1.1); });
-Show('B', (L) => { L('willow'); return rnd(1.1, 1.6); });
-Show('C', (L) => { L('chrys'); return rnd(0.8, 1.2); });
-Show('D', (L, t) => {
-    const ph = t % 9;
-    if (ph > 7) { for (let i = 0; i < 4; i++) L(pick(['peony', 'chrys', 'ring']), 0.15 + i * 0.23); return 0.35; }   // Salve
-    L(pick(['peony', 'ring', 'palm', 'willow', 'chrys'])); if (Math.random() < 0.5) L(pick(['peony', 'ring'])); return rnd(0.5, 0.9);
-});
+function noise(t, dur, f0, f1, q, g0, type = 'lowpass') {
+    const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(g0, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+function sfxLaunch(pan, dur) {
+    if (!AC) return; const t = AC.currentTime;
+    noise(t, dur, 900, 2600, 6, 0.07, 'bandpass');                       // Zischen/Pfeifen der Rakete
+    const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(1400, t); o.frequency.exponentialRampToValueAtTime(2600, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.025, t + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur);
+}
+function sfxBang(size, delay) {
+    if (!AC) return; const t = AC.currentTime + delay;
+    noise(t, 0.9 + size * 0.6, 3500, 180, 0.7, 0.9 * size);            // Knall: breites Rauschen, schnell dumpfer
+    const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine';   // Bass-Wumms
+    o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.5);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.8 * size, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.75);
+    noise(t + 0.25, 1.6, 600, 120, 0.5, 0.12 * size);                   // Nachhall
+}
+function sfxCrackle(n, delay, spread) {
+    if (!AC) return; const t0 = AC.currentTime + delay;
+    for (let i = 0; i < n; i++) noise(t0 + Math.random() * spread, 0.02 + Math.random() * 0.03, 6000, 2500, 1, 0.15 + Math.random() * 0.2, 'highpass');
+}
+// ---------- Bild ----------
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+let W, H, DPR;
+function fit() { DPR = Math.min(1.5, devicePixelRatio || 1); W = cv.width = innerWidth * DPR; H = cv.height = innerHeight * DPR; bg = null; }
+addEventListener('resize', fit);
+let bg = null;
+function background() {                                // Himmel + Silhouette mit Zieltor (einmal gerechnet)
+    bg = document.createElement('canvas'); bg.width = W; bg.height = H; const b = bg.getContext('2d');
+    const sky = b.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#02030c'); sky.addColorStop(0.7, '#0d1030'); sky.addColorStop(1, '#1a1d3a');
+    b.fillStyle = sky; b.fillRect(0, 0, W, H);
+    for (let i = 0; i < 160; i++) { b.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.6).toFixed(2) + ')'; b.fillRect(Math.random() * W, Math.random() * H * 0.7, DPR, DPR); }
+}
+function silhouette() {
+    g.fillStyle = '#05060c';
+    g.beginPath(); g.moveTo(0, H);
+    for (let x = 0; x <= W; x += W / 30) g.lineTo(x, H * 0.84 - Math.abs(Math.sin(x / W * 9 + 1)) * H * 0.06 - (Math.abs(x - W / 2) > W * 0.3 ? H * 0.03 : 0));
+    g.lineTo(W, H); g.fill();
+    const gw = Math.min(W * 0.5, H * 0.45), gx = W / 2 - gw / 2, gy = H * 0.72;
+    g.fillStyle = '#7a0a1c'; g.fillRect(gx, gy, gw, H * 0.04); g.fillStyle = '#20222a'; g.fillRect(gx, gy, gw * 0.03, H * 0.28); g.fillRect(gx + gw * 0.97, gy, gw * 0.03, H * 0.28);
+}
+// Leuchtpunkt-Stempel je Farbe (vorgerechnet, schnell): heller Kern + weicher Schein
+const puff = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');   // weicher Rauchballen
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(90,92,110,0.5)'); gr.addColorStop(1, 'rgba(90,92,110,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); return c; })();
+const stamps = {};
+function stamp(col) {
+    if (stamps[col]) return stamps[col];
+    const s = 64, c = document.createElement('canvas'); c.width = c.height = s; const x = c.getContext('2d');
+    const gr = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.12, col.replace('A', '1')); gr.addColorStop(0.35, col.replace('A', '0.35')); gr.addColorStop(1, col.replace('A', '0'));
+    x.fillStyle = gr; x.fillRect(0, 0, s, s); return (stamps[col] = c);
+}
+const PAL = ['rgba(255,70,70,A)', 'rgba(255,210,80,A)', 'rgba(80,190,255,A)', 'rgba(120,255,120,A)', 'rgba(255,90,240,A)', 'rgba(255,255,255,A)', 'rgba(255,150,50,A)', 'rgba(170,120,255,A)'];
+const GOLD = 'rgba(255,190,90,A)';
+const rnd = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
+let rockets = [], stars = [], smoke = [], flashes = [];
+function launch(type, xf) {
+    const x = (xf !== undefined ? xf : rnd(0.2, 0.8)) * W, apex = rnd(0.15, 0.38) * H, h = H * 0.9 - apex;
+    const vy = -Math.sqrt(2 * 1.1 * H * h);              // Steiggeschwindigkeit für die Gipfelhöhe
+    rockets.push({ x, y: H * 0.9, vx: rnd(-0.04, 0.04) * W, vy, type, col: pick(PAL), col2: pick(PAL) });
+    sfxLaunch(0, Math.abs(vy) / (1.1 * H));
+}
+function sphere(n, cb) { for (let i = 0; i < n; i++) { const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u); cb(Math.cos(a) * s, Math.sin(a) * s, u); } }
+function explode(r) {
+    const S = Math.min(W, H), t = r.type;
+    const add = (o) => stars.push(Object.assign({ x: r.x, y: r.y, px: r.x, py: r.y, age: 0, drag: 1.9, g: 0.25 * S, size: S * 0.012 }, o));
+    let size = 1;
+    if (t === 'peony') sphere(260, (x, y) => { const v = S * rnd(0.62, 0.7); add({ vx: x * v, vy: y * v, life: rnd(1.5, 2.1), col: r.col }); });
+    if (t === 'double') { sphere(200, (x, y) => { const v = S * 0.7; add({ vx: x * v, vy: y * v, life: 1.9, col: r.col }); });
+                          sphere(90, (x, y) => { const v = S * 0.33; add({ vx: x * v, vy: y * v, life: 1.6, col: r.col2 }); }); }
+    if (t === 'willow') { size = 0.8; sphere(180, (x, y) => { const v = S * rnd(0.45, 0.55); add({ vx: x * v, vy: y * v, life: rnd(3.2, 4.2), col: GOLD, drag: 1.3, g: 0.3 * S, size: S * 0.009, gold: true }); }); }
+    if (t === 'crackle') sphere(220, (x, y) => { const v = S * rnd(0.55, 0.68); add({ vx: x * v, vy: y * v, life: rnd(1.3, 1.7), col: r.col, col2: 'rgba(255,255,255,A)', crackle: true }); });
+    if (t === 'ring') { const tilt = rnd(0.3, 0.8), rot = rnd(0, 3.14);
+        for (let i = 0; i < 90; i++) { const a = i / 90 * 6.283, cx = Math.cos(a), cy = Math.sin(a) * tilt, v = S * 0.62;
+            add({ vx: (cx * Math.cos(rot) - cy * Math.sin(rot)) * v, vy: (cx * Math.sin(rot) + cy * Math.cos(rot)) * v, life: 1.8, col: r.col }); }
+        sphere(40, (x, y) => add({ vx: x * S * 0.15, vy: y * S * 0.15, life: 1.4, col: r.col2 })); }
+    if (t === 'palm') { size = 1.2; for (let i = 0; i < 11; i++) { const a = -Math.PI / 2 + (i - 5) * 0.36, v = S * 0.75;
+        add({ vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.85, life: 2.6, col: GOLD, drag: 1.0, g: 0.38 * S, size: S * 0.022, gold: true, comet: true }); } }
+    if (t === 'strobe') sphere(160, (x, y) => { const v = S * rnd(0.5, 0.62); add({ vx: x * v, vy: y * v, life: rnd(2.2, 2.8), col: 'rgba(255,255,255,A)', strobe: Math.random() * 6 }); });
+    flashes.push({ x: r.x, y: r.y, a: 0.5 * size, col: r.col });
+    for (let i = 0; i < 6; i++) smoke.push({ x: r.x + rnd(-1, 1) * S * 0.12, y: r.y + rnd(-1, 1) * S * 0.12, r: S * rnd(0.08, 0.16), a: 0.10, age: 0, col: r.col });
+    const dist = rnd(0.15, 0.45);                       // Schall kommt später als das Licht
+    sfxBang(size * rnd(0.8, 1), dist);
+    if (t === 'crackle') sfxCrackle(70, 1.0, 0.7);
+    if (t === 'willow' || t === 'palm') sfxCrackle(25, 0.6, 2.2);
+}
+let plan = 'A', next = 0, T = 0;
+const PLANS = {
+    A: () => { launch(pick(['peony', 'double'])); return rnd(1.1, 1.6); },
+    B: () => { launch(pick(['willow', 'willow', 'palm'])); return rnd(1.6, 2.2); },
+    C: () => { launch(pick(['crackle', 'strobe'])); return rnd(1.2, 1.7); },
+    D: () => {                                          // Finale: gemischt, alle 8 s eine Salve
+        const ph = T % 8;
+        if (ph > 6.4) { for (let i = 0; i < 5; i++) launch(pick(['peony', 'crackle', 'ring', 'double']), 0.12 + i * 0.19); return 0.45; }
+        launch(pick(['peony', 'ring', 'palm', 'willow', 'crackle', 'double', 'strobe'])); if (Math.random() < 0.45) launch(pick(['peony', 'ring']));
+        return rnd(0.55, 0.95);
+    }
+};
+function step(dt) {
+    T += dt; next -= dt;
+    if (next <= 0) next = PLANS[plan]();
+    for (const r of rockets) {
+        r.vy += 1.1 * H * dt; r.x += r.vx * dt; r.y += r.vy * dt;
+        for (let k = 0; k < 2; k++) stars.push({ x: r.x, y: r.y, px: r.x, py: r.y, vx: rnd(-0.02, 0.02) * W, vy: rnd(0.01, 0.06) * H, age: 0, life: rnd(0.3, 0.6), col: GOLD, drag: 3, g: 0.1 * H, size: Math.min(W, H) * 0.006, spark: true });
+        if (r.vy >= -0.02 * H) { r.dead = true; explode(r); }
+    }
+    for (const s of stars) {
+        s.age += dt; s.px = s.x; s.py = s.y;
+        const d = Math.exp(-s.drag * dt); s.vx *= d; s.vy = s.vy * d + s.g * dt;
+        s.x += s.vx * dt; s.y += s.vy * dt;
+        if (s.comet && Math.random() < 0.8) stars.push({ x: s.x, y: s.y, px: s.x, py: s.y, vx: rnd(-1, 1) * 20, vy: rnd(0, 40), age: 0, life: rnd(0.5, 1.1), col: GOLD, drag: 2, g: 0.15 * H, size: s.size * 0.4, spark: true });
+        if (s.crackle && !s.cr && s.age > s.life * 0.6) { s.cr = true;
+            for (let k = 0; k < 4; k++) stars.push({ x: s.x, y: s.y, px: s.x, py: s.y, vx: rnd(-1, 1) * 60 * DPR, vy: rnd(-1, 1) * 60 * DPR, age: -rnd(0, 0.5), life: 0.12, col: 'rgba(255,255,255,A)', drag: 0, g: 0, size: s.size * 0.9, pop: true }); }
+    }
+    for (const f of flashes) f.a -= dt * 2.2;
+    for (const m of smoke) { m.age += dt; m.r += dt * m.r * 0.08; m.y -= dt * 6 * DPR; m.x += dt * 8 * DPR; }
+    rockets = rockets.filter(r => !r.dead); stars = stars.filter(s => s.age < s.life); flashes = flashes.filter(f => f.a > 0); smoke = smoke.filter(m => m.age < 9);
+}
+function draw() {
+    if (!bg) background();
+    // Bewegungsunschärfe: das alte Bild nur teilweise überdecken → Leuchtspuren entstehen von selbst
+    g.globalCompositeOperation = 'source-over'; g.globalAlpha = 0.28; g.drawImage(bg, 0, 0); g.globalAlpha = 1;
+    for (const m of smoke) {                           // Rauchwolken, vom Feuerwerk angeleuchtet
+        const a = m.a * Math.min(1, m.age * 2) * (1 - m.age / 9);
+        g.globalAlpha = a * 0.6; g.drawImage(puff, m.x - m.r, m.y - m.r, m.r * 2, m.r * 2); g.globalAlpha = 1;
+    }
+    g.globalCompositeOperation = 'lighter';
+    for (const f of flashes) {                         // Lichtblitz erhellt den Himmel
+        const gr = g.createRadialGradient(f.x, f.y, 0, f.x, f.y, Math.max(W, H) * 0.6);
+        gr.addColorStop(0, f.col.replace('A', (f.a * 0.5).toFixed(3))); gr.addColorStop(1, f.col.replace('A', '0')); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+    for (const r of rockets) { const st = stamp(GOLD), z = Math.min(W, H) * 0.05; g.drawImage(st, r.x - z / 2, r.y - z / 2, z, z); }
+    for (const s of stars) {
+        if (s.age < 0) continue;
+        const k = s.age / s.life;
+        let a = k < 0.7 ? 1 : Math.max(0, 1 - (k - 0.7) / 0.3);
+        if (s.gold) a *= 0.7 + 0.3 * Math.sin(s.age * 50 + s.x);
+        if (s.strobe !== undefined && k > 0.35) a *= (Math.sin(s.age * 40 + s.strobe) > 0.3 ? 1 : 0.05);
+        const col = s.col2 && k > 0.5 ? s.col2 : s.col, st = stamp(col);
+        const z = s.size * (s.spark ? 2 : 3) * (s.pop ? 1.6 : 1);
+        g.globalAlpha = a;
+        if (!s.spark && !s.pop) {                      // kurze Leuchtspur zwischen letzter und jetziger Lage
+            g.strokeStyle = col.replace('A', (0.5 * a).toFixed(3)); g.lineWidth = s.size * 0.6; g.lineCap = 'round';
+            g.beginPath(); g.moveTo(s.px, s.py); g.lineTo(s.x, s.y); g.stroke();
+        }
+        g.drawImage(st, s.x - z / 2, s.y - z / 2, z, z);
+    }
+    g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+    silhouette();
+}
+fit();
+let last = performance.now();
+(function loop(now) { const dt = Math.min(0.05, (now - last) / 1000); last = now; step(dt); draw(); requestAnimationFrame(loop); })(last);
+document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => {
+    plan = b.dataset.v; next = 0; T = 0; document.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('on', x === b)); audioInit();
+}));
+document.getElementById('ton').addEventListener('click', (e) => { audioInit(); e.target.textContent = '🔊 TON IST AN'; });
 </script>
 </body>
 </html>
