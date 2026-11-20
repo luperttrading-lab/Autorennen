@@ -355,7 +355,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.67';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.68';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1678,8 +1678,9 @@ const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1
 let opponents = [];
 // Hindernisse (v3.66, Schritt 4): Baustelle mit gesperrter Spur (Pylonen, Baken), Steinschlag (Felsbrocken, manche fallen erst,
 // wenn man naht), Turbo-Kanister. Als Sprites auf der Fahrbahn mit `ob` = Trefferradius; `seg.obs` = gesperrte Spuren für den Verkehr.
-const HAZ_MOUNT = { wald: 1, schnee: 2, eis: 2, gipfel: 1, canyon: 2, vulkan: 1 };
-const HAZ_WORK = { feld: 1, strand: 1, dorf: 1, wald: 1, wein: 1, vulkan: 1, canyon: 1, stadt: 1, oase: 1 };
+// v3.68 (Nutzer: nicht zu viele, nicht zu oft): je Fahrt höchstens 1–2 Baustellen und 1–2 Steinschläge, je Etappe 2 Kanister
+const HAZ_WORK = { MORGENLAND: 1, HAFENSTADT: 1, OASE: 1 };                       // eine Baustelle auf diesen 3 von 13 Etappen
+const HAZ_ROCK = { ALPENPASS: 1, CANYON: 1, GLETSCHER: 1 };                      // ein Steinschlag auf diesen 3 Etappen
 function placeHazards(st, startSeg, len, r) {
     const used = [];
     const free = (a, b) => !used.some(([x, y]) => a < y + 60 && b > x - 60);
@@ -1701,7 +1702,7 @@ function placeHazards(st, startSeg, len, r) {
     };
     const A = startSeg + 300, B = startSeg + len - 450;
     // Baustelle: 75 Segmente, eine Außenspur gesperrt
-    if (HAZ_WORK[st.land]) {
+    if (HAZ_WORK[st.short]) {
         const a = pick(A, B, 80, false);
         if (a > 0) {
             const sd = r() < 0.5 ? -1 : 1;
@@ -1715,10 +1716,10 @@ function placeHazards(st, startSeg, len, r) {
         }
     }
     // Steinschlag: in Bergen/Canyon/Vulkan 1–2 Stellen, sonst eine, wo eine Felswand steht
-    const nRock = HAZ_MOUNT[st.land] || 1;
+    const nRock = HAZ_ROCK[st.short] ? 1 : 0;
     const rockWall = (i) => { const g = segments[i]; return !!(g && ((g.edgeL && (g.edgeL.k === 'rock' || g.edgeL.k === 'canyon')) || (g.edgeR && (g.edgeR.k === 'rock' || g.edgeR.k === 'canyon')))); };
     let anyWall = false; for (let i = A; i < B; i += 25) if (rockWall(i)) { anyWall = true; break; }
-    if (HAZ_MOUNT[st.land] || anyWall) for (let k = 0; k < nRock; k++) {
+    for (let k = 0; k < nRock; k++) {
         const a = pick(A + k * (B - A) / nRock, A + (k + 1) * (B - A) / nRock, 50, true, anyWall ? rockWall : null);
         if (a < 0) continue;
         sign(a - 110, 1); sign(a - 55, 1);
@@ -1731,9 +1732,9 @@ function placeHazards(st, startSeg, len, r) {
         });
         for (let q = 0; q < 4; q++) { const i = a + Math.floor(r() * 50); segments[i].sprites.push({ type: 'boulder', offset: from * (1.05 + r() * 0.2), scale: 0.4 + r() * 0.3, v: Math.floor(r() * 3) }); }   // Geröll am Rand
     }
-    // Turbo-Kanister: 3 je Etappe
-    for (let k = 0; k < 3; k++) {
-        const a = pick(A + k * (B - A) / 3, A + (k + 1) * (B - A) / 3, 1, false);
+    // Turbo-Kanister: 2 je Etappe
+    for (let k = 0; k < 2; k++) {
+        const a = pick(A + k * (B - A) / 2, A + (k + 1) * (B - A) / 2, 1, false);
         if (a > 0) segments[a].sprites.push({ type: 'can', offset: [-0.62, 0, 0.62][Math.floor(r() * 3)], scale: 1, ob: 0.17 });
     }
 }
