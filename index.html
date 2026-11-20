@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.41';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.42';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1251,10 +1251,10 @@ function decorate(a, b, r) {
         const L = r() < seg.mix ? seg.land2 : seg.land;
         let D = LANDS[L];
         // Warnschilder in scharfen Kurven: außen, Pfeile zeigen in Kurvenrichtung. Seit v3.26 ruhiger: nur ab Stärke 4,5,
-        // am Kurveneingang höchstens 4 Tafeln im Abstand von 12 Segmenten
+        // am Kurveneingang bis 8 Tafeln im Abstand von 5 Segmenten (v3.42, Nutzer: vorher zu weit auseinander)
         const sharp = (g) => g && Math.abs(g.curve) >= 4.5 && g.roads.length === 1;
         if (sharp(seg) && !(sharp(segments[i - 1]) && Math.sign(segments[i - 1].curve) === Math.sign(seg.curve))) chevStart = i;
-        if (sharp(seg) && !seg.gates && (i - chevStart) % 12 === 0 && i - chevStart < 48) {
+        if (sharp(seg) && !seg.gates && (i - chevStart) % 5 === 0 && i - chevStart < 40) {   // v3.42: dichter (alle 5 Segmente, bis 8 Tafeln)
             seg.sprites.push({ type: 'chevron', offset: seg.curve > 0 ? Math.min(...seg.roads) - 1.3 : Math.max(...seg.roads) + 1.3, scale: 1, flip: seg.curve < 0 });
             continue;
         }
@@ -1824,14 +1824,14 @@ function spriteLamp() {                                // Laterne 16 x 64, Arm z
     g.fillStyle = '#3a4048'; g.fillRect(10, 60, 6, 4);
     return pixelize(c, '#15171b', 0.04, 7);
 }
-function spriteChevron() {                           // Kurventafel (v3.27, Wahl K): weiß, roter Rand, 2 dicke rote Pfeile, ≈ 57 % Rot, 44 x 30
-    const c = makeCanvas(44, 30), g = c.getContext('2d');
-    g.fillStyle = '#6d727a'; g.fillRect(20, 16, 4, 14);                     // ein Pfosten
-    g.fillStyle = '#c8102e'; g.fillRect(1, 1, 42, 17);
-    g.fillStyle = '#f4f1ea'; g.fillRect(3, 3, 38, 13);
+function spriteChevron() {                           // Kurventafel (v3.42, Nutzer: 3 Pfeile): weiß, roter Rand, 3 dicke rote Pfeile, 52 x 30
+    const c = makeCanvas(52, 30), g = c.getContext('2d');
+    g.fillStyle = '#6d727a'; g.fillRect(24, 16, 4, 14);                     // ein Pfosten
+    g.fillStyle = '#c8102e'; g.fillRect(1, 1, 50, 17);
+    g.fillStyle = '#f4f1ea'; g.fillRect(3, 3, 46, 13);
     g.fillStyle = '#c8102e';
-    for (const x of [7, 22]) {
-        g.beginPath(); g.moveTo(x, 4); g.lineTo(x + 6, 9.5); g.lineTo(x, 15); g.lineTo(x + 9, 15); g.lineTo(x + 15, 9.5); g.lineTo(x + 9, 4); g.closePath(); g.fill();
+    for (const x of [5, 19, 33]) {
+        g.beginPath(); g.moveTo(x, 4); g.lineTo(x + 5.5, 9.5); g.lineTo(x, 15); g.lineTo(x + 8, 15); g.lineTo(x + 13.5, 9.5); g.lineTo(x + 8, 4); g.closePath(); g.fill();
     }
     return pixelize(c, '#222', 0.03, 3);
 }
