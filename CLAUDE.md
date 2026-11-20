@@ -81,7 +81,8 @@ vom Nutzer aber nur die linke Route (S → K2 → K3 → K4 → K5) gefahren. Ab
 Dazu: Öl je nach Tempo (Dreher ab 85 %), Startpunkt-Wahl im Training (Etappe antippen → Abschnitt).
 
 Offene Rückmeldungen des Nutzers:
-- Überschlag in den Kehren statt nur „ZU SCHNELL!“-Stillstand: ja/nein? (bisher nur Schleudern/Dreher auf Öl)
+- Kehren (v3.54) fahren sich gut (Nutzer 20.11.); KEIN Überschlag – in die Leitplanke + abgebremst reicht als Strafe.
+- Feuerwerk gut, Töne okay, etwas kürzer (v3.57: 5,5 s); Palmenoase (v3.56) gut.
 - Wellen flackerten auf dem iPhone (Nutzer 20.11.) → v3.51 geändert, Rückmeldung offen.
 - Details der Umgebung: Nutzer will mehr Sorgfalt; Mitte und rechte Route hat er noch nicht gefahren.
 - Schritt 3 (Wetter) und die nicht-linken Etappen von Schritt 2 noch nicht abgenommen.
@@ -89,7 +90,6 @@ Offene Rückmeldungen des Nutzers:
 Bekannte Schwächen (Stand v3.50, 20.11.):
 - Behoben seit v3.48–v3.50: Abgründe mit Tiefe (alle 7 + Kehren), Sternwarte ausgebaut, Inselhafen mit Stegen, Tunnelportal mit Felsschichten/Bogen/Schild, Weinberg mit Rebzeilen (`CROP.reben`).
 - Tiefe ist nur angedeutet (Pseudo-3D): Hang + tiefer Boden, keine echte Klippenwand von der Seite; nachts (Sternwarte, Hafenstadt) wirkt die Tiefe schwach.
-- Neon/Laternen in der Innenstadt bei Regen etwas verschwommen.
 - Kehren-Bot fährt vorsichtig (Zeitgutschrift dort großzügig).
 - Getestet nur per Headless-Browser (Standbilder, Bildfolgen), kein Ton geprüft, keine Leistung auf dem iPhone gemessen (Headless ≈ 2–4 ms je Bild, Feuerwerk ≈ 11 ms).
 - Mitte und rechte Route nur per Standbild geprüft; Nutzer ist sie noch nicht gefahren.
@@ -124,8 +124,7 @@ vom Nutzer abgenommen). Alle 39 Abschnitte stehen in `STAGES[id].zones[k]` mit `
 Senkrechte von hinten nach vorn in `drawStruct` (auch Segmente vor dem Auto), Tunnel hinten dunkel (`drawTunnelCap`).
 Fahren: Leitplanke/Schnee/Pfeiler weich (−0,7 maxSpeed/s), Fels/Haus hart (−1,6), Funken + Kratzen (`playScrape`);
 Wasser/Lava auf 30 %; Kopfsteinpflaster 90 % + Rattern; Seitenwind auf der Talbrücke (`windAt`, fest je Ort); Kehren
-`KEHRE_K` = 3,2-fache Fliehkraft, über 55 % Tempo neben der Fahrbahn = „ZU SCHNELL!“ fast Stillstand (Bremsen ≈ 1 s schneller
-als Vollgas); Tunnel dunkel, Motor hallt (`echoGain`), Blendung beim Ausfahren. Bot `botDrive` bremst vor Kehren (für
+Kehren seit v3.52 neu (siehe oben: echte Haarnadeln, `KEHRE_K` = 1); Tunnel dunkel, Motor hallt (`echoGain`), Blendung beim Ausfahren. Bot `botDrive` bremst vor Kehren (für
 `calibrate`). Bot-Zeiten: L2 68,8 s (Pflaster), G3 72,1 s (Kehren), sonst unverändert 66–69 s. Neue Sprites: palm, house,
 house2, fachwerk(2), church, fisher(2), lighthouse, boathouse, dune, smoke, mesa, gas, crane, container, tower(2), neon(2),
 cube, dome, willow, boat, reed. Offen (spätere Schritte): Eisplatten/Steinschlag (4), Nebel/Sandsturm (3).
@@ -152,7 +151,7 @@ Schildern, an jedem Tor nur halbe Restzeit, Game Over = von vorn, versteckter Tr
 Startbildschirm 2 s halten → RENNEN/TRAINING, Etappe frei wählbar, kein Game Over, keine Rekorde), Tageslauf ja,
 maximale Abwechslung inkl. Vulkan und Stadt. Gewählt: 5 Etappen pro Fahrt (Abschnitt 2a: 13 Etappen, 41 Routen). Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
 Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
-je Schritt eine frische Sitzung. `feuerwerk.html` (20.11., Fassung 2 nach Nutzer „richtig schlecht“): Vollbild, Bewegungsunschärfe durch teilweises Überdecken, 160–290 Sterne je Explosion als Leuchtstempel, Lichtblitz, Rauch, Ton (Pfeifen, Knall mit Bass und Nachhall, Knistern; Web Audio); Varianten A Pfingstrose, B Goldregen/Palme, C Knistern/Strobo, D Finale. Wahl offen; im Spiel bis dahin einfache Ringe (v3.44). Offen: Sternwarte-Etappe nur ansatzweise (2 Kuppeln am Ende, Wolken flach). `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
+je Schritt eine frische Sitzung. `feuerwerk.html` (20.11., Fassung 2 nach Nutzer „richtig schlecht“): Vollbild, Bewegungsunschärfe durch teilweises Überdecken, 160–290 Sterne je Explosion als Leuchtstempel, Lichtblitz, Rauch, Ton (Pfeifen, Knall mit Bass und Nachhall, Knistern; Web Audio); Varianten A Pfingstrose, B Goldregen/Palme, C Knistern/Strobo, D Finale. Seit v3.47 als Mischung im Spiel (Nutzer zufrieden). `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
 im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
 Seit v3.9 ist Klang B im Spiel ein tonaler Quietschton (zwei Sägezähne um 950 Hz, Tonhöhe steigt mit dem Rutschen); das Rubbeln aus der Hörprobe B klang im Spiel wie Scheppern (Nutzer 19.11.).
 Seit v3.15 Klang B rau/kreischend (Sägezahn + Rechteck, Tonhöhe zittert, übersteuert, rattert); v3.9 klang wie Windpfeifen.

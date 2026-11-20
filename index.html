@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.56';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.57';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -3997,7 +3997,7 @@ function finishTrip() {
         note,
         'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · ' + stageLines()
     ].filter(Boolean);
-    fwStop(); fwT = 9; fwNext = 0.6; fwSalvo = 0;   // Salve sofort, dann 9 s gemischt (läuft hinter der Auswertung weiter)
+    fwStop(); fwT = 5.5; fwNext = 0.6; fwSalvo = 0;   // Salve sofort, dann 5,5 s gemischt (v3.57, Nutzer: etwas kürzer)
     fanfare(); if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
     showMsg('ZIEL!', fmtTime(tTot), 3);
     setTimeout(() => {
