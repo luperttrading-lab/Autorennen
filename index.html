@@ -76,6 +76,7 @@
         .overlay[hidden] { display: none; }
         .overlay { gap: 10px; padding: 46px 10px 12px; box-sizing: border-box; overflow-y: auto; justify-content: safe center; }
         .overlay [hidden] { display: none; }
+        .map.mini svg { max-height: 24vh; width: auto; margin: 0 auto; }
         .map svg { display: block; width: min(86vw, 320px); height: auto; max-height: 44vh; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
         #modeScreen, #secScreen { background: rgba(10, 8, 20, 0.88); z-index: 16; }
         #secScreen .big { font-size: 26px; }
@@ -352,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.44';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.45';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -3507,9 +3508,9 @@ function showStart() {
 }
 // Training: nach dem Antippen einer Etappe den Startpunkt wählen (Anfang oder einer der drei Abschnitte, v3.29)
 const secScreen = document.getElementById('secScreen');
-startMap.addEventListener('click', (e) => {
+function openSections(e) {                             // Etappe auf einer Karte angetippt → Abschnitt wählen → dort starten
     const g = e.target.closest && e.target.closest('[data-id]');
-    if (!g || phase !== 'menu') return;   // seit v3.39 auch im Rennmodus: ab dieser Etappe starten
+    if (!g) return;
     const id = g.getAttribute('data-id'), st = STAGES[id];
     document.getElementById('secTitle').textContent = st.name.toUpperCase();
     const list = document.getElementById('secList');
@@ -3522,6 +3523,10 @@ startMap.addEventListener('click', (e) => {
         list.appendChild(b);
     });
     secScreen.hidden = false;
+}
+startMap.addEventListener('click', (e) => { if (phase === 'menu') openSections(e); });   // seit v3.39 auch im Rennmodus
+document.getElementById('endMap').addEventListener('click', (e) => {   // v3.45: auch nach Game Over und im Ziel neu wählen
+    if ((phase === 'over' || phase === 'done') && !btnAgain.disabled) openSections(e);
 });
 document.getElementById('secBack').addEventListener('click', () => { secScreen.hidden = true; });
 let lastStart = null;                                  // gewählter Startpunkt (Etappe, Abschnitt); NOCHMAL startet wieder dort
@@ -3541,8 +3546,9 @@ function startAt(id, k) {
 function showEnd(title, lines, noMap = false) {
     msgEl.classList.remove('an');
     document.getElementById('endTitle').textContent = title;
-    document.getElementById('endMap').innerHTML = mapSVG(trip.route, false);
-    document.getElementById('endMap').hidden = noMap;  // im Ziel ohne Karte: Platz für Zeit und Rangliste (v3.44)
+    const em = document.getElementById('endMap');
+    em.innerHTML = mapSVG(trip.route, true) + '<div class="small">Etappe antippen: dort neu starten</div>';
+    em.classList.toggle('mini', noMap);                // im Ziel kleinere Karte: Platz für Zeit und Rangliste (v3.45 wieder sichtbar)
     document.getElementById('goInfo').innerHTML = lines.join('<br>');
     btnAgain.textContent = trip.training ? 'KARTE' : 'NOCHMAL';
     gameOverScreen.hidden = false;
