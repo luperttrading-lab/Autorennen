@@ -109,6 +109,8 @@ und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was überno
 
 `gegner.html` (20.11.): vier Entwürfe für die anderen Autos (A Limousine 48 %, B Kompakt-Kombi 55 %, C Sportcoupé 40 %, D Geländewagen 60 % Höhe/Breite; Nutzer: bisherige Gegner zu hoch), Nutzer wählte B, C, D gemischt → seit v3.64 im Spiel (`OPP_TYPES`, `o.type`, Rücklicht-Glows je Typ `lx/ly`); Schnittstelle oppX(x, y, w, Farbe, nachts).
 
+`fahrzeuge.html` (20.11.): Entwürfe für Schritt 4 im Maßstab (Breite nach echten Maßen, Pkw 1,8 m = CAR_WORLD_W): Lkw (Sattelzug), Transporter, Bus, Traktor (Rundumleuchte, Schild langsames Fahrzeug), Motorrad (Schräglage), Rivale (schwarz-gold, Nr. 7). Wahl des Nutzers offen. Messung: Gegner bei 100 % ≈ so breit wie das eigene Auto in gleicher Tiefe (92 px Weltbreite vs. carW 78 px + Reifen); Autos sind relativ zur Fahrbahn (3 Spuren à 1333) etwa 2/3 der echten Proportion.
+
 `autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D). Gewählt: B (ab v2.1 im Spiel). Gleiche Schnittstelle
 wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funktion ins Spiel übernehmen.
 
