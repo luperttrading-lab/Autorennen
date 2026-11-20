@@ -183,7 +183,7 @@
             font: 22px sans-serif; line-height: 1; padding: 4px 0 0; touch-action: manipulation; cursor: pointer; }
         #btnKnoepfe span { display: block; font: bold 8px sans-serif; letter-spacing: .03em; margin-top: 3px; }
         body:not(.menu) #btnKnoepfe, body.edit #btnKnoepfe { display: none; }
-        @media (orientation: landscape) { #btnKnoepfe { left: max(12px, env(safe-area-inset-left)); top: 12px; margin: 0; } }   /* v3.55: oben links statt über START */
+        @media (orientation: landscape) { #btnKnoepfe { position: fixed; left: max(16px, env(safe-area-inset-left)); top: max(env(safe-area-inset-top), 20px); margin: 0; } }   /* v3.60: oben links in der Ecke, gegenüber der Versionsnummer */
         body.edit #stickBase, body.edit #turbo { outline: 3px dashed #ffd84a; outline-offset: 4px; }
         body.edit #steerZone { background: rgba(255, 216, 74, 0.08); border-radius: 28px; }
         #diag { display: none; }
@@ -354,7 +354,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.59';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.60';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -700,7 +700,7 @@ turboBtn.addEventListener('lostpointercapture', turboEnd);
 
 // --- MOTORSOUND (Web Audio) ---
 // Startet erst bei der ersten Berührung: iOS spielt Ton nur nach einer Nutzeraktion.
-let squealB = null, squealGains = null, squealType = 'B', squealAmt = 0, gravelGain = null, gravelAmt = 0;
+let squealB = null, squealGains = null, squealType = 'B', squealAmt = 0, gravelGain = null, gravelAmt = 0, rumbleGain = null, rumbleLfo = null, rumbleAmt = 0;
 let echoGain = null, inTunnel = false, rainGain = null, sandGain = null;
 let audioCtx = null, engineOsc1 = null, engineOsc2 = null, engineGain = null, engineFilter = null, noiseGain = null;
 let muted = false;
@@ -816,6 +816,11 @@ function initAudio() {
         gravelGain = gn(0); const f = bq('bandpass', 1400, 0.8);
         src.connect(f); f.connect(gravelGain); gravelGain.connect(audioCtx.destination);
     }
+    {   // Rumpeln (v3.60): tiefes Rauschen, im Takt der Randsteine/Unebenheiten zerhackt; Lautstärke nach Tempo
+        const lp = bq('lowpass', 180, 0.9), mod = gn(0.5); rumbleLfo = osc('square', 18); const lg = gn(0.5);
+        rumbleLfo.connect(lg); lg.connect(mod.gain); ns().connect(lp); lp.connect(mod);
+        rumbleGain = gn(0); mod.connect(rumbleGain); rumbleGain.connect(audioCtx.destination);
+    }
     engineOsc1.start();
     engineOsc2.start();
     unlockBlip();
@@ -919,6 +924,7 @@ function updateAudio() {
         }
         for (const k in squealGains) squealGains[k].gain.setTargetAtTime(muted || k !== squealType ? 0 : squealAmt * PEAK[k], t, 0.05);
         gravelGain.gain.setTargetAtTime(muted ? 0 : gravelAmt * 0.35, t, 0.08);
+        if (rumbleGain) { rumbleGain.gain.setTargetAtTime(muted ? 0 : rumbleAmt * 1.4, t, 0.04); rumbleLfo.frequency.setTargetAtTime(8 + 30 * (speed / maxSpeed), t, 0.1); }
     }
 }
 
@@ -1639,8 +1645,8 @@ const drawDistance = 150;
 // Starten je Etappe immer gleich (fester Zufallskeim). An der Gabel nimmt jeder den Ast, der zu seiner Spur passt.
 const PLAYER_Z = 950;        // Abstand Kamera -> eigenes Auto (dort steht es unten im Bild)
 const CAR_WORLD_W = 450;     // Breite eines Autos in Welt-Einheiten (Straße: 2 * roadWidth = 4000)
-let OPP_SCALE = 1;           // v3.59: Größe der anderen Autos 100–200 % (Einstellungen, `autorennen.gegnergroesse`)
-try { const v = parseFloat(localStorage.getItem('autorennen.gegnergroesse')); if (v >= 1 && v <= 2) OPP_SCALE = v; } catch (_) {}
+let OPP_SCALE = 1.4;         // Größe der anderen Autos 100–200 %, Standard 140 % (v3.60, Nutzer); Einstellungen, `autorennen.gegner2`
+try { const v = parseFloat(localStorage.getItem('autorennen.gegner2')); if (v >= 1 && v <= 2) OPP_SCALE = v; } catch (_) {}
 const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1a1a', '#00a3a3'];
 let opponents = [];
 function spawnOpponents(st, a, b, r) {
@@ -3450,7 +3456,7 @@ function render() {
     // Spieler-Auto: steht mittig unten; wackelt im Turbo und auf Schotter
     const carW = W * 0.2;                              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
     const onGravel = (carSegR.gravel || carSegR.cobble) && speed > maxSpeed * 0.1;
-    const shake = isTurbo ? (Math.random() - 0.5) * 5 : (onGravel ? (Math.random() - 0.5) * 2.5 : 0);
+    const shake = isTurbo ? (Math.random() - 0.5) * 5 : rumbleAmt > 0 ? (Math.random() - 0.5) * (2 + 7 * rumbleAmt) : (onGravel ? (Math.random() - 0.5) * 2.5 : 0);
     drawDust();
     if (slipTime > 0) {                                // auf Öl: schlingern, Heck ausbrechen lassen oder ganze Drehung
         const u = 1 - slipTime / slipT0, fade = Math.min(1, slipTime * 2);
@@ -4045,7 +4051,7 @@ function stepSens(which, d) {
 }
 function stepOpp(d) {                                  // Größe der anderen Autos in 10-%-Schritten
     OPP_SCALE = Math.round(Math.max(1, Math.min(2, OPP_SCALE + d)) * 10) / 10;
-    try { localStorage.setItem('autorennen.gegnergroesse', String(OPP_SCALE)); } catch (_) {}
+    try { localStorage.setItem('autorennen.gegner2', String(OPP_SCALE)); } catch (_) {}
     document.getElementById('oppSizeV').textContent = Math.round(OPP_SCALE * 100) + ' %';
 }
 document.getElementById('oppSizeV').textContent = Math.round(OPP_SCALE * 100) + ' %';
@@ -4145,7 +4151,7 @@ function updateFlakes(dt, curve, sp) {
 // --- SPIEL-LOGIK ---
 function update(dt) {
     if (phase === 'pause') {
-        const sv = speed; speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; updateAudio(); speed = sv;
+        const sv = speed; speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; rumbleAmt = 0; updateAudio(); speed = sv;
         return;
     }
     updateFireworks(dt);
@@ -4157,7 +4163,7 @@ function update(dt) {
             dist += st.position - position;
             position = st.position; playerX = st.playerX; speed = st.speed;
         } else speed = 0;
-        isTurbo = false; squealAmt = 0; gravelAmt = 0; slipTime = 0;
+        isTurbo = false; squealAmt = 0; gravelAmt = 0; rumbleAmt = 0; slipTime = 0;
         speedDisplay.innerText = Math.floor(speed / maxSpeed * 300);
         updateDust(dt);
         updateAudio();
@@ -4295,6 +4301,11 @@ function update(dt) {
     squealAmt = offRoadNow || onGravelNow || slipTime > 0 ? 0 : Math.max(sqCurve, sqBrake);
     squealType = curDark > 0.6 ? 'A' : LANDS[carSeg.mix < 0.5 ? carSeg.land : carSeg.land2].sq;
     gravelAmt = (onGravelNow || carSeg.cobble) && !offRoadNow ? Math.min(1, speedPercent * 1.1) * (0.6 + 0.4 * Math.max(sqCurve, Math.abs(s))) : 0;
+    {   // Rumpeln (v3.60): auf dem Randstein leicht, neben der Straße kräftig (nicht im Wasser, nicht auf Brücken/im Tunnel)
+        const rd = roadDist(carSeg, playerX), sp = Math.min(1, speedPercent * 1.3);
+        rumbleAmt = speedPercent < 0.05 || inWater(carSeg, playerX) ? 0 : rd > 1.22 ? sp : rd > 0.93 ? 0.55 * sp : 0;
+        if (rumbleAmt > 0.3 && navigator.vibrate && Math.random() < dt * 6) navigator.vibrate(25);
+    }
     updateFlakes(dt, ph.pSeg.curve, speedPercent);
     updateDrops(dt, speedPercent);
 
