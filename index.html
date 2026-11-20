@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.52';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.53';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1159,9 +1159,9 @@ function genBody(st, n, r, conn = false, zoneAt = null) {
             // v3.52 (Nutzer: man knallte ohne sichtbaren Grund an die Wand): echte Haarnadeln – kurze steile Gerade, dann eine lange,
             // sehr enge Kurve (Kurvenstärke ≈ 20, sichtbar scharf), abwechselnd links/rechts. Keine versteckte Fliehkraft-Verstärkung mehr.
             const s0 = sgn(), h0 = segments.length;
-            for (let j = 0; j < 3 && left() > 120; j++) {
-                addRoad(Math.min(left(), I(26, 38)), 0, R(160, 260));
-                addRoad(Math.min(left(), I(84, 104)), (j % 2 ? -s0 : s0) * R(19, 23), R(300, 450));
+            for (let j = 0; j < 3 && left() > 220; j++) {   // v3.53 (Nutzer: lang gezogen scharf): Haarnadeln ≈ 150–180 Segmente lang
+                addRoad(Math.min(left(), I(45, 60)), 0, R(200, 300));
+                addRoad(Math.min(left(), I(150, 180)), (j % 2 ? -s0 : s0) * R(19, 23), R(500, 700));
             }
             for (let i = h0; i < segments.length; i++) segments[i].hair = true;
             if (left() > 30) addRoad(Math.min(left(), I(20, 30)), 0, 80);
@@ -1555,6 +1555,14 @@ function applyZone(st, z, startSeg, len, k, r) {
         } else if (z.kehren && g.hair) g.kehre = true;
     }
     if (z.tunnel) { segments[a].portal = 1; segments[b - 1].portal = -1; }
+    if (z.kehren) for (let i = a + 1; i < b; i++) {    // Gefahrzeichen „scharfe Kurve“ vor jeder Haarnadel, beidseits, zweimal (v3.53)
+        const g = segments[i], p0 = segments[i - 1];
+        if (!(g.hair && Math.abs(g.curve) > 3 && !(p0.hair && Math.abs(p0.curve) > 3))) continue;
+        let j = i; while (j < b && Math.abs(segments[j].curve) < 10) j++;
+        const dir = Math.sign(segments[j] ? segments[j].curve : g.curve) > 0 ? 0 : 1;
+        for (const back of [70, 38]) { const t = segments[i - back]; if (!t) continue;
+            t.sprites.push({ type: 'gefahr', offset: 1.6, scale: 1, v: dir }, { type: 'gefahr', offset: -1.6, scale: 1, v: dir }); }
+    }
     // Abgründe (v3.48): wo neben der Leitplanke Tal, Krater, Wolken oder eine Steilküste liegt, liegt der Boden tief unten.
     // Je Seite Tiefe dL/dR und Art dKL/dKR; an Anfang und Ende jeder Strecke über 50 Segmente eingeblendet.
     {
@@ -2042,6 +2050,15 @@ function spriteDish(seed) {                            // Radioteleskop 44 x 56:
         g.strokeStyle = '#8a9099'; g.lineWidth = 2; g.beginPath(); g.moveTo(22, 20); g.lineTo(34, 6); g.stroke(); R(32, 3, 5, 5, '#6d737c');
     }, '#3a4048', 0.03, seed);
 }
+function spriteGefahr(left) {                          // Gefahrzeichen scharfe Kurve 40 x 50: weißes Dreieck, roter Rand, schwarzer Kurvenpfeil
+    return sprite(40, 50, (g, R, P) => {
+        R(18, 30, 4, 20, '#7d8288');
+        P([[20, 0], [40, 34], [0, 34]], '#c8102e'); P([[20, 6], [34, 30], [6, 30]], '#f4f4f0');
+        g.save(); if (left) { g.translate(40, 0); g.scale(-1, 1); }
+        g.strokeStyle = '#111'; g.lineWidth = 3; g.beginPath(); g.moveTo(17, 28); g.lineTo(17, 18); g.quadraticCurveTo(17, 13, 23, 13); g.stroke();
+        P([[22, 9], [27, 13], [22, 17]], '#111'); g.restore();
+    }, '#222', 0.02, left ? 2 : 1);
+}
 function spriteFachwerk(seed, wall) {                  // Fachwerkhaus 44 x 56: dunkle Balken, überstehendes Geschoss
     return sprite(44, 56, (g, R, P, r) => {
         R(4, 26, 36, 30, wall); R(2, 12, 40, 16, wall); P([[0, 14], [22, 0], [44, 14]], '#8e3b2a');
@@ -2187,6 +2204,7 @@ const SPR = {
     house3: [spriteHouse(6, '#f6f1e4', '#3e4a5a'), spriteHouse(7, '#e6d2e0', '#a4442e'), spriteHouse(8, '#d8e4ee', '#7a3a2a')],
     barn: [spriteBarn(1, '#9a6a44'), spriteBarn(2, '#b07a4a')],
     fence: [spriteFence()],
+    gefahr: [spriteGefahr(false), spriteGefahr(true)],
     observatory: [spriteObservatory()],
     dish: [spriteDish(1), spriteDish(4)],
     pole: [spritePole()],
@@ -2230,7 +2248,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { gefahr: 0.55, observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
