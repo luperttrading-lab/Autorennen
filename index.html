@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.53';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.54';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1560,8 +1560,10 @@ function applyZone(st, z, startSeg, len, k, r) {
         if (!(g.hair && Math.abs(g.curve) > 3 && !(p0.hair && Math.abs(p0.curve) > 3))) continue;
         let j = i; while (j < b && Math.abs(segments[j].curve) < 10) j++;
         const dir = Math.sign(segments[j] ? segments[j].curve : g.curve) > 0 ? 0 : 1;
-        for (const back of [70, 38]) { const t = segments[i - back]; if (!t) continue;
-            t.sprites.push({ type: 'gefahr', offset: 1.6, scale: 1, v: dir }, { type: 'gefahr', offset: -1.6, scale: 1, v: dir }); }
+        for (const back of [130, 105, 80, 55, 32]) { const t = segments[i - back]; if (!t) continue;   // v3.54: 5 Paare, dicht am Rand, größer
+            t.sprites.push({ type: 'gefahr', offset: 1.32, scale: 1, v: dir }, { type: 'gefahr', offset: -1.32, scale: 1, v: dir }); }
+        for (let q = 0; q < 8; q++) { const t = segments[i - 115 + q * 4]; if (t) t.bars = true; }   // Querbalken auf der Fahrbahn
+        for (let q = 0; q < 22; q++) { const t = segments[i - 62 + q]; if (t) t.mark = { t: q / 21, dir: dir ? -1 : 1 }; }   // Kurvenpfeil auf dem Asphalt
     }
     // Abgründe (v3.48): wo neben der Leitplanke Tal, Krater, Wolken oder eine Steilküste liegt, liegt der Boden tief unten.
     // Je Seite Tiefe dL/dR und Art dKL/dKR; an Anfang und Ende jeder Strecke über 50 Segmente eingeblendet.
@@ -2248,7 +2250,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { gefahr: 0.55, observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { gefahr: 0.8, observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -3180,6 +3182,16 @@ function render() {
             const c1 = p1.x + p1.w * (R1[0] + segment.ice.o), c2 = p2.x + p2.w * (R2[0] + segment.ice.o), w = segment.ice.w;
             drawPolygon(c1 - p1.w * w, p1.y, c1 + p1.w * w, p1.y, c2 + p2.w * w, p2.y, c2 - p2.w * w, p2.y, light ? 'rgba(214,236,255,0.88)' : 'rgba(196,224,250,0.88)');
             if (segment.index % 3 === 0) drawPolygon(c1 - p1.w * w * 0.5, p1.y, c1 - p1.w * w * 0.2, p1.y, c2 - p2.w * w * 0.2, p2.y, c2 - p2.w * w * 0.5, p2.y, 'rgba(255,255,255,0.9)');
+        }
+        if (segment.bars || segment.mark) {            // Fahrbahnmarkierung vor Haarnadeln (v3.54): Querbalken und großer Kurvenpfeil
+            const c1 = p1.x + p1.w * R1[0], c2 = p2.x + p2.w * R2[0], qd = (u0, u1, col) => drawPolygon(c1 + p1.w * u0, p1.y, c2 + p2.w * u0, p2.y, c2 + p2.w * u1, p2.y, c1 + p1.w * u1, p1.y, col);
+            if (segment.bars) qd(-0.92, 0.92, 'rgba(250,250,250,0.92)');
+            if (segment.mark) {
+                const { t, dir } = segment.mark, wc = 0.17;
+                if (t < 0.5) qd(-0.3 * dir - wc, -0.3 * dir + wc, '#f2f2f2');                       // Schaft
+                else if (t < 0.72) { const c = -0.3 * dir + (t - 0.5) / 0.22 * 0.35 * dir; qd(c - wc, c + wc, '#f2f2f2'); }   // Knick in Kurvenrichtung
+                else { const hw = 0.6 * (1 - (t - 0.72) / 0.28); qd(0.05 * dir - hw, 0.05 * dir + hw, '#f2f2f2'); }   // Spitze
+            }
         }
         // Fahrspuren (nicht auf Schotter, nicht wo sich die Äste der Gabel noch überlappen)
         const overlap = R1.length > 1 && Math.abs(R1[1] - R1[0]) < 2.2;
