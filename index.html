@@ -355,7 +355,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.64';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.65';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1659,14 +1659,24 @@ const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1
 let opponents = [];
 function spawnOpponents(st, a, b, r) {
     const n = Math.max(0, Math.round((b - a) / 45)), lo = Math.min(0.55, 0.35 + st.row * 0.03);   // je Reihe 3 Prozentpunkte schneller
-    for (let i = 0; i < n; i++) opponents.push({
-        z: (a + (i + 0.5) * (b - a) / n) * segmentLength,
-        offset: [-0.6, 0, 0.6][i % 3] + (r() - 0.5) * 0.2,   // Spur innerhalb der Fahrbahn
-        speed: maxSpeed * (lo + r() * 0.35),
-        color: OPP_COLORS[i % OPP_COLORS.length],
-        type: [0, 1, 0, 2, 1, 0, 1, 2][(i * 5 + Math.floor(r() * 8)) % 8],   // B Kombi, C Coupé, D Geländewagen gemischt
-        road: undefined                                       // Fahrbahn an der Gabel, wird beim Einfahren gewählt
-    });
+    const mix = TRAFFIC[st.land] || [1, 0, 0, 0, 0, 0], tot = mix.reduce((x, y) => x + y, 0);
+    for (let i = 0; i < n; i++) {
+        let q = r() * tot, k = 0; while (k < 5 && q >= mix[k]) q -= mix[k++];
+        const type = k === 0 ? [0, 1, 0, 2, 1, 0, 1, 2][(i * 5 + Math.floor(r() * 8)) % 8] : [0, T_VAN, T_LKW, T_BUS, T_TRAKTOR, T_MOTO][k];
+        const sp = T_SPEED[type], v = maxSpeed * (sp ? sp[0] + r() * sp[1] : lo + r() * 0.35);
+        const off = type === T_TRAKTOR ? 0.6 : [-0.6, 0, 0.6][i % 3];   // Traktor fährt rechts
+        opponents.push({
+            z: (a + (i + 0.5) * (b - a) / n) * segmentLength,
+            offset: off + (r() - 0.5) * 0.2, tOff: undefined,  // Spur innerhalb der Fahrbahn, Ziel beim Spurwechsel
+            speed: v, v0: v,
+            color: type === T_TRAKTOR ? ['#2f8f2f', '#c8102e', '#1f6fd0'][i % 3] : type === T_LKW ? ['#1e5bd6', '#c8102e', '#2f8f2f', '#ff7a00'][i % 4]
+                 : type === T_BUS ? ['#f2c200', '#c8102e', '#1e5bd6'][i % 3] : OPP_COLORS[i % OPP_COLORS.length],
+            type, road: undefined                             // Fahrbahn an der Gabel, wird beim Einfahren gewählt
+        });
+    }
+    if (n > 3) opponents.push({ z: (a + (b - a) * (0.15 + r() * 0.2)) * segmentLength, offset: 0, speed: maxSpeed * 0.8, v0: maxSpeed * 0.8,
+        color: '#111111', type: T_RIVALE, rival: true, road: undefined });   // ein Rivale je Etappe
+    opponents.sort((x, y) => x.z - y.z);
 }
 function oppLat(o, seg, t = 0) {                       // seitliche Lage des Gegners (halbe Straßenbreiten) oder null
     const k = o.road || 0;
@@ -1784,7 +1794,152 @@ function oppD(x, y, w, c, n) {
   rrect(x - w * 0.49, y - w * 0.11, w * 0.98, w * 0.08, w * 0.02, '#262626');
 }
 
-const OPP_TYPES = [{ f: oppB, h: 0.55, ly: 0.36, lx: 0.4 }, { f: oppC, h: 0.40, ly: 0.2, lx: 0.32 }, { f: oppD, h: 0.60, ly: 0.29, lx: 0.4 }];
+// Verkehr (v3.65, Entwürfe aus fahrzeuge.html): w = eigene Breite, wm = Breite relativ zum Pkw, h = Höhe/Breite,
+// lx/ly = Lage der Rücklichter (Anteil der eigenen Breite) für den Lichtschein nachts/im Regen
+function dualWheels(x, y, w, outer, tw, th) {
+  for (const s of [-1, 1]) { const cx = x + s * (outer - tw / 2) * w;
+    rrect(cx - tw * w / 2, y - th * w, tw * w, th * w, 2, '#111'); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(cx - w * 0.004, y - th * w, w * 0.008, th * w); }
+}
+
+function warnStripes(x, y, w, h) {             // rot-weiße Reflexstreifen
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  rrect(x, y, w, h, 0, '#fff'); ctx.fillStyle = '#d01010';
+  for (let i = -2; i < w / h + 2; i += 2) { ctx.beginPath(); ctx.moveTo(x + i * h, y + h); ctx.lineTo(x + (i + 1) * h, y + h); ctx.lineTo(x + (i + 2) * h, y); ctx.lineTo(x + (i + 1) * h, y); ctx.fill(); }
+  ctx.restore();
+}
+
+function vLkw(x, y, w, c, n, t) {
+  shadow(x, y, w); dualWheels(x, y, w, 0.47, 0.2, 0.17); dualWheels(x, y, w, 0.25, 0.2, 0.17);
+  const top = y - w * 1.55;
+  rrect(x - w * 0.5, top, w, w * 1.3, w * 0.015, '#e8e8e4');                                // Koffer
+  rrect(x - w * 0.5, top, w, w * 0.04, 0, '#c9c9c4');
+  rrect(x - w * 0.5, top + w * 0.06, w, w * 0.16, 0, c);                                      // Firmenstreifen
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `bold ${w * 0.1}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (w > 40) ctx.fillText('SPEDITION', x, top + w * 0.145);
+  ctx.fillStyle = '#b8b8b2'; ctx.fillRect(x - w * 0.005, top + w * 0.22, w * 0.01, w * 1.06);  // Türfuge
+  for (const s of [-1, 1]) for (const dx of [0.18, 0.36]) {                                  // Verschlussstangen
+    ctx.fillRect(x + s * dx * w - w * 0.007, top + w * 0.24, w * 0.014, w * 1.02);
+    rrect(x + s * dx * w - w * 0.02, top + w * 0.8, w * 0.04, w * 0.05, 2, '#888');
+  }
+  warnStripes(x - w * 0.5, top + w * 1.28, w * 0.25, w * 0.04); warnStripes(x + w * 0.25, top + w * 1.28, w * 0.25, w * 0.04);
+  rrect(x - w * 0.42, y - w * 0.2, w * 0.84, w * 0.035, 1, '#555');                          // Unterfahrschutz
+  for (const s of [-1, 1]) {
+    rrect(x + s * w * 0.4 - w * 0.07, y - w * 0.27, w * 0.14, w * 0.05, 2, n ? '#ff3030' : '#c41616');
+    rrect(x + s * w * 0.4 - w * 0.07 + (s < 0 ? w * 0.1 : 0), y - w * 0.27, w * 0.04, w * 0.05, 1, '#f0a020');
+    rrect(x + s * w * 0.47 - w * 0.03, y - w * 0.17, w * 0.06, w * 0.12, 1, '#1a1a1a');       // Schmutzfänger
+  }
+  plate(x, y - w * 0.27, w * 0.8);
+}
+
+function vVan(x, y, w, c, n, t) {
+  shadow(x, y, w); wheels(x, y, w, 0.46, 0.13, 0.12);
+  const top = y - w * 1.2;
+  poly([[x - w * 0.42, top], [x + w * 0.42, top], [x + w * 0.48, top + w * 0.12], [x + w * 0.48, y - w * 0.09], [x - w * 0.48, y - w * 0.09], [x - w * 0.48, top + w * 0.12]], c);
+  for (const s of [-1, 1]) rrect(x + s * w * 0.21 - w * 0.17, top + w * 0.14, w * 0.34, w * 0.25, w * 0.02, '#1d2a3a');   // Fenster
+  ctx.fillStyle = shadeHex(c, -0.25); ctx.fillRect(x - w * 0.005, top + w * 0.06, w * 0.01, y - top - w * 0.15);
+  for (const s of [-1, 1]) {
+    rrect(x + s * w * 0.06 - w * 0.03, top + w * 0.6, w * 0.06, w * 0.02, 1, '#333');        // Griffe
+    rrect(x + s * w * 0.455 - w * 0.03, top + w * 0.6, w * 0.06, w * 0.3, w * 0.015, n ? '#ff3030' : '#c41616');
+  }
+  rrect(x - w * 0.12, top + w * 0.02, w * 0.24, w * 0.025, 1, n ? '#ff3030' : '#a01010');
+  plate(x, y - w * 0.22, w);
+  rrect(x - w * 0.49, y - w * 0.12, w * 0.98, w * 0.07, w * 0.02, '#222');
+}
+
+function vBus(x, y, w, c, n, t) {
+  shadow(x, y, w); dualWheels(x, y, w, 0.45, 0.18, 0.13);
+  const top = y - w * 1.25;
+  rrect(x - w * 0.5, top, w, w * 1.16, w * 0.06, c);
+  rrect(x - w * 0.44, top + w * 0.08, w * 0.88, w * 0.36, w * 0.03, '#1d2a3a');               // Heckscheibe
+  rrect(x - w * 0.3, top + w * 0.1, w * 0.6, w * 0.08, 2, '#111');                            // Liniennummer
+  ctx.fillStyle = n ? '#ffb000' : '#e09a00'; ctx.font = `bold ${w * 0.065}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (w > 30) ctx.fillText('42 HAFEN', x, top + w * 0.14);
+  rrect(x - w * 0.5, top + w * 0.52, w, w * 0.06, 0, shadeHex(c, -0.2));
+  ctx.fillStyle = '#222'; for (let i = 0; i < 6; i++) ctx.fillRect(x - w * 0.3, top + w * (0.66 + i * 0.045), w * 0.6, w * 0.02);   // Motorgitter
+  for (const s of [-1, 1]) { rrect(x + s * w * 0.43 - w * 0.04, top + w * 0.66, w * 0.08, w * 0.24, w * 0.02, n ? '#ff3030' : '#c41616');
+    rrect(x + s * w * 0.43 - w * 0.04, top + w * 0.6, w * 0.08, w * 0.05, 1, '#f0a020'); }
+  plate(x, y - w * 0.2, w * 0.8);
+  rrect(x - w * 0.5, y - w * 0.13, w, w * 0.06, w * 0.02, '#1c1c1c');
+}
+
+function vTraktor(x, y, w, c, n, t) {
+  shadow(x, y, w);
+  const top = y - w * 1.15;
+  for (const s of [-1, 1]) {                                                                  // große Hinterräder mit Stollen
+    const cx = x + s * w * 0.37;
+    rrect(cx - w * 0.13, y - w * 0.66, w * 0.26, w * 0.66, w * 0.08, '#151515');
+    ctx.fillStyle = '#0a0a0a'; for (let i = 0; i < 7; i++) ctx.fillRect(cx - w * 0.12, y - w * (0.6 - i * 0.085), w * 0.24, w * 0.035);
+    rrect(cx - w * 0.15, y - w * 0.72, w * 0.3, w * 0.08, w * 0.03, c);                     // Kotflügel
+  }
+  rrect(x - w * 0.23, top + w * 0.06, w * 0.46, w * 0.5, w * 0.03, '#222');                   // Kabine
+  rrect(x - w * 0.2, top + w * 0.09, w * 0.4, w * 0.44, w * 0.02, 'rgba(120,160,190,0.55)');
+  ell(x - w * 0.02, top + w * 0.42, w * 0.07, w * 0.08, '#3a3a3a', Math.PI, 0);              // Fahrer
+  circle(x - w * 0.02, top + w * 0.3, w * 0.045, '#7a4a26');
+  rrect(x - w * 0.26, top + w * 0.02, w * 0.52, w * 0.06, w * 0.02, c);                       // Dach
+  const on = Math.sin(t * 9) > 0;
+  rrect(x + w * 0.12, top - w * 0.04, w * 0.07, w * 0.06, 2, on ? '#ffb000' : '#9a5a00');   // Rundumleuchte
+  rrect(x - w * 0.2, y - w * 0.6, w * 0.4, w * 0.4, w * 0.02, c);                             // Rumpf
+  ctx.fillStyle = '#333'; ctx.fillRect(x - w * 0.15, y - w * 0.25, w * 0.3, w * 0.03);       // Dreipunkt-Hydraulik
+  ctx.fillRect(x - w * 0.12, y - w * 0.25, w * 0.025, w * 0.14); ctx.fillRect(x + w * 0.095, y - w * 0.25, w * 0.025, w * 0.14);
+  // Schild: orangefarbenes Dreieck mit rotem Rand
+  poly([[x, y - w * 0.56], [x + w * 0.1, y - w * 0.38], [x - w * 0.1, y - w * 0.38]], '#d01010');
+  poly([[x, y - w * 0.52], [x + w * 0.07, y - w * 0.4], [x - w * 0.07, y - w * 0.4]], '#ff8a00');
+  for (const s of [-1, 1]) rrect(x + s * w * 0.15 - w * 0.03, y - w * 0.33, w * 0.06, w * 0.04, 1, n ? '#ff3030' : '#c41616');
+}
+
+function vMoto(x, y, w, c, n, t, lean = 0) {
+  ell(x, y, w * 0.5, w * 0.12, 'rgba(0,0,0,0.4)');
+  ctx.save(); ctx.translate(x, y); ctx.rotate(lean); ctx.translate(-x, -y);
+  rrect(x - w * 0.11, y - w * 0.62, w * 0.22, w * 0.62, w * 0.1, '#111');                     // Hinterrad
+  rrect(x - w * 0.16, y - w * 0.82, w * 0.32, w * 0.18, w * 0.05, c);                        // Heck
+  rrect(x - w * 0.12, y - w * 0.73, w * 0.24, w * 0.06, 2, n ? '#ff3030' : '#c41616');       // Rücklicht
+  plate(x, y - w * 0.66, w * 0.8);
+  rrect(x + w * 0.16, y - w * 0.55, w * 0.14, w * 0.3, w * 0.05, '#999');                     // Auspuff
+  // Fahrer
+  rrect(x - w * 0.36, y - w * 1.0, w * 0.18, w * 0.32, w * 0.07, '#222');                    // Beine/Knie
+  rrect(x + w * 0.18, y - w * 1.0, w * 0.18, w * 0.32, w * 0.07, '#222');
+  poly([[x - w * 0.34, y - w * 0.92], [x + w * 0.34, y - w * 0.92], [x + w * 0.28, y - w * 1.55], [x - w * 0.28, y - w * 1.55]], '#1b1b1b');   // Lederjacke
+  rrect(x - w * 0.28, y - w * 1.35, w * 0.56, w * 0.07, 2, c);                               // Streifen in Motorradfarbe
+  rrect(x - w * 0.5, y - w * 1.5, w * 0.18, w * 0.12, w * 0.04, '#1b1b1b');                  // Arme zum Lenker
+  rrect(x + w * 0.32, y - w * 1.5, w * 0.18, w * 0.12, w * 0.04, '#1b1b1b');
+  circle(x, y - w * 1.72, w * 0.22, c);                                                       // Helm
+  rrect(x - w * 0.17, y - w * 1.8, w * 0.34, w * 0.1, w * 0.04, '#1a1a1a');
+  ctx.restore();
+}
+
+function vRivale(x, y, w, c, n, t) {
+  if (n) { ell(x, y - w * 0.01, w * 0.62, w * 0.09, 'rgba(40,120,255,0.45)'); }
+  shadow(x, y, w); tires(x, y, w, 0.52, 0.2, 0.22);
+  const top = y - w * 0.4;
+  poly([[x - w * 0.24, top + w * 0.02], [x + w * 0.24, top + w * 0.02], [x + w * 0.35, y - w * 0.24], [x - w * 0.35, y - w * 0.24]], '#111');
+  poly([[x - w * 0.2, top + w * 0.045], [x + w * 0.2, top + w * 0.045], [x + w * 0.28, y - w * 0.25], [x - w * 0.28, y - w * 0.25]], '#0d1622');
+  poly([[x - w * 0.49, y - w * 0.27], [x + w * 0.49, y - w * 0.27], [x + w * 0.48, y - w * 0.06], [x - w * 0.48, y - w * 0.06]], '#151515');
+  rrect(x - w * 0.06, top + w * 0.02, w * 0.12, y - top - w * 0.08, 0, '#d4a017');           // Goldstreifen
+  for (const s of [-1, 1]) rrect(x + s * w * 0.32 - w * 0.012, y - w * 0.4, w * 0.024, w * 0.14, 0, '#222');   // Flügelstützen
+  rrect(x - w * 0.47, y - w * 0.44, w * 0.94, w * 0.05, w * 0.01, '#111');                   // Heckflügel
+  rrect(x - w * 0.47, y - w * 0.44, w * 0.94, w * 0.012, 0, '#d4a017');
+  for (const s of [-1, 1]) rrect(x + s * w * 0.47 - w * 0.02, y - w * 0.47, w * 0.04, w * 0.1, 1, '#d4a017');
+  rrect(x - w * 0.46, y - w * 0.22, w * 0.3, w * 0.035, 1, n ? '#ff2a2a' : '#b01010');
+  rrect(x + w * 0.16, y - w * 0.22, w * 0.3, w * 0.035, 1, n ? '#ff2a2a' : '#b01010');
+  circle(x, y - w * 0.165, w * 0.06, '#f4f4f0');                                              // Startnummer
+  ctx.fillStyle = '#111'; ctx.font = `bold ${w * 0.08}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (w > 30) ctx.fillText('7', x, y - w * 0.16);
+  rrect(x - w * 0.4, y - w * 0.09, w * 0.8, w * 0.05, w * 0.02, '#0a0a0a');
+  for (const ex of [-0.08, 0.08]) { circle(x + ex * w, y - w * 0.065, w * 0.026, '#999'); circle(x + ex * w, y - w * 0.065, w * 0.016, '#111'); }
+}
+
+const OPP_TYPES = [{ f: oppB, h: 0.55, ly: 0.36, lx: 0.4, wm: 1 }, { f: oppC, h: 0.40, ly: 0.2, lx: 0.32, wm: 1 }, { f: oppD, h: 0.60, ly: 0.29, lx: 0.4, wm: 1 },
+    { f: vVan, h: 1.2, ly: 0.45, lx: 0.455, wm: 1.11 }, { f: vLkw, h: 1.55, ly: 0.25, lx: 0.4, wm: 1.42 }, { f: vBus, h: 1.25, ly: 0.47, lx: 0.43, wm: 1.42 },
+    { f: vTraktor, h: 1.2, ly: 0.31, lx: 0.15, wm: 1.33, beacon: true }, { f: vMoto, h: 1.95, ly: 0.7, lx: 0, wm: 0.44, moto: true },
+    { f: vRivale, h: 0.47, ly: 0.2, lx: 0.31, wm: 1 }];
+const T_VAN = 3, T_LKW = 4, T_BUS = 5, T_TRAKTOR = 6, T_MOTO = 7, T_RIVALE = 8;
+// Mischung je Landschaft: Gewichte für [Auto, Transporter, Lkw, Bus, Traktor, Motorrad]
+const TRAFFIC = {
+    feld:   [5, 1, 1, 1, 2, 0], strand: [5, 1, 0, 1, 0, 2], dorf:  [4, 2, 0, 2, 1, 1], wald:   [5, 1, 1, 0, 1, 2],
+    wein:   [5, 1, 1, 0, 2, 1], schnee: [5, 1, 0, 1, 0, 2], vulkan: [5, 1, 1, 0, 0, 2], canyon: [4, 1, 3, 0, 0, 2],
+    eis:    [6, 1, 1, 0, 0, 0], stadt:  [4, 2, 2, 2, 0, 1], oase:  [4, 1, 2, 0, 0, 1], gipfel: [6, 1, 0, 0, 0, 1] };
+// Tempo als Anteil von maxSpeed: [ab, Spanne]
+const T_SPEED = { 3: [0.42, 0.22], 4: [0.4, 0.1], 5: [0.36, 0.1], 6: [0.2, 0.06], 7: [0.7, 0.2], 8: [0.8, 0] };
 
 // Eigenes Auto: Entwurf B „Keil-Sportler“ (Cabrio, Wahl des Nutzers 19.11.2026; Vorschau: autos.html)
 const RED = '#d40000', RED_DARK = '#9e0000', RED_LIGHT = '#ff3b30';
@@ -3416,8 +3571,8 @@ function render() {
         const sy = a.y + (b.y - a.y) * t;
         const sw = a.w + (b.w - a.w) * t;              // halbe Straßenbreite in Pixeln
         const sx = a.x + (b.x - a.x) * t + sw * lat;
-        const w = sw * CAR_WORLD_W * OPP_SCALE / roadWidth;
-        const ot = OPP_TYPES[o.type || 0], h = w * ot.h;
+        const ot = OPP_TYPES[o.type || 0];
+        const w = sw * CAR_WORLD_W * OPP_SCALE * ot.wm / roadWidth, h = w * ot.h;
         if (w < 2 || sy - h >= seg.clip) continue;      // zu klein oder ganz hinter der Kuppe
         ctx.save();
         ctx.beginPath();
@@ -3425,7 +3580,9 @@ function render() {
         ctx.clip();
         const wet = (seg.wx === 'rain' || seg.wx === 'storm') && seg.wxA > 0.3;
         if (wet) ell(sx, sy - h * 0.1, w * 0.6, h * 0.3, 'rgba(210,220,235,' + (0.18 * seg.wxA).toFixed(2) + ')');   // Gischt
-        ot.f(sx, sy, w, o.color, curDark > 0.3);
+        const tNow = performance.now() / 1000;
+        ot.f(sx, sy, w, o.color, curDark > 0.3, tNow, ot.moto ? Math.max(-0.45, Math.min(0.45, -(seg.curve || 0) * 0.06 + (o.lean || 0))) : 0);
+        if (ot.beacon && Math.sin(tNow * 9) > 0 && sy - h < seg.clip) glows.push({ x: sx + w * 0.155, y: sy - w * 1.16, r: Math.max(3, w * 0.25), c: '255,170,0', always: true });
         ctx.restore();
         if ((curDark > 0.3 || wet) && sy - h * 0.15 < seg.clip) for (const s of [-1, 1]) {   // Rücklichter, im Regen größer und auf der nassen Straße gespiegelt
             glows.push({ x: sx + s * w * ot.lx, y: sy - w * ot.ly, r: Math.max(wet ? 3 : 2, w * (wet ? 0.28 : 0.18)), c: '255,40,40', always: wet });
@@ -4360,6 +4517,27 @@ function update(dt) {
         commitFork(nearestRoad(segments[Math.floor(cs)], playerX));
     }
 
+    // Verkehr untereinander (v3.65): wer auf ein langsameres Fahrzeug in seiner Spur aufläuft, wechselt auf eine freie Spur,
+    // sonst bleibt er dahinter; Motorräder wechseln ab und zu von sich aus die Spur und legen sich dabei schräg
+    for (const o of opponents) {
+        if (o.v0 === undefined) o.v0 = o.speed;
+        let block = null;
+        const lane = (x) => Math.abs(x.offset - o.offset) < 0.45;
+        for (const b of opponents) if (b !== o && b.z > o.z && b.z - o.z < 6 * segmentLength && b.v0 < o.v0 && (b.road || 0) === (o.road || 0) && lane(b)) { block = b; break; }
+        if (block && o.tOff === undefined) {
+            const free = [-0.6, 0, 0.6].filter(L => Math.abs(L - o.offset) > 0.3 && !opponents.some(b => b !== o && Math.abs(b.z - o.z) < 5 * segmentLength && Math.abs(b.offset - L) < 0.4 && (b.road || 0) === (o.road || 0)));
+            if (free.length) o.tOff = free.reduce((m, L) => Math.abs(L - o.offset) < Math.abs(m - o.offset) ? L : m);
+        }
+        if (o.type === T_MOTO && o.tOff === undefined && Math.random() < dt * 0.25) o.tOff = [-0.6, 0, 0.6][Math.floor(Math.random() * 3)];
+        o.speed = block && o.tOff === undefined ? Math.min(o.v0, block.speed) : o.speed + (o.v0 - o.speed) * Math.min(1, dt * 0.8);
+        o.lean = 0;
+        if (o.tOff !== undefined) {
+            const d = o.tOff - o.offset, st = (o.type === T_MOTO ? 0.9 : 0.5) * dt;
+            if (Math.abs(d) <= st) { o.offset = o.tOff; o.tOff = undefined; } else { o.offset += Math.sign(d) * st; o.lean = Math.sign(d) * 0.25; }
+        }
+    }
+    opponents.sort((x, y) => x.z - y.z);
+
     // Gegner fahren mit eigenem Tempo; Auffahren bremst uns auf deren Tempo
     const myZ = position + PLAYER_Z;
     for (let i = opponents.length - 1; i >= 0; i--) {
@@ -4375,7 +4553,8 @@ function update(dt) {
         if (lat === null) { opponents.splice(i, 1); continue; }
         const dz = o.z - myZ;
         // Abstand der Mitten < Autobreite (in Einheiten von playerX: 1 = halbe Straße = roadWidth)
-        if (dz > -50 && dz < 250 * (0.5 + OPP_SCALE / 2) && Math.abs(playerX - lat) < CAR_WORLD_W * (1 + OPP_SCALE) / 2 / roadWidth && speed > o.speed) {
+        if (o.rival && !o.passed && dz < -300 && dz > -3000) { o.passed = true; showMsg('RIVALE ÜBERHOLT!', 'Nummer 7 liegt hinter dir', 1.8); }
+        if (dz > -50 && dz < 250 * (0.5 + OPP_SCALE / 2) && Math.abs(playerX - lat) < CAR_WORLD_W * (1 + OPP_SCALE * OPP_TYPES[o.type || 0].wm) / 2 / roadWidth && speed > o.speed) {
             speed = o.speed * 0.8;
             const back = position - Math.max(0, o.z - PLAYER_Z - 400);
             position -= back; dist -= back;            // hinter den Gegner zurücksetzen
