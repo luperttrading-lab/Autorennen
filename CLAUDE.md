@@ -150,7 +150,7 @@ Schildern, an jedem Tor nur halbe Restzeit, Game Over = von vorn, versteckter Tr
 Startbildschirm 2 s halten → RENNEN/TRAINING, Etappe frei wählbar, kein Game Over, keine Rekorde), Tageslauf ja,
 maximale Abwechslung inkl. Vulkan und Stadt. Gewählt: 5 Etappen pro Fahrt (Abschnitt 2a: 13 Etappen, 41 Routen). Abschnitt 3a (Nutzer: Landschaften wechseln zu schnell, Übergänge unsinnig): eine Landschaft je
 Etappe, Tageszeit über die ganze Tour, 17 Verbindungsstücke, Klima-Regel. Erst nach seiner Freigabe programmieren,
-je Schritt eine frische Sitzung. `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
+je Schritt eine frische Sitzung. `feuerwerk.html` (20.11.): vier Feuerwerks-Entwürfe fürs Ziel (A Pfingstrose, B Goldregen, C Chrysantheme mit Knistern, D Finale-Mischung), Wahl des Nutzers offen; im Spiel bis dahin einfache Ringe (v3.44). `toene.html`: Hörproben fürs Reifenquietschen. Nutzer (19.11.): A, B, C alle gut, je nach Untergrund einsetzen; seit v2.7
 im Spiel: B Wiese/Wald, C Wüste/Berge, A Nacht; Schotterweg im Wald (knirscht), 6 feste Ölflecken (eigener Rutsch-Klang).
 Seit v3.9 ist Klang B im Spiel ein tonaler Quietschton (zwei Sägezähne um 950 Hz, Tonhöhe steigt mit dem Rutschen); das Rubbeln aus der Hörprobe B klang im Spiel wie Scheppern (Nutzer 19.11.).
 Seit v3.15 Klang B rau/kreischend (Sägezahn + Rechteck, Tonhöhe zittert, übersteuert, rattert); v3.9 klang wie Windpfeifen.
