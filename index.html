@@ -311,7 +311,7 @@
         <div class="big">PAUSE</div>
         <button class="startBtn" id="btnWeiter" type="button">WEITER</button>
         <button class="startBtn alt" id="btnEinst" type="button">EINSTELLUNGEN</button>
-        <button class="startBtn" id="btnAufgeben" type="button" style="background:#555;box-shadow:0 6px 0 #222">AUFGEBEN</button>
+        <button class="startBtn" id="btnAufgeben" type="button" style="background:#555;box-shadow:0 6px 0 #222">BEENDEN</button>
     </div>
     <div class="overlay" id="gameOver" hidden>
         <div class="big" id="endTitle">GAME OVER</div>
@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.45';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.46';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -484,6 +484,7 @@ function dragEnd(e) { if (e.pointerId === dragPtr) { dragPtr = null; dragWhat = 
 // --- LENKEN DURCH NEIGEN DES HANDYS (wie ein Lenkrad drehen) ---
 // Schwerkraft aus dem Beschleunigungssensor, in die Bildschirmebene gedreht; der Winkel gegenüber der Haltung beim
 // Start (Kalibrieren bei LOS und nach der Pause) ergibt den Einschlag: voll bei 25°, 2° tote Zone.
+let tiltSm = 0, dispX = 0, dispY = 0, lastKx = 0, lastKy = 0;   // geglättete Sensorwerte (v3.46)
 let tiltOn = false, tiltSteer = 0, tiltOK = false, tiltRaw = null, tiltZero = 0, tiltSign = 1, tiltSeen = false;
 try { tiltOn = localStorage.getItem('autorennen.lenken') === 'neigen'; } catch (_) {}
 let TILT_FULL = 25;                                    // Grad Drehung für vollen Einschlag (einstellbar)
@@ -3799,14 +3800,18 @@ function update(dt) {
     turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
     turboBtn.classList.toggle('an', isTurbo);
 
+    // Sensor glätten (v3.46, Nutzer: Anzeige zappelte): Lenken leicht (≈ 60 ms), die Anzeige im Knüppel stärker (≈ 180 ms)
+    const kS = 1 - Math.exp(-dt / 0.06), kD = 1 - Math.exp(-dt / 0.18);
+    tiltSm += (tiltSteer - tiltSm) * kS;
+    dispX += (tiltSm - dispX) * kD; dispY += ((tiltGas - tiltBrake) - dispY) * kD;
     let s = steer;
-    if (tiltOn && steerPtr === null) s = tiltSteer;     // Handy neigen (Knüppel hat Vorrang, solange er angefasst ist)
-    else if (tiltOn && Math.abs(steer) < 0.05) s = tiltSteer;
+    if (tiltOn && steerPtr === null) s = tiltSm;        // Handy neigen (Knüppel hat Vorrang, solange er angefasst ist)
+    else if (tiltOn && Math.abs(steer) < 0.05) s = tiltSm;
     if (keys.left) s = -1;
     else if (keys.right) s = 1;
     if (steerPtr === null && (tiltOn || pitchOn)) {     // Knüppel zeigt an, wohin das Handy gerade lenkt bzw. Gas/Bremse gibt
-        const r = stickR() - 20;
-        stickKnob.style.transform = 'translate(' + (tiltSteer * r).toFixed(1) + 'px,' + (-(tiltGas - tiltBrake) * r).toFixed(1) + 'px)';
+        const r = stickR() - 20, px = Math.round(dispX * r), py = Math.round(-dispY * r);   // ganze Pixel: kein Flimmern im Subpixelbereich
+        if (px !== lastKx || py !== lastKy) { stickKnob.style.transform = 'translate(' + px + 'px,' + py + 'px)'; lastKx = px; lastKy = py; }
     }
     // Öl (v3.30): wie schlimm es wird, hängt vom Tempo beim Überfahren ab.
     //   unter 55 %: kurz schlingern, kaum Lenkwirkung · 55–85 %: das Heck bricht aus, das Auto driftet zur Kurvenaußenseite
