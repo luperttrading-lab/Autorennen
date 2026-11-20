@@ -344,7 +344,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.42';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.43';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1056,9 +1056,10 @@ const STAGES = {
                   { name: 'Talbrücke mit Seitenwind', bridge: 'tal', flat: true, wind: true, span: [0.12, 0.88] },
                   { name: 'Weindorf', houses: { types: ['house', 'house2', 'fachwerk2'], every: 5 }, grass: ['#b9a560', '#ad9955'], every: 6, chance: 0.5, types: ['bush', 'tree'] }] },
     G3: { row: 2, col: 2, name: 'Alpenpass',               short: 'ALPENPASS',     land: 'schnee',
-          zones: [{ name: 'Kehren', kehren: true },
-                  { name: 'Lawinengalerie', gallery: 1, span: [0.25, 0.75], flat: true },
-                  { name: 'Passhöhe im Schnee' }] },
+          zones: [{ name: 'Kehren', kehren: true, poles: 9 },
+                  { name: 'Lawinengalerie', gallery: 1, span: [0.25, 0.75], flat: true, poles: 9 },
+                  { name: 'Passhöhe im Schnee', poles: 9, every: 3, chance: 0.7, types: ['snowfir', 'snowfir', 'snowrock', 'snowfir', 'huette'],
+                    marks: [{ type: 'passschild', at: 0.35, side: 1, d: 1.6 }, { type: 'huette', at: 0.4, side: -1, d: 2.6 }, { type: 'huette', at: 0.43, side: 1, d: 3.4 }] }] },
     K4: { row: 3, col: 0, name: 'Vulkaninsel',             short: 'VULKANINSEL',   land: 'vulkan',
           zones: [{ name: 'Schwarzer Strand', water: { t: 'meer', side: -1, s: 1.75 }, every: 5, chance: 0.5, types: ['rock', 'rock', 'palm'], grass: ['#2b2624', '#24201e'] },
                   { name: 'Lavafelder', water: { t: 'lava', side: -1, s: 1.9, w: 3.2 }, water2: { t: 'lava', side: 1, s: 2.1, w: 4.2 }, every: 3, chance: 0.6, types: ['rock', 'rock', 'rock'], smokeAt: 64 },
@@ -1070,7 +1071,7 @@ const STAGES = {
     G4: { row: 3, col: 2, name: 'Gletscher',               short: 'GLETSCHER',     land: 'eis',
           zones: [{ name: 'Schneeschneise', edge: { L: 'snow', R: 'snow' } },
                   { name: 'Tunnel', tunnel: true, span: [0.15, 0.85], flat: true },
-                  { name: 'Eisplatten', ice: true }] },
+                  { name: 'Eisplatten', ice: true, poles: 9, every: 3, chance: 0.6, types: ['serac', 'snowrock', 'serac', 'snowfir', 'serac'] }] },
     K5: { row: 4, col: 0, name: 'Hafenstadt',              short: 'HAFENSTADT',    land: 'stadt',
           zones: [{ name: 'Hafen mit Kränen', water: { t: 'hafen', side: -1, s: 1.6 }, every: 3, chance: 0.6, types: ['crane', 'container', 'container'], boats: 200, landSide: 1 },
                   { name: 'Stadtbrücke im Gewitter', weather: 'storm', bridge: 'hafen', lights: true, flat: true, span: [0.12, 0.88] },
@@ -1081,8 +1082,8 @@ const STAGES = {
                   { name: 'Wüstenstadt mit Leuchtreklame', houses: { types: ['cube', 'cube', 'neon', 'neon2', 'cube'], every: 4 }, every: 5, chance: 0.5, types: ['palm'] }] },
     G5: { row: 4, col: 2, name: 'Sternwarte',              short: 'STERNWARTE',    land: 'gipfel',
           zones: [{ name: 'Über den Wolken', edge: { L: 'rail', R: 'rail' }, water: { t: 'wolken', side: -1, s: 1.42, sheer: true }, water2: { t: 'wolken', side: 1, s: 1.42, sheer: true }, span: [0, 0.95] },
-                  { name: 'Schlussanstieg im Nebel', weather: 'fog' },
-                  { name: 'Gipfel mit Sternwarte', marks: [{ type: 'dome', at: 0.85, side: 1, d: 2.3 }, { type: 'dome', at: 0.97, side: -1, d: 2.5 }] }] }
+                  { name: 'Schlussanstieg im Nebel', weather: 'fog', poles: 7 },
+                  { name: 'Gipfel mit Sternwarte', poles: 9, marks: [{ type: 'dome', at: 0.85, side: 1, d: 2.3 }, { type: 'dome', at: 0.97, side: -1, d: 2.5 }] }] }
 };
 function stageAt(row, col) { return row === 0 ? (col === 1 ? 'S' : null) : COLS[col] + (row + 1); }
 function nextStages(id) {                              // geradeaus oder eine Spalte nach links/rechts, links → rechts sortiert
@@ -1283,6 +1284,8 @@ function decorate(a, b, r) {
                 seg.sprites.push({ type, offset: sd * (2.05 + r() * 0.15), scale: 0.95 + r() * 0.15, v: Math.floor(r() * 3) });
             }
         }
+        if (z0.poles && seg.zone && i % z0.poles === 0 && !seg.bridge && !seg.tunnel)   // Schneestangen am Straßenrand (v3.43)
+            for (const sd of [-1, 1]) if (!(sd < 0 ? seg.edgeL : seg.edgeR)) seg.sprites.push({ type: 'pole', offset: sd * 1.3, scale: 1, v: 0 });
         if (seg.noDeco) continue;
         if (z0.smokeAt && seg.zone && i % z0.smokeAt === 0) {   // Rauch steigt aus der Lava bzw. aus dem Krater auf
             const lw = seg.water2 && seg.water2.T.hot ? seg.water2 : seg.water && seg.water.T.hot ? seg.water : null;
@@ -1315,7 +1318,7 @@ function decorate(a, b, r) {
                 if (i % 3 === 0) seg.sprites.push({ type: 'tree', offset: lo0 - 1.4, scale: 1, v: i % 3 }, { type: 'tree', offset: hi0 + 1.4, scale: 1, v: (i + 1) % 3 });
                 continue;
             }
-            D = Object.assign({}, D, { spr: seg.zone });
+            if (seg.zone.types) D = Object.assign({}, D, { spr: seg.zone });   // v3.43: ohne eigene Typen bleibt die Grundausstattung der Landschaft (vorher: gar nichts)
         }
         const lo = Math.min(...seg.roads), hi = Math.max(...seg.roads);
         if (D.lamps && i % D.lamps === 0) seg.sprites.push({ type: 'lamp', offset: (i % (2 * D.lamps) === 0 ? lo - 1.15 : hi + 1.15), scale: 1 });
@@ -1331,7 +1334,7 @@ function decorate(a, b, r) {
         const type = sp.types[Math.floor(r() * sp.types.length)];
         const near = (type === 'bush' || type === 'rock' || type === 'snowrock' || type === 'bale' || type === 'straw' ? 1.35
                     : type === 'cow' ? 1.6 : 1.45) + (D.rows ? 0.4 : 0);
-        const far = type === 'mesa' ? 4.5 + r() * 7 : type === 'dune' ? 0.6 + r() * 2.5 : type === 'smoke' ? 1 + r() * 4 : 0;   // große Dinge weiter weg
+        const far = type === 'mesa' ? 4.5 + r() * 7 : type === 'dune' ? 0.6 + r() * 2.5 : type === 'smoke' ? 1 + r() * 4 : type === 'huette' ? 1.2 + r() * 3 : type === 'serac' ? r() * 2.5 : 0;   // große Dinge weiter weg
         const off = near + far + r() * 0.5;
         seg.sprites.push({ type, offset: side > 0 ? hi + off : lo - off, scale: (type === 'mesa' ? 1.6 : 0.8) + r() * 0.5, v: Math.floor(r() * 3) });
     }
@@ -1394,7 +1397,7 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
         let s = cand.length ? cand[Math.floor(r() * cand.length)] : a + Math.floor((0.2 + r() * 0.6) * (b - a));
         if (r() < 0.35 && cand.length) s += 14;        // manchmal liegt es schon in der Kurve
         let near = false; for (let q = -30; q <= 30; q++) if (segments[s + q] && segments[s + q].oil !== undefined) near = true;
-        if (okOil(s) && !near) segments[s].oil = [-0.6, 0, 0.6][Math.floor(r() * 3)];
+        if (okOil(s) && !near) { segments[s].oil = [-0.6, 0, 0.6][Math.floor(r() * 3)]; if (LANDS[st.land].snow || st.land === 'gipfel') segments[s].oilIce = true; }   // im Schnee: Eisfleck statt Öl (v3.43)
     }
     if (!sim) {
         paint(decoFrom, segments.length);
@@ -1950,6 +1953,29 @@ function spriteMaibaum() {                             // Maibaum 20 x 120: wei�
         for (const [y, sd] of [[44, -1], [58, 1], [72, -1], [86, 1]]) R(sd < 0 ? 1 : 12, y, 7, 5, ['#e8d9b0', '#c9e0f0'][y % 2]);
     }, '#3a3a40', 0.02, 4);
 }
+function spritePole() {                                // Schneestange 6 x 44: orange mit schwarzen Ringen, oben Reflektor
+    return sprite(6, 44, (g, R) => { R(1, 0, 4, 44, '#f07a10'); for (const y of [8, 20, 32]) R(1, y, 4, 4, '#1e1e1e'); R(1, 0, 4, 3, '#f4f4f4'); }, '#3a2a20', 0.02, 7);
+}
+function spriteHuette(seed) {                          // Berghütte 56 x 44: Holz, verschneites Dach, helles Fenster, Kamin
+    return sprite(56, 44, (g, R, P) => {
+        R(6, 20, 44, 24, seed % 2 ? '#7a4f2e' : '#6a4428'); for (let y = 22; y < 44; y += 4) R(6, y, 44, 1, 'rgba(0,0,0,0.25)');
+        P([[0, 22], [28, 4], [56, 22]], '#5a3a26'); P([[2, 20], [28, 3], [54, 20], [50, 22], [28, 8], [6, 22]], '#f2f6fa');
+        R(38, 4, 6, 12, '#6d6d70'); R(37, 3, 8, 3, '#f2f6fa');
+        R(12, 27, 9, 8, '#ffd27a'); R(16, 27, 1, 8, '#6a4428'); R(35, 27, 9, 8, '#ffd27a'); R(39, 27, 1, 8, '#6a4428'); R(24, 30, 8, 14, '#3e2616');
+    }, '#2a1c16', 0.05, seed);
+}
+function spritePassschild() {                          // Passschild 44 x 34: braune Tafel, weiße Schrift, Höhenzahl
+    return sprite(44, 34, (g, R) => {
+        R(8, 18, 3, 16, '#6d6d70'); R(33, 18, 3, 16, '#6d6d70'); R(0, 0, 44, 20, '#f4f4f4'); R(2, 2, 40, 16, '#6e4024');
+        R(6, 5, 32, 3, '#f4f4f4'); R(10, 11, 24, 3, '#f4f4f4');
+    }, '#222', 0.02, 2);
+}
+function spriteSerac(seed) {                           // Eisblock / Gletscherbruch 40 x 30: bläulich, kantig, Schneehaube
+    return sprite(40, 30, (g, R, P) => {
+        P([[2, 30], [6, 10], [16, 2], [26, 6], [36, 4], [40, 30]], '#a9d2ec'); P([[16, 2], [26, 6], [22, 30], [12, 30]], '#cbe6f6');
+        P([[26, 6], [36, 4], [40, 30], [30, 30]], '#86b8dc'); P([[6, 10], [16, 2], [26, 6], [36, 4], [34, 8], [24, 10], [14, 7], [8, 13]], '#f6fbff');
+    }, '#4a6f8e', 0.04, seed);
+}
 function spriteFachwerk(seed, wall) {                  // Fachwerkhaus 44 x 56: dunkle Balken, überstehendes Geschoss
     return sprite(44, 56, (g, R, P, r) => {
         R(4, 26, 36, 30, wall); R(2, 12, 40, 16, wall); P([[0, 14], [22, 0], [44, 14]], '#8e3b2a');
@@ -2095,6 +2121,10 @@ const SPR = {
     house3: [spriteHouse(6, '#f6f1e4', '#3e4a5a'), spriteHouse(7, '#e6d2e0', '#a4442e'), spriteHouse(8, '#d8e4ee', '#7a3a2a')],
     barn: [spriteBarn(1, '#9a6a44'), spriteBarn(2, '#b07a4a')],
     fence: [spriteFence()],
+    pole: [spritePole()],
+    huette: [spriteHuette(1), spriteHuette(2)],
+    passschild: [spritePassschild()],
+    serac: [spriteSerac(3), spriteSerac(8)],
     maibaum: [spriteMaibaum()],
     ortsschild: [spriteOrtsschild(false), spriteOrtsschild(true)],
     fachwerk: [spriteFachwerk(1, '#f2ead6'), spriteFachwerk(2, '#f4e2b8')],
@@ -2132,7 +2162,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -2896,7 +2926,13 @@ function render() {
             maxy = p2.y;
             continue;
         }
-        if (segment.oil !== undefined) {               // Ölfleck: dunkle Lache mit Regenbogenschimmer
+        if (segment.oil !== undefined && segment.oilIce) {   // Eisfleck (v3.43): glatte, hellblau glänzende Fläche mit Lichtreflex
+            const ox = (p1.x + p2.x) / 2 + (p1.w + p2.w) / 2 * segment.oil, oy = (p1.y + p2.y) / 2;
+            const rx = (p1.w + p2.w) / 2 * 0.24, ry = Math.max(1, (p1.y - p2.y) * 1.9);
+            ctx.fillStyle = 'rgba(150,190,225,0.9)'; ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(222,240,255,0.95)'; ctx.beginPath(); ctx.ellipse(ox, oy - ry * 0.1, rx * 0.85, ry * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+            if (rx > 6) { ctx.fillStyle = '#ffffff'; ctx.fillRect(ox - rx * 0.5, oy - ry * 0.35, rx * 0.55, Math.max(1, ry * 0.18)); ctx.fillRect(ox + rx * 0.15, oy + ry * 0.1, rx * 0.25, Math.max(1, ry * 0.12)); }
+        } else if (segment.oil !== undefined) {        // Ölfleck: dunkle Lache mit Regenbogenschimmer
             const ox = (p1.x + p2.x) / 2 + (p1.w + p2.w) / 2 * segment.oil, oy = (p1.y + p2.y) / 2;
             const rx = (p1.w + p2.w) / 2 * 0.2, ry = Math.max(1, (p1.y - p2.y) * 1.6);
             ctx.fillStyle = 'rgba(10,10,14,0.85)';
@@ -3700,7 +3736,7 @@ function update(dt) {
         slipKind = sp0 > 0.85 ? 'spin' : sp0 > 0.55 ? 'slide' : 'slip';
         slipTime = slipT0 = { slip: 1.0, slide: 1.3, spin: 1.7 }[slipKind];
         playOilSlide();
-        if (slipKind === 'spin') { showMsg('SCHLEUDERN!', 'Zu schnell aufs Öl', 1.6); if (navigator.vibrate) navigator.vibrate([80, 60, 80]); }
+        if (slipKind === 'spin') { showMsg('SCHLEUDERN!', carSeg0.oilIce ? 'Zu schnell aufs Eis' : 'Zu schnell aufs Öl', 1.6); if (navigator.vibrate) navigator.vibrate([80, 60, 80]); }
         else if (navigator.vibrate) navigator.vibrate(40);
     }
     if (slipTime > 0) {
