@@ -354,7 +354,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.61';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.62';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -3464,7 +3464,8 @@ function render() {
         const ang = slipKind === 'spin' ? -slipDir * Math.PI * 2 * (u * u * (3 - 2 * u))
                   : slipKind === 'slide' ? -slipDir * (0.45 * Math.sin(Math.min(1, u * 3) * Math.PI / 2) * fade + Math.sin(slipTime * 10) * 0.08)
                   : Math.sin(slipTime * 14) * 0.18 * fade;
-        shadow(W / 2, H - 50, carW);                   // Schatten bleibt am Boden, dreht nicht mit
+        const sk = 0.5 + 0.5 * Math.abs(Math.cos(ang));  // Schatten bleibt am Boden, wird bei Querlage schmaler
+        ell(W / 2, H - 50 + carW * 0.01, carW * 0.6 * sk, carW * 0.07 * (1 + 0.5 * (1 - Math.abs(Math.cos(ang)))), 'rgba(0,0,0,0.45)');
         ctx.save(); ctx.translate(W / 2, H - 60); ctx.rotate(ang); ctx.translate(-W / 2, -(H - 60));
         noCarShadow = true;
         drawCar(W / 2, H - 50, carW, carW * 0.6, '#D40000', true);
