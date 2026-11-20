@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.47';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.49';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1093,7 +1093,9 @@ const STAGES = {
     G5: { row: 4, col: 2, name: 'Sternwarte',              short: 'STERNWARTE',    land: 'gipfel',
           zones: [{ name: 'Über den Wolken', edge: { L: 'rail', R: 'rail' }, water: { t: 'wolken', side: -1, s: 1.42, sheer: true }, water2: { t: 'wolken', side: 1, s: 1.42, sheer: true }, span: [0, 0.95] },
                   { name: 'Schlussanstieg im Nebel', weather: 'fog', poles: 7 },
-                  { name: 'Gipfel mit Sternwarte', poles: 9, marks: [{ type: 'dome', at: 0.85, side: 1, d: 2.3 }, { type: 'dome', at: 0.97, side: -1, d: 2.5 }] }] }
+                  { name: 'Gipfel mit Sternwarte', poles: 9, every: 4, chance: 0.5, types: ['snowrock', 'snowrock', 'rock', 'dish'],
+                    marks: [{ type: 'dish', at: 0.3, side: -1, d: 3 }, { type: 'dish', at: 0.45, side: 1, d: 3.4 }, { type: 'dome', at: 0.6, side: -1, d: 2.6 },
+                            { type: 'dome', at: 0.72, side: 1, d: 2.5 }, { type: 'observatory', at: 0.86, side: 1, d: 2.9 }, { type: 'dish', at: 0.9, side: -1, d: 3.2 }, { type: 'dome', at: 0.97, side: -1, d: 2.6 }] }] }
 };
 function stageAt(row, col) { return row === 0 ? (col === 1 ? 'S' : null) : COLS[col] + (row + 1); }
 function nextStages(id) {                              // geradeaus oder eine Spalte nach links/rechts, links → rechts sortiert
@@ -1307,8 +1309,6 @@ function decorate(a, b, r) {
         if (seg.bridge || seg.edgeL && seg.edgeL.k === 'canyon') {   // Brücke, Schlucht: nur Boote, sonst nichts am Rand
             const wb = seg.water;
             if (z0.boats && wb && i % z0.boats === z0.boats >> 1) seg.sprites.push({ type: 'boat', offset: (i % (2 * z0.boats) < z0.boats ? -1 : 1) * (2.6 + r() * 3), scale: 1 + r() * 0.4, v: i % 2 });
-            if (seg.bridge === 'tal' && i % 3 === 0 && r() < 0.8)   // tief unten im Tal: kleine Bäume
-                seg.sprites.push({ type: r() < 0.5 ? 'fir' : 'tree', offset: (r() < 0.5 ? -1 : 1) * (2 + r() * 6), scale: 0.18 + r() * 0.12, v: i % 3, deep: true });
             continue;
         }
         const wt = seg.water;
@@ -1344,7 +1344,7 @@ function decorate(a, b, r) {
         const type = sp.types[Math.floor(r() * sp.types.length)];
         const near = (type === 'bush' || type === 'rock' || type === 'snowrock' || type === 'bale' || type === 'straw' ? 1.35
                     : type === 'cow' ? 1.6 : 1.45) + (D.rows ? 0.4 : 0);
-        const far = type === 'mesa' ? 4.5 + r() * 7 : type === 'dune' ? 0.6 + r() * 2.5 : type === 'smoke' ? 1 + r() * 4 : type === 'huette' ? 1.2 + r() * 3 : type === 'serac' ? r() * 2.5 : 0;   // große Dinge weiter weg
+        const far = type === 'mesa' ? 4.5 + r() * 7 : type === 'dune' ? 0.6 + r() * 2.5 : type === 'smoke' ? 1 + r() * 4 : type === 'huette' ? 1.2 + r() * 3 : type === 'serac' ? r() * 2.5 : type === 'dish' ? 1 + r() * 2.5 : 0;   // große Dinge weiter weg
         const off = near + far + r() * 0.5;
         seg.sprites.push({ type, offset: side > 0 ? hi + off : lo - off, scale: (type === 'mesa' ? 1.6 : 0.8) + r() * 0.5, v: Math.floor(r() * 3) });
     }
@@ -1435,10 +1435,11 @@ function addWater(W, key, a, b, r) {
     for (let i = a; i < b; i++) {
         const e = RAMP ? Math.min(1, (i - a) / RAMP, (b - 1 - i) / RAMP) : 1, sm = e * e * (3 - 2 * e);
         const wig = W.sheer ? 0 : wavy ? 0.22 * (0.5 + 0.5 * Math.sin(i * 0.019 + ph)) + 0.08 * (0.5 + 0.5 * Math.sin(i * 0.071 + 2 * ph)) : 0.04 * Math.sin(i * 0.03 + ph);
-        segments[i][key] = { t: W.t, side: W.side, s: W.s + wig + 9 * (1 - sm), w: W.w || Infinity, T };
+        segments[i][key] = { t: W.t, side: W.side, s: W.s + wig + 9 * (1 - sm), w: W.w || Infinity, T, sheer: !!W.sheer };
     }
 }
 // Bauwerke eines Drittels setzen (Schritt 2): Wasser/Abgrund, Brücke, Leitplanke/Wände, Tunnel, Galerie, Kehren, Pflaster, Wind
+const DROP = { tal: 7000, krater: 5000, wolken: 9000, meer: 3800, see: 900, hafen: 2200, fluss: 1600 };   // Tiefe der Abgründe (Welt-Einheiten, Kamera 1000)
 const EDGE_D = { rail: 1.3, rock: 1.4, canyon: 1.45, snow: 1.4, tunnel: 1.4, house: 1.5, pillar: 1.3 };
 function applyZone(st, z, startSeg, len, k, r) {
     if (!z) return;
@@ -1542,13 +1543,36 @@ function applyZone(st, z, startSeg, len, k, r) {
         } else if (z.kehren && g.hair) g.kehre = true;
     }
     if (z.tunnel) { segments[a].portal = 1; segments[b - 1].portal = -1; }
+    // Abgründe (v3.48): wo neben der Leitplanke Tal, Krater, Wolken oder eine Steilküste liegt, liegt der Boden tief unten.
+    // Je Seite Tiefe dL/dR und Art dKL/dKR; an Anfang und Ende jeder Strecke über 50 Segmente eingeblendet.
+    {
+        const [A0, B0] = zoneRange(st, startSeg, len, k);
+        for (let i = A0; i < B0; i++) {
+            const g = segments[i]; if (g.drop) continue;
+            for (const w of [g.water, g.water2]) {
+                if (!w || w.s > 1.55 || !(w.T.deep || w.sheer || g.bridge)) continue;
+                const D = DROP[w.t]; if (!D) continue;
+                if (w.side < 0) { g.dL = D; g.dKL = w.t; } else { g.dR = D; g.dKR = w.t; }
+            }
+        }
+        for (const [key, kk] of [['dL', 'dKL'], ['dR', 'dKR']]) {
+            let i = A0;
+            while (i < B0) {
+                if (!segments[i][key]) { i++; continue; }
+                let j = i; while (j < B0 && segments[j][key] && segments[j][kk] === segments[i][kk]) j++;
+                const E = Math.min(50, Math.floor((j - i) / 3));
+                for (let q = i; q < j; q++) { const e = Math.min(1, (q - i + 1) / E, (j - q) / E); segments[q][key] *= e * e * (3 - 2 * e); }
+                i = j;
+            }
+        }
+    }
     if (z.high && z.bridge) {                          // Hochbrücke (v3.37): Rampe hinauf, Fahrbahn ≈ 30 m über dem Meer, Rampe hinunter
         const Hh = z.high, R = 200, sm = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
         const f = (i) => i < a ? sm((i - (a - R)) / R) : i >= b ? sm((b + R - i) / R) : 1;
         for (let i = a - R; i < b + R; i++) {
             const g = segments[i]; if (!g) continue;
             g.p1.world.y += Hh * f(i); g.p2.world.y += Hh * f(i + 1);
-            if (i >= a && i < b) { g.drop = Hh; g.drop2 = Hh; }
+            if (i >= a && i < b) { g.drop = Hh; g.drop2 = Hh; g.dL = g.dR = Hh; g.dKL = g.dKR = 'meer'; }
         }
     }
     if (z.pylons && z.bridge) {                        // Hängebrücke (v3.35): Pylon-Portale, Tragseil hängt dazwischen durch, Hänger zur Fahrbahn
@@ -1988,6 +2012,24 @@ function spriteSerac(seed) {                           // Eisblock / Gletscherbr
         P([[26, 6], [36, 4], [40, 30], [30, 30]], '#86b8dc'); P([[6, 10], [16, 2], [26, 6], [36, 4], [34, 8], [24, 10], [14, 7], [8, 13]], '#f6fbff');
     }, '#4a6f8e', 0.04, seed);
 }
+function spriteObservatory() {                         // Sternwarte 90 x 96: Gebäude, große Silberkuppel mit offenem Spalt, Teleskop, Fenster
+    return sprite(90, 96, (g, R, P) => {
+        R(8, 58, 74, 38, '#e9ecef'); R(8, 58, 74, 4, '#c9ced4'); for (const x of [14, 28, 54, 68]) R(x, 70, 8, 8, '#ffd27a'); R(40, 76, 10, 20, '#4a5260');
+        g.fillStyle = '#c3cad3'; g.beginPath(); g.arc(45, 58, 36, Math.PI, 0); g.fill();
+        g.fillStyle = '#dfe4ea'; g.beginPath(); g.arc(40, 56, 28, Math.PI * 1.1, Math.PI * 1.6); g.lineTo(40, 56); g.fill();
+        P([[39, 22], [51, 22], [53, 58], [37, 58]], '#1b2030');                                // offener Spalt
+        R(43, 26, 5, 22, '#9aa3b0'); R(42, 24, 7, 4, '#5e6878');                                // Teleskoprohr
+        R(4, 92, 82, 4, '#8a9099');
+    }, '#2a2f3a', 0.03, 5);
+}
+function spriteDish(seed) {                            // Radioteleskop 44 x 56: weiße Schüssel auf Gestell
+    return sprite(44, 56, (g, R, P) => {
+        P([[16, 56], [20, 30], [24, 30], [28, 56]], '#c9ced4'); R(12, 52, 20, 4, '#9aa0a8');
+        g.fillStyle = '#f2f4f7'; g.beginPath(); g.ellipse(22, 20, 20, 14, -0.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#d4d9df'; g.beginPath(); g.ellipse(24, 18, 13, 8, -0.5, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = '#8a9099'; g.lineWidth = 2; g.beginPath(); g.moveTo(22, 20); g.lineTo(34, 6); g.stroke(); R(32, 3, 5, 5, '#6d737c');
+    }, '#3a4048', 0.03, seed);
+}
 function spriteFachwerk(seed, wall) {                  // Fachwerkhaus 44 x 56: dunkle Balken, überstehendes Geschoss
     return sprite(44, 56, (g, R, P, r) => {
         R(4, 26, 36, 30, wall); R(2, 12, 40, 16, wall); P([[0, 14], [22, 0], [44, 14]], '#8e3b2a');
@@ -2133,6 +2175,8 @@ const SPR = {
     house3: [spriteHouse(6, '#f6f1e4', '#3e4a5a'), spriteHouse(7, '#e6d2e0', '#a4442e'), spriteHouse(8, '#d8e4ee', '#7a3a2a')],
     barn: [spriteBarn(1, '#9a6a44'), spriteBarn(2, '#b07a4a')],
     fence: [spriteFence()],
+    observatory: [spriteObservatory()],
+    dish: [spriteDish(1), spriteDish(4)],
     pole: [spritePole()],
     huette: [spriteHuette(1), spriteHuette(2)],
     passschild: [spritePassschild()],
@@ -2174,7 +2218,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -2240,6 +2284,13 @@ function drawSprite(sp, x, y, size) {
         ctx.restore();
     } else ctx.drawImage(img, x - w / 2, y - h, w, h);
     if (sp.type === 'spout') glows.push({ x, y: y - h * 0.5, r: w * 1.1, c: '255,120,30', always: true });
+    if (sp.type === 'observatory') {                   // Laser-Leitstern: gelber Strahl aus dem Kuppelspalt in den Himmel
+        const sx = x, sy = y - h * 0.72;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const gr = ctx.createLinearGradient(sx, sy, sx - w * 0.6, 0); gr.addColorStop(0, 'rgba(255,200,80,0.85)'); gr.addColorStop(1, 'rgba(255,200,80,0.05)');
+        ctx.strokeStyle = gr; ctx.lineWidth = Math.max(1.5, w * 0.03); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - w * 0.6, 0); ctx.stroke(); ctx.restore();
+        glows.push({ x: sx, y: sy, r: w * 0.25, c: '255,210,120', always: true });
+    }
     if (curDark > 0.3 && (sp.type === 'neon' || sp.type === 'neon2')) glows.push({ x, y: y - h * 0.92, r: w * 0.22, gy: y, c: ['255,63,164', '63,240,255', '255,226,63', '125,255,90'][(sp.v || 0) % 4] });
     if (curDark > 0.4 && sp.type === 'lighthouse' && w > 6) glows.push({ x, y: y - h * 0.86, r: w * 1.2, c: '255,215,130' });   // Hochhäuser ohne Schein (Fenster leuchten selbst; v3.36)
     if (sp.type === 'lamp' && curDark > 0.05) {        // Lichtschein an der Leuchte, wird nach dem Abdunkeln gemalt
@@ -2789,6 +2840,62 @@ function drawStruct(seg, W) {
         ctx.fillRect(X1(-1.62), top, p1.w * 0.2, p1.y - top); ctx.fillRect(X1(1.42), top, p1.w * 0.2, p1.y - top);
     }
 }
+// Tiefer Boden neben der Straße (v3.48): Meer am Fuß der Klippe, Talgrund mit Feldern, Kraterboden mit Glut, Wolkenmeer
+const SLOPE_C = { meer: ['#857b69', '#7b7160', '#6a6152'], tal: ['#7b8a5a', '#738253', '#8e8a70'], krater: ['#3d2b24', '#36261f', '#5a2a14'], wolken: ['#9aa3ad', '#8f98a2', '#c9d2dc'], see: ['#b9b5aa', '#b0aca1', '#8e8a80'], hafen: ['#8d8a82', '#85827a', '#6e6b64'], fluss: ['#8a7d62', '#82755b', '#6e634c'] };   // Hangfarben je Abgrund (hell, dunkel, Band)
+const DEEP_FAR = { meer: '#5f9cc8', tal: '#8fa69a', krater: '#3a2420', wolken: '#e9eef5', see: '#4f7f95', hafen: '#3f6a85', fluss: '#6f9aa0' };
+function drawDeep(g, kind, sd, e, y1, y2, W) {
+    const X1 = (d) => e.x1 + sd * e.w1 * d, X2 = (d) => e.x2 + sd * e.w2 * d, edge = sd < 0 ? -20 : W + 20, light = g.color === 'light';
+    const i = g.index, h0 = (i * 2246822519 + (sd > 0 ? 977 : 0)) >>> 0, fz = Math.min(1, e.z / (520 * segmentLength));
+    const poly = (d0, d1, col) => drawPolygon(X1(d0), y1, X2(d0), y2, d1 === Infinity ? edge : X2(d1), y2, d1 === Infinity ? edge : X1(d1), y1, col);
+    const span = g.bridge || g.drop;                   // unter einer Brücke: keine Klippe, das Wasser läuft durch
+    if (kind === 'meer' || kind === 'see' || kind === 'hafen' || kind === 'fluss') {
+        const T = WATER[kind], wp = ((i + Math.floor(waveT * (T.flow || 1))) % 6 + 6) % 6;
+        poly(0, Infinity, T.depth ? T.depth[2][wp < 3 ? 0 : 1] : T.c[wp < 3 ? 0 : 1]);
+        if (!span) {
+            if (T.depth) poly(1.45, 2.1, T.depth[0][wp < 3 ? 0 : 1]);   // flach und türkis am Fuß der Klippe
+            poly(1.2, 1.5, light ? '#6f6656' : '#665e50');
+            if (kind === 'meer') { const f = 0.05 + 0.08 * Math.max(0, Math.sin(waveT * 2.2 - i * 0.33)); poly(1.5, 1.5 + f, '#f4f8fb'); }
+        }
+        if (wp === 0 && T.crest) {                       // Wellenkämme
+            ctx.fillStyle = T.crest;
+            for (let q = 0; q < 9; q++) { const d = 1.7 + q * 2.1 + ((h0 >>> (q * 3)) % 100) / 60, ln = 0.3 + ((h0 >>> (q + 4)) % 100) / 200;
+                const xa = X1(d), xb = X1(d + ln); if (Math.max(xa, xb) < 0 || Math.min(xa, xb) > W) continue;
+                ctx.fillRect(Math.min(xa, xb), y1 - Math.max(1, (y1 - y2) * 0.5), Math.abs(xb - xa), Math.max(1, (y1 - y2) * 0.5)); }
+        }
+    } else if (kind === 'tal') {                        // Talgrund: Wiesen und Felder, ein Bach, Waldstücke
+        poly(0, Infinity, light ? '#6d9a52' : '#679349');
+        for (let q = 0; q < 6; q++) {
+            const blk = Math.floor((i + q * 37) / 23), hb = (blk * 2654435761 + q * 97 + (sd > 0 ? 5 : 0)) >>> 0;
+            const d0 = 1.6 + q * 3.2 + (hb % 100) / 60;
+            poly(d0, d0 + 1.6 + ((hb >>> 8) % 100) / 80, ['#8fb35a', '#b8a55a', '#4f7a3c', '#a3c46a', '#3f6a34'][hb % 5]);
+        }
+        const rv = 4 + 2.5 * Math.sin(i * 0.02 + sd), rv2 = 4 + 2.5 * Math.sin((i + 1) * 0.02 + sd);   // Bach
+        drawPolygon(X1(rv), y1, X2(rv2), y2, X2(rv2 + 0.35), y2, X1(rv + 0.35), y1, '#5f93b0');
+        if (!span) poly(1.2, 1.7, light ? '#7d7c6a' : '#747361');   // Geröll am Fuß des Abhangs
+    } else if (kind === 'krater') {                     // Kraterboden: dunkle Kruste, glühende Lachen
+        poly(0, Infinity, light ? '#2c1d18' : '#271914');
+        const hb = (Math.floor(i / 9) * 2654435761) >>> 0;
+        if (hb % 3 === 0) { const d0 = 2 + ((hb >>> 4) % 100) / 25, wl = 0.8 + ((hb >>> 12) % 100) / 60;
+            poly(d0, d0 + wl, i % 2 ? '#e8550f' : '#f06414'); poly(d0 + wl * 0.3, d0 + wl * 0.7, '#ffc040');
+            if (i % 9 === 0 && e.w1 > 4) glows.push({ x: X1(d0 + wl / 2), y: y1, r: Math.max(4, e.w1 * wl * 0.8), c: '255,110,30', always: true, sy: 0.4 }); }
+        poly(1.2, 1.6, '#1a120f');
+    } else if (kind === 'wolken') {                     // Wolkenmeer: weiche Wellen und Schatten
+        const wv = Math.sin(i * 0.11 + waveT * 0.3) * 0.5 + 0.5;
+        poly(0, Infinity, wv > 0.5 ? (light ? '#f6f8fc' : '#eef2f8') : (light ? '#e2e8f1' : '#dbe2ec'));
+        for (let q = 0; q < 4; q++) { const hb = (Math.floor((i + q * 13) / 7) * 2654435761 + q + (sd > 0 ? 3 : 0)) >>> 0, d0 = 1.8 + q * 3 + (hb % 100) / 40;
+            poly(d0, d0 + 0.9, (hb >>> 5) % 2 ? 'rgba(160,175,205,0.4)' : 'rgba(255,255,255,0.75)'); }
+        const hp = ((i * 40503 + (sd > 0 ? 7 : 0)) >>> 0) % 47;   // Berggipfel ragen aus den Wolken
+        if (hp === 0 && e.w1 > 0.4) {
+            const hq = (i * 2654435761) >>> 0, dc = 7 + (hq % 100) / 8, bw = 2.5 + ((hq >>> 8) % 100) / 30, ht = (0.5 + ((hq >>> 16) % 100) / 120) * (sd < 0 ? g.dL : g.dR) * e.w1 * e.k;
+            const xc = X1(dc), xl = X1(dc - bw), xr = X1(dc + bw * 0.8);
+            ctx.fillStyle = '#6d7480'; ctx.beginPath(); ctx.moveTo(xl, y1); ctx.lineTo(xc, y1 - ht); ctx.lineTo(xr, y1); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#58606c'; ctx.beginPath(); ctx.moveTo(xc, y1 - ht); ctx.lineTo(xr, y1); ctx.lineTo(xc + (xr - xc) * 0.2, y1); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#f4f7fb'; ctx.beginPath(); ctx.moveTo(xc, y1 - ht); ctx.lineTo(xc + (xl - xc) * 0.3, y1 - ht * 0.68); ctx.lineTo(xc + (xr - xc) * 0.1, y1 - ht * 0.75); ctx.lineTo(xc + (xr - xc) * 0.32, y1 - ht * 0.66); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = 'rgba(240,244,250,0.85)'; ctx.fillRect(Math.min(xl, xr), y1 - ht * 0.12, Math.abs(xr - xl), ht * 0.12);   // Wolken umspülen den Fuß
+        }
+    }
+    if (fz > 0.15) poly(0, Infinity, 'rgba(176,212,236,' + (0.7 * (fz - 0.15)).toFixed(3) + ')');
+}
 function drawPylonTop(cx, y, w) {                      // Pylon-Portal der Hängebrücke über der Fahrbahn (Beine, zwei Querriegel, Lampen oben)
     const X = (d) => cx + w * d, lw = Math.max(1, w * 0.13), top = y - 3.6 * w;
     ctx.fillStyle = '#c8402f'; for (const sd of [-1, 1]) ctx.fillRect(X(sd * 1.5) - lw / 2, top, lw, 3.6 * w + w * 0.05);
@@ -2825,7 +2932,7 @@ function render() {
     // von hinten nach vorn malen (mit Brückenschatten und Pfeilerfüßen), danach die Straße wie gewohnt darüber.
     const FAR = 520;                                   // so weit voraus sieht man die Pylone der Hängebrücke (v3.40: vorher Aufploppen bei 150)
     let anyDrop = false, anyCable = false;
-    for (let n = 0; n < FAR && baseSegment + n < segments.length; n += 8) { const g = segments[baseSegment + n]; if (g.cable !== undefined) anyCable = true; if (g.drop && n < drawDistance + 8) anyDrop = true; }
+    for (let n = 0; n < FAR && baseSegment + n < segments.length; n += 4) { const g = segments[baseSegment + n]; if (g.cable !== undefined) anyCable = true; if ((g.dL || g.dR) && n < drawDistance + 8) anyDrop = true; }
     if (anyDrop || anyCable) {
         const sea = [], far = [];
         let sx = 0, sdx = dx;
@@ -2836,13 +2943,27 @@ function render() {
             const cX = playerX * roadWidth - sx;
             project(g.p1, cX, cameraY, position); project(g.p2, cX - sdx, cameraY, position);
             sx += sdx; sdx += g.curve;
-            if (n >= drawDistance - 1) { if (g.cable !== undefined && g.p1.camera.z > cameraDepth) far.push(g); continue; }
-            if (!g.drop || g.p1.camera.z <= cameraDepth) continue;
-            const q1 = g.p1.screen, q2 = g.p2.screen, k = H / (roadWidth * W);
-            sea.push({ g, x1: q1.x + q1.w * g.roads[0], x2: q2.x + q2.w * g.roads2[0], w1: q1.w, w2: q2.w,
-                       y1: q1.y + g.drop * q1.w * k, y2: q2.y + g.drop2 * q2.w * k, dy1: g.drop * q1.w * k, z: g.p1.camera.z });
+            if (n >= drawDistance - 1 && g.cable !== undefined && g.p1.camera.z > cameraDepth) far.push(g);
+            if (!(g.dL || g.dR) || g.p1.camera.z <= cameraDepth) continue;   // tiefer Boden auch jenseits der Straßensichtweite (bis FAR)
+            const q1 = g.p1.screen, q2 = g.p2.screen, k = H / (roadWidth * W), nx = segments[idx + 1] || g;
+            sea.push({ g, x1: q1.x + q1.w * g.roads[0], x2: q2.x + q2.w * g.roads2[0], w1: q1.w, w2: q2.w, k, q1, q2,
+                       yL1: q1.y + (g.dL || 0) * q1.w * k, yL2: q2.y + (nx.dL || g.dL || 0) * q2.w * k, yR1: q1.y + (g.dR || 0) * q1.w * k, yR2: q2.y + (nx.dR || g.dR || 0) * q2.w * k,
+                       y1: q1.y + (g.drop || 0) * q1.w * k, y2: q2.y + (g.drop2 || 0) * q2.w * k, dy1: (g.drop || 0) * q1.w * k, z: g.p1.camera.z, n });
         }
-        if (sea.length) { ctx.fillStyle = '#5f9cc8'; ctx.fillRect(0, hz, W, H - hz); }   // Meer bis zum Horizont (im Dunst)
+        if (sea.length) {                              // tiefer Boden bis zum Horizont (im Dunst), je Seite
+            const fe = sea[sea.length - 1].g, cxf = sea[sea.length - 1].x2;
+            if (fe.dL) { ctx.fillStyle = DEEP_FAR[fe.dKL] || '#5f9cc8'; ctx.fillRect(0, hz, Math.max(0, cxf), H - hz); }
+            if (fe.dR) { ctx.fillStyle = DEEP_FAR[fe.dKR] || '#5f9cc8'; ctx.fillRect(Math.min(W, cxf), hz, W, H - hz); }
+        }
+        for (let m = sea.length - 1; m >= 0; m--) {     // erst alle tiefen Böden (von hinten nach vorn) …
+            const e = sea[m], g = e.g;
+            for (const sd of [-1, 1]) {
+                const D = sd < 0 ? g.dL : g.dR; if (!D) continue;
+                const y1 = sd < 0 ? e.yL1 : e.yR1, y2 = sd < 0 ? e.yL2 : e.yR2;
+                if (y2 >= y1 || y2 >= H) continue;
+                drawDeep(g, sd < 0 ? g.dKL : g.dKR, sd, e, y1, y2, W);
+            }
+        }
         if (far.length) {                              // ferner Teil der Brücke: Tragseile als Linien, Pylone im Dunst
             const ex = (g) => { const c = g.p1.camera, sc = cameraDepth / c.z; return { x: W / 2 + sc * c.x * W / 2, y: H / 2 - sc * c.y * H / 2, w: sc * roadWidth * W / 2 }; };   // ungerundet: sonst Knicke im Seil
             ctx.strokeStyle = 'rgba(200,64,47,0.8)'; ctx.lineWidth = 1;
@@ -2858,21 +2979,28 @@ function render() {
                 ctx.globalAlpha = 1;
             }
         }
-        for (let m = sea.length - 1; m >= 0; m--) {
-            const e = sea[m], g = e.g, light = g.color === 'light';
-            if (e.y2 >= e.y1) continue;
-            const T = WATER.meer, wp = ((g.index + Math.floor(waveT * T.flow)) % 6 + 6) % 6;
-            ctx.fillStyle = wp < 3 ? T.depth[2][0] : T.depth[2][1]; ctx.fillRect(0, e.y2, W, e.y1 - e.y2 + 1);
-            if (wp === 0) {                                // Wellenkämme
-                const h0 = (g.index * 2246822519) >>> 0; ctx.fillStyle = T.crest;
-                for (let q = 0; q < 9; q++) { const d = -9 + q * 2.1 + ((h0 >>> (q * 3)) % 100) / 60, ln = 0.3 + ((h0 >>> (q + 4)) % 100) / 200;
-                    const xa = e.x1 + e.w1 * d, xb = e.x1 + e.w1 * (d + ln); if (xb < 0 || xa > W) continue;
-                    ctx.fillRect(xa, e.y1 - Math.max(1, (e.y1 - e.y2) * 0.5), xb - xa, Math.max(1, (e.y1 - e.y2) * 0.5)); }
+        for (let m = sea.length - 1; m >= 0; m--) {     // … dann die Hänge von der Straßenkante hinunter (verdecken den Boden dahinter)
+            const e = sea[m], g = e.g; if (g.bridge || g.drop || e.n >= drawDistance) continue;
+            const nx = segments[g.index + 1] || g;
+            for (const sd of [-1, 1]) {
+                const D1 = sd < 0 ? g.dL : g.dR, D2 = (sd < 0 ? nx.dL : nx.dR) || D1; if (!D1) continue;
+                const kind = sd < 0 ? g.dKL : g.dKR, sw1 = 1.5 + D1 / 2600, sw2 = 1.5 + D2 / 2600;
+                const ya1 = e.q1.y, ya2 = e.q2.y, yb1 = sd < 0 ? e.yL1 : e.yR1, yb2 = sd < 0 ? e.yL2 : e.yR2;
+                if (yb2 >= yb1 && ya2 >= ya1) continue;
+                const X1 = (d) => e.x1 + sd * e.w1 * d, X2 = (d) => e.x2 + sd * e.w2 * d, light = g.color === 'light';
+                const C = SLOPE_C[kind] || SLOPE_C.tal, hv = ((g.index * 2654435761) >>> 0) % 1000 / 1000;
+                const col = rgbStr(hexRgb(light ? C[0] : C[1]).map(v => Math.min(255, Math.round(v * (0.92 + 0.12 * hv)))));
+                drawPolygon(X1(1.5), ya1, X2(1.5), ya2, X2(sw2), yb2, X1(sw1), yb1, col);
+                const mid = (t) => [X1(1.5 + (sw1 - 1.5) * t), ya1 + (yb1 - ya1) * t, X2(1.5 + (sw2 - 1.5) * t), ya2 + (yb2 - ya2) * t];
+                const [a1, b1, a2, b2] = mid(0.12), [c1, d1, c2, d2] = mid(0.2);
+                drawPolygon(a1, b1, a2, b2, c2, d2, c1, d1, C[2]);   // Kante / Schichtband im Hang
+                if (kind === 'meer' || kind === 'tal') { const [e1, f1, e2, f2] = mid(0.06); drawPolygon(X1(1.5), ya1, X2(1.5), ya2, e2, f2, e1, f1, light ? '#5f8a3e' : '#58803a'); }   // Gras an der Abbruchkante
+                const fz = Math.min(1, e.z / (drawDistance * segmentLength));
+                if (fz > 0.3) drawPolygon(X1(1.5), ya1, X2(1.5), ya2, X2(sw2), yb2, X1(sw1), yb1, 'rgba(176,212,236,' + (0.45 * (fz - 0.3)).toFixed(3) + ')');
             }
-            drawPolygon(e.x1 - 1.1 * e.w1 + e.w1 * 0.6, e.y1, e.x2 - 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x2 + 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x1 + 1.1 * e.w1 + e.w1 * 0.6, e.y1, 'rgba(10,40,80,0.35)');   // Schatten der Brücke
             const fz = Math.min(1, e.z / (drawDistance * segmentLength));
-            if (fz > 0.08) { ctx.fillStyle = 'rgba(176,212,236,' + (0.65 * (fz - 0.08)).toFixed(3) + ')'; ctx.fillRect(0, e.y2, W, e.y1 - e.y2 + 1); }
-            if (g.pylon) {                                 // Pfeilerfüße bis hinunter ins Wasser
+            if (g.drop && e.n < drawDistance) drawPolygon(e.x1 - 1.1 * e.w1 + e.w1 * 0.6, e.y1, e.x2 - 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x2 + 1.1 * e.w2 + e.w2 * 0.6, e.y2, e.x1 + 1.1 * e.w1 + e.w1 * 0.6, e.y1, 'rgba(10,40,80,0.35)');   // Schatten der Hochbrücke
+            if (g.pylon && e.n < drawDistance) {           // Pfeilerfüße bis hinunter ins Wasser
                 const lw = e.w1 * 0.13;
                 for (const sd of [-1, 1]) {
                     const lx = e.x1 + sd * 1.5 * e.w1;
@@ -2919,16 +3047,20 @@ function render() {
             roadColor = light ? '#4b4b4f' : '#545458';
             if (segment.gallery && segment.index % 6 < 2) roadColor = '#3a3a3d';
         }
-        if (segment.drop) {                            // Hochbrücke: nur die Fahrbahnplatte, darunter liegt das Meer
-            const c1 = p1.x + p1.w * segment.roads[0], c2 = p2.x + p2.w * segment.roads2[0];
-            drawPolygon(c1 - 1.5 * p1.w, p1.y, c2 - 1.5 * p2.w, p2.y, c2 + 1.5 * p2.w, p2.y, c1 + 1.5 * p1.w, p1.y, light ? segment.gL : segment.gD);
+        if (segment.dL || segment.dR) {                // Abgrund (v3.48): Boden nur bis zur Kante, dahinter liegt der tiefe Boden aus dem Vorpass
+            const c1 = p1.x + p1.w * segment.roads[0], c2 = p2.x + p2.w * segment.roads2[0], nx = segments[idx + 1] || segment;
+            const l1 = segment.dL ? c1 - 1.5 * p1.w : -10, l2 = (nx.dL || segment.dL) ? c2 - 1.5 * p2.w : -10;
+            const r1 = segment.dR ? c1 + 1.5 * p1.w : W + 10, r2 = (nx.dR || segment.dR) ? c2 + 1.5 * p2.w : W + 10;
+            drawPolygon(l1, p1.y, l2, p2.y, r2, p2.y, r1, p1.y, light ? segment.gL : segment.gD);
+            for (const sd of [-1, 1]) if (sd < 0 ? segment.dL : segment.dR)   // Abbruchkante
+                drawPolygon(c1 + sd * 1.44 * p1.w, p1.y, c2 + sd * 1.44 * p2.w, p2.y, c2 + sd * 1.5 * p2.w, p2.y, c1 + sd * 1.5 * p1.w, p1.y, '#4a463e');
         } else {
             ctx.fillStyle = light ? segment.gL : segment.gD;   // Gras
             ctx.fillRect(0, p2.y, W, p1.y - p2.y);
         }
         if (segment.bands) drawBands(segment, p1, p2, W, light);
-        if (segment.water && !segment.drop) drawWater(segment, segments[idx + 1], p1, p2, W, 'water');
-        if (segment.water2 && !segment.drop) drawWater(segment, segments[idx + 1], p1, p2, W, 'water2');
+        if (segment.water && !(segment.water.side < 0 ? segment.dL : segment.dR)) drawWater(segment, segments[idx + 1], p1, p2, W, 'water');
+        if (segment.water2 && !(segment.water2.side < 0 ? segment.dL : segment.dR)) drawWater(segment, segments[idx + 1], p1, p2, W, 'water2');
 
         const R1 = segment.roads, R2 = segment.roads2, r1 = p1.w / 5, r2 = p2.w / 5;
         for (let j = 0; j < R1.length; j++) {          // Rumble Strips (erst alle, damit Fahrbahnen sie überdecken)
