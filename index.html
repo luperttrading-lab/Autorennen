@@ -355,7 +355,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.65';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.66';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -889,6 +889,24 @@ function playThunder() {
     n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start(t);
 }
 // Anschlag an Leitplanke/Wand: kurzes metallisches Kratzen (Schnee: dumpfes Rauschen)
+function playPickup() {                               // v3.66: Kanister: kurzer aufsteigender Zweiklang
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime;
+    for (const [f, d] of [[880, 0], [1320, 0.08]]) {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'square'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.08, t + d + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.12);
+        o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.14);
+    }
+}
+function playRockfall() {                              // Steinschlag: tiefes Poltern
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime, dur = 0.9, len = Math.floor(audioCtx.sampleRate * dur);
+    const b = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) { const u = i / len; d[i] = (Math.random() * 2 - 1) * (u < 0.7 ? 0.3 + 0.7 * Math.abs(Math.sin(u * 40)) : (1 - u) * 3); }
+    const n = audioCtx.createBufferSource(), f = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    n.buffer = b; f.type = 'lowpass'; f.frequency.value = 380; g.gain.value = 0.35;
+    n.connect(f); f.connect(g); g.connect(audioCtx.destination); n.start(t);
+}
 function playScrape(kind) {
     if (!audioCtx || muted) return;
     const t = audioCtx.currentTime, dur = 0.18, len = Math.floor(audioCtx.sampleRate * dur);
@@ -1439,6 +1457,7 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
     if (!sim) {
         paint(decoFrom, segments.length);
         decorate(decoFrom, segments.length, r);
+        placeHazards(st, startSeg, len, r);
         spawnOpponents(st, startSeg + (ownHead ? 30 : drawDistance + 10), S.endSeg - 10, r);
     }
     return S;
@@ -1657,6 +1676,67 @@ let OPP_SCALE = 1.4;         // Größe der anderen Autos 100–200 %, Standard 
 try { const v = parseFloat(localStorage.getItem('autorennen.gegner2')); if (v >= 1 && v <= 2) OPP_SCALE = v; } catch (_) {}
 const OPP_COLORS = ['#1e5bd6', '#f2c200', '#ffffff', '#ff7a00', '#7a2bd6', '#1a1a1a', '#00a3a3'];
 let opponents = [];
+// Hindernisse (v3.66, Schritt 4): Baustelle mit gesperrter Spur (Pylonen, Baken), Steinschlag (Felsbrocken, manche fallen erst,
+// wenn man naht), Turbo-Kanister. Als Sprites auf der Fahrbahn mit `ob` = Trefferradius; `seg.obs` = gesperrte Spuren für den Verkehr.
+const HAZ_MOUNT = { wald: 1, schnee: 2, eis: 2, gipfel: 1, canyon: 2, vulkan: 1 };
+const HAZ_WORK = { feld: 1, strand: 1, dorf: 1, wald: 1, wein: 1, vulkan: 1, canyon: 1, stadt: 1, oase: 1 };
+function placeHazards(st, startSeg, len, r) {
+    const used = [];
+    const free = (a, b) => !used.some(([x, y]) => a < y + 60 && b > x - 60);
+    const ok = (i, rock) => {
+        const g = segments[i]; if (!g || g.gates || g.tunnel || g.gallery || g.kehre || g.bridge || g.drop || g.roads.length > 1 || g.oil !== undefined || g.portal) return false;
+        if (segments[i + 1] && segments[i + 1].gates) return false;
+        for (let j = 5; j < 40; j++) if (segments[i - j] && segments[i - j].p1.world.y > g.p1.world.y + 120 + j * 3) return false;   // nicht hinter Kuppe
+        return true;
+    };
+    const span = (a, n, rock) => { for (let i = a - 130; i < a + n; i++) if (!ok(i, rock)) return false; return true; };
+    const sign = (i, kind) => { for (const off of [1.32, -1.32]) segments[i] && segments[i].sprites.push({ type: 'schild', offset: off, scale: 1, v: kind }); };
+    const pick = (lo, hi, n, rock, pref) => {
+        for (let t = 0; t < 60; t++) {
+            const a = Math.floor(lo + r() * (hi - lo));
+            if (pref && t < 40 && !pref(a)) continue;
+            if (free(a - 130, a + n) && span(a, n, rock)) { used.push([a - 130, a + n]); return a; }
+        }
+        return -1;
+    };
+    const A = startSeg + 300, B = startSeg + len - 450;
+    // Baustelle: 75 Segmente, eine Außenspur gesperrt
+    if (HAZ_WORK[st.land]) {
+        const a = pick(A, B, 80, false);
+        if (a > 0) {
+            const sd = r() < 0.5 ? -1 : 1;
+            sign(a - 120, 0); sign(a - 60, 0);
+            for (let q = 0; q <= 16; q += 2) segments[a + q].sprites.push({ type: 'cone', offset: sd * (0.95 - 0.62 * q / 16), scale: 1, ob: 0.13 });
+            segments[a + 1].sprites.push({ type: 'bake', offset: sd * 0.72, scale: 1, ob: 0.15 }, { type: 'bake', offset: sd * 0.92, scale: 1, ob: 0.15 });
+            for (let q = 18; q < 75; q += 3) segments[a + q].sprites.push({ type: 'cone', offset: sd * 0.33, scale: 1, ob: 0.13 });
+            for (let q = 22; q < 75; q += 13) segments[a + q].sprites.push({ type: 'bake', offset: sd * (0.62 + r() * 0.25), scale: 1, ob: 0.15 });
+            for (let q = 76; q <= 86; q += 2) segments[a + q].sprites.push({ type: 'cone', offset: sd * (0.33 + 0.62 * (q - 76) / 10), scale: 1, ob: 0.13 });
+            for (let q = -25; q < 86; q++) (segments[a + q].obs = segments[a + q].obs || []).push(sd * 0.66);
+        }
+    }
+    // Steinschlag: in Bergen/Canyon/Vulkan 1–2 Stellen, sonst eine, wo eine Felswand steht
+    const nRock = HAZ_MOUNT[st.land] || 1;
+    const rockWall = (i) => { const g = segments[i]; return !!(g && ((g.edgeL && (g.edgeL.k === 'rock' || g.edgeL.k === 'canyon')) || (g.edgeR && (g.edgeR.k === 'rock' || g.edgeR.k === 'canyon')))); };
+    let anyWall = false; for (let i = A; i < B; i += 25) if (rockWall(i)) { anyWall = true; break; }
+    if (HAZ_MOUNT[st.land] || anyWall) for (let k = 0; k < nRock; k++) {
+        const a = pick(A + k * (B - A) / nRock, A + (k + 1) * (B - A) / nRock, 50, true, anyWall ? rockWall : null);
+        if (a < 0) continue;
+        sign(a - 110, 1); sign(a - 55, 1);
+        const g0 = segments[a], from = g0.edgeR && (g0.edgeR.k === 'rock' || g0.edgeR.k === 'canyon') ? 1 : g0.edgeL && (g0.edgeL.k === 'rock' || g0.edgeL.k === 'canyon') ? -1 : (r() < 0.5 ? -1 : 1);
+        const lanes = [-0.62, 0, 0.62].sort(() => r() - 0.5).slice(0, 2);   // eine Spur bleibt frei
+        lanes.forEach((L, j) => {
+            const i = a + 6 + j * 18 + Math.floor(r() * 8), off = L + (r() - 0.5) * 0.15, sc = 0.75 + r() * 0.5;
+            segments[i].sprites.push({ type: 'boulder', offset: off, scale: sc, v: Math.floor(r() * 3), ob: 0.11 * sc + 0.02, fall: j === 1 || r() < 0.4, from });
+            for (let q = -20; q < 3; q++) (segments[i + q].obs = segments[i + q].obs || []).push(off);
+        });
+        for (let q = 0; q < 4; q++) { const i = a + Math.floor(r() * 50); segments[i].sprites.push({ type: 'boulder', offset: from * (1.05 + r() * 0.2), scale: 0.4 + r() * 0.3, v: Math.floor(r() * 3) }); }   // Geröll am Rand
+    }
+    // Turbo-Kanister: 3 je Etappe
+    for (let k = 0; k < 3; k++) {
+        const a = pick(A + k * (B - A) / 3, A + (k + 1) * (B - A) / 3, 1, false);
+        if (a > 0) segments[a].sprites.push({ type: 'can', offset: [-0.62, 0, 0.62][Math.floor(r() * 3)], scale: 1, ob: 0.17 });
+    }
+}
 function spawnOpponents(st, a, b, r) {
     const n = Math.max(0, Math.round((b - a) / 45)), lo = Math.min(0.55, 0.35 + st.row * 0.03);   // je Reihe 3 Prozentpunkte schneller
     const mix = TRAFFIC[st.land] || [1, 0, 0, 0, 0, 0], tot = mix.reduce((x, y) => x + y, 0);
@@ -2311,6 +2391,51 @@ function spriteDish(seed) {                            // Radioteleskop 44 x 56:
         g.strokeStyle = '#8a9099'; g.lineWidth = 2; g.beginPath(); g.moveTo(22, 20); g.lineTo(34, 6); g.stroke(); R(32, 3, 5, 5, '#6d737c');
     }, '#3a4048', 0.03, seed);
 }
+function spriteSchild(kind) {                         // v3.66: Gefahrzeichen Baustelle (Arbeiter mit Schaufel) / Steinschlag (fallende Steine)
+    return sprite(40, 50, (g, R, P) => {
+        R(18, 30, 4, 20, '#7d8288');
+        P([[20, 0], [40, 34], [0, 34]], '#c8102e'); P([[20, 6], [34, 30], [6, 30]], kind ? '#f4f4f0' : '#f6d200');
+        if (kind) {                                    // Steinschlag: Hang rechts, Steine fallen nach links
+            P([[30, 29], [30, 13], [24, 29]], '#111');
+            R(18, 18, 4, 4, '#111'); R(14, 23, 3, 3, '#111'); R(19, 25, 3, 3, '#111'); R(12, 27, 2, 2, '#111');
+        } else {                                       // Baustelle: Arbeiter mit Schaufel und Erdhaufen
+            R(17, 13, 4, 4, '#111'); P([[16, 18], [22, 18], [24, 25], [20, 25], [19, 21], [17, 25], [14, 25]], '#111');
+            R(22, 17, 6, 2, '#111'); P([[27, 19], [31, 19], [30, 23], [27, 22]], '#111'); P([[8, 29], [12, 25], [16, 29]], '#111');
+        }
+    }, '#222', 0.02, kind ? 4 : 3);
+}
+function spriteCone() {                                // Pylone (Leitkegel) 16 x 22: orange mit zwei weißen Ringen, schwarzer Fuß
+    return sprite(16, 22, (g, R, P) => {
+        P([[6, 0], [10, 0], [14, 19], [2, 19]], '#ff6a00');
+        P([[5, 5], [11, 5], [12, 9], [4, 9]], '#f4f4f0'); P([[3, 12], [13, 12], [13.6, 15], [2.4, 15]], '#f4f4f0');
+        P([[7, 0], [8, 0], [9, 19], [6, 19]], 'rgba(255,255,255,0.18)');
+        R(0, 19, 16, 3, '#1a1a1a');
+    }, '#2a1a10', 0.02, 5);
+}
+function spriteBake() {                                // Absperrbake 22 x 30: rot-weiß schräg gestreift, gelbe Warnleuchte, Fuß
+    return sprite(22, 30, (g, R, P) => {
+        R(2, 26, 18, 4, '#222'); R(10, 22, 2, 5, '#555');
+        g.save(); g.beginPath(); g.rect(3, 6, 16, 17); g.clip();
+        R(3, 6, 16, 17, '#f4f4f0'); for (let i = -2; i < 6; i++) P([[3 + i * 6, 23], [7 + i * 6, 23], [7 + i * 6 + 17, 6], [3 + i * 6 + 17, 6]], '#c8102e');
+        g.restore(); R(8, 0, 6, 5, '#ffcc00'); R(9, 1, 2, 2, '#fff6b0');
+    }, '#221111', 0.02, 6);
+}
+function spriteBoulder(v) {                            // Felsbrocken auf der Straße
+    return sprite(28, 22, (g, R, P, r) => {
+        const c = ['#7a6e64', '#8a7a6a', '#6a6460'][v % 3];
+        P([[2, 21], [1, 13], [6, 5], [13, 1], [21, 3], [27, 10], [27, 21]], c);
+        P([[6, 6], [13, 2], [20, 4], [16, 9], [9, 11]], 'rgba(255,255,255,0.18)');
+        P([[18, 12], [27, 11], [27, 21], [16, 21]], 'rgba(0,0,0,0.22)');
+        R(10, 13, 5, 1, 'rgba(0,0,0,0.35)'); R(15, 7, 1, 5, 'rgba(0,0,0,0.3)');
+    }, '#2a2420', 0.08, 7 + v);
+}
+function spriteCan() {                                 // Turbo-Kanister 16 x 20: rot, gelber Blitz, Griff oben
+    return sprite(16, 20, (g, R, P) => {
+        R(3, 0, 8, 3, '#8a0000'); R(5, 1, 4, 1, '#300'); R(11, 1, 3, 3, '#999');
+        R(1, 3, 14, 17, '#d40000'); R(1, 3, 14, 2, '#ff4a3a'); R(13, 5, 2, 15, '#9e0000');
+        P([[9, 6], [5, 12], [8, 12], [6, 18], [11, 10], [8, 10], [10, 6]], '#ffd400');
+    }, '#2a0000', 0.02, 8);
+}
 function spriteGefahr(left) {                          // Gefahrzeichen scharfe Kurve 40 x 50: weißes Dreieck, roter Rand, schwarzer Kurvenpfeil
     return sprite(40, 50, (g, R, P) => {
         R(18, 30, 4, 20, '#7d8288');
@@ -2511,6 +2636,7 @@ const SPR = {
     fackel: [spriteFackel(1), spriteFackel(2), spriteFackel(3)],
     stadttor: [spriteStadttor()],
     gefahr: [spriteGefahr(false), spriteGefahr(true)],
+    schild: [spriteSchild(0), spriteSchild(1)], cone: [spriteCone()], bake: [spriteBake()], boulder: [spriteBoulder(0), spriteBoulder(1), spriteBoulder(2)], can: [spriteCan()],
     observatory: [spriteObservatory()],
     dish: [spriteDish(1), spriteDish(4)],
     pole: [spritePole()],
@@ -2554,7 +2680,7 @@ const SPR = {
     snowrock: [spriteRock(8, true), spriteRock(19, true)],
     lamp: [spriteLamp()]
 };
-const SPR_H = { lehm: 1.0, kamel: 0.5, fackel: 0.5, stadttor: 4.2, gefahr: 0.8, observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
+const SPR_H = { schild: 0.8, cone: 0.13, bake: 0.17, boulder: 0.26, can: 0.13, lehm: 1.0, kamel: 0.5, fackel: 0.5, stadttor: 4.2, gefahr: 0.8, observatory: 3.4, dish: 1.1, pole: 0.34, huette: 0.95, passschild: 0.5, serac: 0.5, maibaum: 2.6, house3: 0.95, barn: 0.85, fence: 0.16, ortsschild: 0.38, umbrella: 0.42, spout: 0.9, pylon: 3.4, palm: 1.15, house: 1.0, house2: 0.9, fachwerk: 1.25, fachwerk2: 1.15, church: 2.8, fisher: 0.8, fisher2: 0.75, lighthouse: 2.6, boathouse: 0.7, dune: 0.85, smoke: 2.2, mesa: 1.5, gas: 0.95, crane: 2.8, container: 0.45, tower: 3.2, tower2: 2.6, neon: 1.5, neon2: 1.2, cube: 0.8, dome: 1.5, willow: 0.9, boat: 0.42, reed: 0.2, chevron: 0.32, bale: 0.24, straw: 0.26, cow: 0.34, tree: 0.95, bush: 0.26, fir: 1.1, cactus: 0.62, rock: 0.28, lamp: 0.9, snowfir: 1.15, snowrock: 0.3 };   // Höhe in halben Straßenbreiten
 
 function circle(x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 // Randobjekte; x/y = Fußpunkt, size = halbe Straßenbreite in Pixeln an dieser Stelle
@@ -2600,6 +2726,33 @@ function drawFlag(sp, x, y, size) {                    // Zielflagge (v3.44): Ma
     }
 }
 function drawSprite(sp, x, y, size) {
+    if (sp.ob && (sp.hit || sp.fall)) {                 // v3.66: weggeschleuderte Pylone/Baken, fallende Steine, eingesammelter Kanister
+        const now = performance.now() / 1000;
+        if (sp.hit && sp.type !== 'boulder') {
+            const u = (now - sp.hit) / 0.7; if (u >= 1 || sp.type === 'can') return;
+            const img = SPR[sp.type][0], h = size * SPR_H[sp.type], w = h * img.width / img.height;
+            ctx.save(); ctx.translate(x + sp.fly * size * 0.5 * u, y - size * 0.35 * Math.sin(u * Math.PI) - h / 2); ctx.rotate(sp.fly * u * 7);
+            ctx.globalAlpha = 1 - u * u; ctx.imageSmoothingEnabled = false; ctx.drawImage(img, -w / 2, -h / 2, w, h); ctx.restore();
+            return;
+        }
+        if (sp.fall) {
+            if (sp.ft === undefined) return;            // liegt noch oben am Hang
+            const u = Math.min(1, (now - sp.ft) / 0.8), b = u < 0.75 ? 1 - (u / 0.75) ** 2 : 0.12 * Math.sin((u - 0.75) / 0.25 * Math.PI);
+            const img = SPR.boulder[(sp.v || 0) % 3], h = size * (sp.scale || 1) * SPR_H.boulder, w = h * img.width / img.height;
+            const dx = (sp.from || 1) * size * 0.9 * (1 - u);
+            ctx.fillStyle = 'rgba(0,0,0,' + (0.25 * u).toFixed(2) + ')'; ctx.beginPath(); ctx.ellipse(x + dx, y, w * 0.45, w * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.save(); ctx.translate(x + dx, y - size * 1.4 * b - h / 2); ctx.rotate((1 - u) * 5 * (sp.from || 1));
+            ctx.imageSmoothingEnabled = false; ctx.drawImage(img, -w / 2, -h / 2, w, h); ctx.restore();
+            return;
+        }
+    }
+    if (sp.type === 'can') {                            // Kanister schwebt und leuchtet
+        const bob = Math.sin(performance.now() / 1000 * 4 + sp.offset * 9) * size * 0.02;
+        glows.push({ x, y: y - size * 0.08 + bob, r: Math.max(3, size * 0.12), c: '255,210,60', always: true });
+        y += bob - size * 0.03;
+    }
+    if (sp.type === 'bake' && curDark > 0.2 && Math.sin(performance.now() / 1000 * 8 + sp.offset * 5) > 0)
+        glows.push({ x, y: y - size * SPR_H.bake * 0.92, r: Math.max(2, size * 0.05), c: '255,200,0', always: true });
     if (sp.type === 'flag') return drawFlag(sp, x, y, size);
     if (sp.type === 'smoke') return drawSmoke(sp, x, y, size);
     if (sp.type === 'spout') return drawSpout(sp, x, y, size);
@@ -4429,8 +4582,8 @@ function update(dt) {
     // Turbo: nur mit Vorrat und erst ab etwas Tempo
     isTurbo = turboHeld && turboEnergy > 0 && speed > maxSpeed * 0.3;
     if (isTurbo) turboEnergy = Math.max(0, turboEnergy - dt / 3);
-    else if (!turboHeld) turboEnergy = Math.min(1, turboEnergy + dt / 10);
-    turboFill.style.height = (turboEnergy * 100).toFixed(0) + '%';
+    else if (!turboHeld && turboEnergy < 1) turboEnergy = Math.min(1, turboEnergy + dt / 10);
+    turboFill.style.height = (Math.min(1, turboEnergy) * 100).toFixed(0) + '%';
     turboBtn.classList.toggle('an', isTurbo);
 
     // Sensor glätten (v3.46, Nutzer: Anzeige zappelte): Lenken leicht (≈ 60 ms), die Anzeige im Knüppel stärker (≈ 180 ms)
@@ -4459,6 +4612,22 @@ function update(dt) {
         playOilSlide();
         if (slipKind === 'spin') { showMsg('SCHLEUDERN!', carSeg0.oilIce ? 'Zu schnell aufs Eis' : 'Zu schnell aufs Öl', 1.6); if (navigator.vibrate) navigator.vibrate([80, 60, 80]); }
         else if (navigator.vibrate) navigator.vibrate(40);
+    }
+    for (const g of [carSeg0, segAt(position + PLAYER_Z + segmentLength)]) {   // v3.66: Hindernisse treffen / Kanister einsammeln
+        for (const sp of g.sprites) {
+            if (!sp.ob || sp.hit || Math.abs(playerX - sp.offset) > sp.ob + CAR_WORLD_W / 2 / roadWidth) continue;
+            if (sp.fall && !(sp.ft !== undefined && performance.now() / 1000 - sp.ft > 0.8)) continue;   // fällt noch
+            sp.hit = performance.now() / 1000; sp.fly = Math.sign(sp.offset - playerX) || 1;
+            if (sp.type === 'can') {
+                turboEnergy = Math.min(1.5, turboEnergy + 1); showMsg('TURBO +', 'Kanister eingesammelt', 1.2); playPickup();
+            } else if (sp.type === 'cone') { speed *= 0.85; playScrape('rail'); if (navigator.vibrate) navigator.vibrate(25); }
+            else if (sp.type === 'bake') { speed *= 0.6; playScrape('rock'); showMsg('BAUSTELLE!', 'Spur gesperrt', 1.2); if (navigator.vibrate) navigator.vibrate(60); }
+            else if (sp.type === 'boulder') { speed = Math.min(speed, maxSpeed * 0.2); playScrape('rock'); showMsg('STEINSCHLAG!', 'Felsbrocken auf der Straße', 1.4); if (navigator.vibrate) navigator.vibrate([90, 40, 90]); }
+        }
+    }
+    {                                                  // Steine fallen, wenn man 35 Segmente heran ist
+        const i0 = Math.floor((position + PLAYER_Z) / segmentLength);
+        for (let q = 30; q < 40; q++) { const g = segments[i0 + q]; if (g) for (const sp of g.sprites) if (sp.fall && sp.ft === undefined) { sp.ft = performance.now() / 1000; playRockfall(); } }
     }
     if (slipTime > 0) {
         slipTime -= dt;
@@ -4524,11 +4693,14 @@ function update(dt) {
         let block = null;
         const lane = (x) => Math.abs(x.offset - o.offset) < 0.45;
         for (const b of opponents) if (b !== o && b.z > o.z && b.z - o.z < 6 * segmentLength && b.v0 < o.v0 && (b.road || 0) === (o.road || 0) && lane(b)) { block = b; break; }
+        const si0 = Math.floor(o.z / segmentLength);   // gesperrte Spur / Steine voraus (v3.66)
+        const obAhead = (L) => { for (let q = 0; q < 14; q++) { const g = segments[si0 + q]; if (g && g.obs && g.obs.some(x => Math.abs(x - L) < 0.35)) return true; } return false; };
+        if (!block && o.tOff === undefined && (o.road || 0) === 0 && obAhead(o.offset)) block = o;
         if (block && o.tOff === undefined) {
-            const free = [-0.6, 0, 0.6].filter(L => Math.abs(L - o.offset) > 0.3 && !opponents.some(b => b !== o && Math.abs(b.z - o.z) < 5 * segmentLength && Math.abs(b.offset - L) < 0.4 && (b.road || 0) === (o.road || 0)));
+            const free = [-0.6, 0, 0.6].filter(L => Math.abs(L - o.offset) > 0.3 && !obAhead(L) && !opponents.some(b => b !== o && Math.abs(b.z - o.z) < 5 * segmentLength && Math.abs(b.offset - L) < 0.4 && (b.road || 0) === (o.road || 0)));
             if (free.length) o.tOff = free.reduce((m, L) => Math.abs(L - o.offset) < Math.abs(m - o.offset) ? L : m);
         }
-        if (o.type === T_MOTO && o.tOff === undefined && Math.random() < dt * 0.25) o.tOff = [-0.6, 0, 0.6][Math.floor(Math.random() * 3)];
+        if (o.type === T_MOTO && o.tOff === undefined && Math.random() < dt * 0.25) { const L = [-0.6, 0, 0.6][Math.floor(Math.random() * 3)]; if (!obAhead(L)) o.tOff = L; }
         o.speed = block && o.tOff === undefined ? Math.min(o.v0, block.speed) : o.speed + (o.v0 - o.speed) * Math.min(1, dt * 0.8);
         o.lean = 0;
         if (o.tOff !== undefined) {
