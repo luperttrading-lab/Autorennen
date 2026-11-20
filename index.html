@@ -354,7 +354,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.60';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.61';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1748,9 +1748,10 @@ function occupants(x, rim, w, t, opt = {}) {
 
 // ---------- B: Keil-Sportler (80er) ----------
 // Flach und breit, Leuchtband über die ganze Breite, Entenbürzel-Spoiler, Diffusor, vier Endrohre.
+let noCarShadow = false;
 function carB(x, y, w, t) {
   const bob = Math.sin(t * 22) * w * 0.004; y += bob;
-  shadow(x, y, w);
+  if (!noCarShadow) shadow(x, y, w);                // beim Schleudern malt render den Schatten ungedreht
   tires(x, y, w, 0.52, 0.21, 0.26);
   const rim = y - w * 0.33;
   occupants(x, rim, w, t, { shirtL: '#ffffff', shirtR: '#1b1b1b' });
@@ -3463,8 +3464,11 @@ function render() {
         const ang = slipKind === 'spin' ? -slipDir * Math.PI * 2 * (u * u * (3 - 2 * u))
                   : slipKind === 'slide' ? -slipDir * (0.45 * Math.sin(Math.min(1, u * 3) * Math.PI / 2) * fade + Math.sin(slipTime * 10) * 0.08)
                   : Math.sin(slipTime * 14) * 0.18 * fade;
+        shadow(W / 2, H - 50, carW);                   // Schatten bleibt am Boden, dreht nicht mit
         ctx.save(); ctx.translate(W / 2, H - 60); ctx.rotate(ang); ctx.translate(-W / 2, -(H - 60));
+        noCarShadow = true;
         drawCar(W / 2, H - 50, carW, carW * 0.6, '#D40000', true);
+        noCarShadow = false;
         ctx.restore();
     } else drawCar(W / 2 + shake, H - 50 + shake, carW, carW * 0.6, '#D40000', true);
 }
