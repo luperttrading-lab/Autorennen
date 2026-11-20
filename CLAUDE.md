@@ -107,6 +107,8 @@ und Kuppen und die Update-Prüfung. Danach in der Antwort auflisten: was überno
 
 ## Entwürfe
 
+`gegner.html` (20.11.): vier Entwürfe für die anderen Autos (A Limousine 48 %, B Kompakt-Kombi 55 %, C Sportcoupé 40 %, D Geländewagen 60 % Höhe/Breite; Nutzer: bisherige Gegner zu hoch), Wahl offen; Schnittstelle oppX(x, y, w, Farbe, nachts).
+
 `autos.html`: Vorschauseite mit vier Entwürfen fürs eigene Auto (rotes Cabrio von hinten, A–D). Gewählt: B (ab v2.1 im Spiel). Gleiche Schnittstelle
 wie `drawPlayerCar(x, y, w, …)` im Spiel. Nach der Wahl des Nutzers die Funktion ins Spiel übernehmen.
 
