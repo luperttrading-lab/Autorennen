@@ -353,7 +353,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.49';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.50';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1057,12 +1057,12 @@ const STAGES = {
                     marks: [{ type: 'boathouse', at: 0.35, side: 1, d: 2.1 }, { type: 'boathouse', at: 0.8, side: 1, d: 2.1 }] },
                   { name: 'Bergwald mit Schotterweg' }] },
     K3: { row: 2, col: 0, name: 'Inseln und Meeresbrücke', short: 'INSELN',        land: 'strand',
-          zones: [{ name: 'Insel mit Hafen', umbrellas: true, water: { t: 'meer', side: -1, s: 2.0 }, every: 4, chance: 0.6, types: ['palm', 'palm', 'bush', 'tree'], boats: 60,
+          zones: [{ name: 'Insel mit Hafen', umbrellas: true, water: { t: 'meer', side: -1, s: 2.0 }, every: 4, chance: 0.6, types: ['palm', 'palm', 'bush', 'tree'], boats: 60, piers: 85,
                     marks: [{ type: 'fisher2', at: 0.5, side: 1, d: 2.2 }, { type: 'fisher', at: 0.56, side: 1, d: 2.3 }] },
                   { name: 'Meeresbrücke', bridge: 'meer', flat: true, span: [0.06, 0.94], pylons: 220, high: 4300 },
                   { name: 'Insel mit Dünen', water: { t: 'meer', side: 1, s: 1.8 }, every: 4, chance: 0.6, types: ['dune', 'dune', 'palm', 'bush'], boats: 160 }] },
     L3: { row: 2, col: 1, name: 'Weinland und Talbrücke',  short: 'WEINLAND',      land: 'wein',
-          zones: [{ name: 'Weinberg-Terrassen', grass: ['#7fae3c', '#5e8a2a'], rows: true, every: 7, chance: 0.4, types: ['tree', 'bush'] },
+          zones: [{ name: 'Weinberg-Terrassen', grass: ['#7fae3c', '#5e8a2a'], rows: true, fields: { s: 1.7, crops: ['reben', 'reben', 'reben2'] }, every: 7, chance: 0.4, types: ['tree', 'bush'] },
                   { name: 'Talbrücke mit Seitenwind', bridge: 'tal', flat: true, wind: true, span: [0.12, 0.88] },
                   { name: 'Weindorf', houses: { types: ['house', 'house2', 'fachwerk2'], every: 5 }, grass: ['#b9a560', '#ad9955'], every: 6, chance: 0.5, types: ['bush', 'tree'] }] },
     G3: { row: 2, col: 2, name: 'Alpenpass',               short: 'ALPENPASS',     land: 'schnee',
@@ -1500,6 +1500,13 @@ function applyZone(st, z, startSeg, len, k, r) {
                 }
                 i += nb;
             }
+        }
+    }
+    if (z.piers) {                                     // Bootsstege (v3.50): Holzsteg vom Ufer ins Wasser, daneben ein Boot
+        for (let P = a + 40; P < b - 20; P += z.piers) {
+            const w = segments[P].water; if (!w || w.s > 2.6) continue;
+            for (let j = P; j < P + 5; j++) if (segments[j].water) segments[j].pier = { side: w.side, s: segments[j].water.s - 0.1, len: 2.4 };
+            segments[P + 1].sprites.push({ type: 'boat', offset: w.side * (w.s + 2.6), scale: 1.2, v: P % 2 });
         }
     }
     if (z.farms && z.fields) {                         // Höfe (v3.35): wenige, je auf einem Hofplatz mit Zufahrt von der Straße
@@ -2711,6 +2718,11 @@ function drawWater(seg, nx, p1, p2, W, key) {
     } else if (T.hot && !open) drawLava(seg, w, w2, X1, X2, p1, p2);
     else drawPolygon(X1(s1), p1.y, X2(s2), p2.y, o2, p2.y, o1, p1.y, band ? T.c[0] : T.c[1]);
     if (!open && T.bank) drawPolygon(o1, p1.y, o2, p2.y, X2(f2 + T.bank), p2.y, X1(f1 + T.bank), p1.y, T.edge);
+    if (seg.pier && seg.pier.side === sd) {            // Holzsteg mit Pfählen
+        const pr = seg.pier, d0 = pr.s, d1 = pr.s + pr.len;
+        drawPolygon(X1(d0), p1.y, X2(d0), p2.y, X2(d1), p2.y, X1(d1), p1.y, (seg.index & 1) ? '#9a7448' : '#8a663e');
+        if (p1.w > 8) { ctx.fillStyle = '#4a3420'; for (let q = 0; q <= 3; q++) { const px = X1(d0 + q * pr.len / 3); ctx.fillRect(px - p1.w * 0.02, p1.y, Math.max(1, p1.w * 0.04), Math.max(2, p1.w * 0.08)); } }
+    }
     if (T.veins && !(T.hot && !open)) drawVeins(seg, w, T, X1, X2, p1, p2, open ? 7 : w.w);
     if (T.quay && p1.w > 40) drawPolygon(X1(s1), p1.y, X2(s2), p2.y, X2(s2 + 0.03), p2.y, X1(s1 + 0.03), p1.y, '#3a3a38');
     if (T.foam) {                                      // Brandung: Schaumsaum, der sich mit den Wellen hebt und senkt
@@ -2744,6 +2756,8 @@ const CROP = {
     pave:  { c: ['#bdb7ab', '#b4aea2'], kerb: '#8e8a82' },
     plaza: { c: ['#c9bea9', '#c1b6a1'], kerb: '#8e8a82' },
     hof:   { c: ['#b9a888', '#b09f80'] },
+    reben: { c: ['#86a83e', '#7c9e37'], row: '#3d5f22', rs: 0.16 },
+    reben2: { c: ['#9aae48', '#90a441'], row: '#4a6a28', rs: 0.16 },
     weg:   { c: ['#b39b6c', '#aa9264'] }
 };
 function drawBands(seg, p1, p2, W, light) {
@@ -2829,15 +2843,29 @@ function drawStruct(seg, W) {
             glows.push({ x: X1(0), y: y1 + p1.w * 0.02, r: Math.max(3, p1.w * 0.35), c: '255,225,150', always: true });
         }
     }
-    if (seg.portal === 1) {                            // Tunnelportal: Bergflanke um die Öffnung
-        const top = p1.y - 1.5 * p1.w, peak = p1.y - 4.2 * p1.w, cx = X1(0), wd = p1.w * 9;
-        const mount = [[cx - wd, p1.y], [cx - wd * 0.55, p1.y - 2.2 * p1.w], [cx - wd * 0.2, peak + 0.4 * p1.w], [cx, peak], [cx + wd * 0.25, peak + 0.6 * p1.w], [cx + wd * 0.6, p1.y - 2 * p1.w], [cx + wd, p1.y]];
-        const hole = () => { ctx.moveTo(X1(-1.42), p1.y); ctx.lineTo(X1(-1.42), top); ctx.lineTo(X1(1.42), top); ctx.lineTo(X1(1.42), p1.y); ctx.closePath(); };
-        ctx.fillStyle = '#7a746a'; ctx.beginPath(); ctx.moveTo(mount[0][0], mount[0][1]); for (const q of mount.slice(1)) ctx.lineTo(q[0], q[1]); ctx.closePath(); hole(); ctx.fill('evenodd');
-        ctx.fillStyle = '#eef3f8'; ctx.beginPath(); ctx.moveTo(cx - wd * 0.2, peak + 0.4 * p1.w); ctx.lineTo(cx, peak); ctx.lineTo(cx + wd * 0.25, peak + 0.6 * p1.w);
-        ctx.lineTo(cx + wd * 0.12, peak + 0.9 * p1.w); ctx.lineTo(cx - wd * 0.08, peak + 0.75 * p1.w); ctx.closePath(); ctx.fill();   // Schneekappe
-        ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.rect(X1(-1.62), top - p1.w * 0.22, p1.w * 3.24, p1.w * 0.22); ctx.fill();    // Betonsturz
-        ctx.fillRect(X1(-1.62), top, p1.w * 0.2, p1.y - top); ctx.fillRect(X1(1.42), top, p1.w * 0.2, p1.y - top);
+    if (seg.portal === 1) {                            // Tunnelportal (v3.50): Bergflanke mit Felsschichten, Schnee, Tannen; Betonportal mit Bogen
+        const top = p1.y - 1.5 * p1.w, peak = p1.y - 4.6 * p1.w, cx = X1(0), wd = p1.w * 10, u = p1.w;
+        const mount = [[cx - wd, p1.y], [cx - wd * 0.7, p1.y - 1.6 * u], [cx - wd * 0.45, p1.y - 3 * u], [cx - wd * 0.18, peak + 0.5 * u], [cx, peak], [cx + wd * 0.22, peak + 0.8 * u], [cx + wd * 0.5, p1.y - 2.6 * u], [cx + wd * 0.75, p1.y - 1.3 * u], [cx + wd, p1.y]];
+        const hole = () => { ctx.moveTo(X1(-1.42), p1.y); ctx.lineTo(X1(-1.42), top + 0.3 * u); ctx.quadraticCurveTo(X1(0), top - 0.45 * u, X1(1.42), top + 0.3 * u); ctx.lineTo(X1(1.42), p1.y); ctx.closePath(); };
+        const shape = (pts, col, cut) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const q of pts.slice(1)) ctx.lineTo(q[0], q[1]); ctx.closePath(); if (cut) hole(); ctx.fill(cut ? 'evenodd' : 'nonzero'); };
+        shape(mount, '#7a746a', true);
+        shape([[cx - wd * 0.62, p1.y - 1.9 * u], [cx - wd * 0.3, p1.y - 3.1 * u], [cx - wd * 0.05, p1.y - 3.4 * u], [cx + wd * 0.3, p1.y - 2.7 * u], [cx + wd * 0.58, p1.y - 1.9 * u], [cx + wd * 0.3, p1.y - 2.3 * u], [cx - wd * 0.3, p1.y - 2.5 * u]], '#6a645b');   // Felsband
+        shape([[cx + wd * 0.05, peak + 0.2 * u], [cx + wd * 0.22, peak + 0.8 * u], [cx + wd * 0.5, p1.y - 2.6 * u], [cx + wd * 0.75, p1.y - 1.3 * u], [cx + wd, p1.y], [cx + wd * 0.6, p1.y]], 'rgba(40,36,30,0.25)');   // Schattenseite
+        shape([[cx - wd * 0.18, peak + 0.5 * u], [cx, peak], [cx + wd * 0.22, peak + 0.8 * u], [cx + wd * 0.13, peak + 1.3 * u], [cx + wd * 0.02, peak + 1.0 * u], [cx - wd * 0.08, peak + 1.4 * u]], '#eef3f8');   // Schneekappe
+        shape([[cx - wd * 0.45, p1.y - 3 * u], [cx - wd * 0.36, p1.y - 3.25 * u], [cx - wd * 0.3, p1.y - 2.8 * u], [cx - wd * 0.4, p1.y - 2.7 * u]], '#e6edf4');
+        shape([[cx + wd * 0.5, p1.y - 2.6 * u], [cx + wd * 0.58, p1.y - 2.3 * u], [cx + wd * 0.48, p1.y - 2.2 * u]], '#e6edf4');
+        for (let t = 0; t < 9; t++) {                  // Tannen am Hangfuß
+            const fx = cx + (t < 5 ? -1 : 1) * wd * (0.25 + (t % 5) * 0.13), fy = p1.y - (0.3 + (t * 37 % 7) * 0.12) * u, fh = (0.5 + (t * 13 % 5) * 0.1) * u;
+            if (Math.abs(fx - cx) < 2 * u) continue;
+            ctx.fillStyle = '#2f4a36'; ctx.beginPath(); ctx.moveTo(fx, fy - fh); ctx.lineTo(fx - fh * 0.3, fy); ctx.lineTo(fx + fh * 0.3, fy); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#eef3f8'; ctx.fillRect(fx - fh * 0.08, fy - fh, fh * 0.16, fh * 0.15);
+        }
+        ctx.fillStyle = '#a19b90'; ctx.beginPath();    // Betonportal mit Bogen
+        ctx.moveTo(X1(-1.75), p1.y); ctx.lineTo(X1(-1.75), top + 0.2 * u); ctx.quadraticCurveTo(X1(0), top - 0.8 * u, X1(1.75), top + 0.2 * u); ctx.lineTo(X1(1.75), p1.y); ctx.closePath(); hole(); ctx.fill('evenodd');
+        ctx.fillStyle = '#8a8478'; ctx.fillRect(X1(-1.75), p1.y - 0.2 * u, 0.33 * u, 0.2 * u); ctx.fillRect(X1(1.42), p1.y - 0.2 * u, 0.33 * u, 0.2 * u);
+        ctx.fillStyle = '#e8e4da'; ctx.fillRect(X1(-0.55), top - 0.42 * u, 1.1 * u, 0.2 * u);   // Namensschild
+        ctx.fillStyle = '#2a2a2a'; ctx.fillRect(X1(-0.45), top - 0.36 * u, 0.9 * u, Math.max(1, 0.05 * u)); ctx.fillRect(X1(-0.35), top - 0.29 * u, 0.7 * u, Math.max(1, 0.04 * u));
+        glows.push({ x: X1(-1.2), y: top + 0.5 * u, r: Math.max(3, u * 0.25), c: '255,225,150', always: true }, { x: X1(1.2), y: top + 0.5 * u, r: Math.max(3, u * 0.25), c: '255,225,150', always: true });
     }
 }
 // Tiefer Boden neben der Straße (v3.48): Meer am Fuß der Klippe, Talgrund mit Feldern, Kraterboden mit Glut, Wolkenmeer
