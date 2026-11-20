@@ -113,6 +113,14 @@
         #msg .s { font-size: 16px; margin-top: 6px; color: #ffe066; }
         .overlay .big { font-size: 40px; font-weight: bold; line-height: 1.1; }
         .overlay .small { font-size: 15px; opacity: .9; text-shadow: 1px 1px 0 #000; }
+        .endTime { font-size: 46px; font-weight: bold; color: #ffd84a; text-shadow: 3px 3px 0 #000; margin: 2px 0 6px; letter-spacing: 1px; }
+        .rangTitle { font-size: 13px; color: #9fd8ff; margin-top: 4px; }
+        table.rang { margin: 4px auto; border-collapse: collapse; font-size: 15px; }
+        table.rang td { padding: 1px 8px; text-align: right; }
+        table.rang tr.me td { color: #111; background: #ffd84a; font-weight: bold; }
+        .rekord { color: #ff5a5a; font-size: 22px; font-weight: bold; animation: blink .5s steps(2) infinite; }
+        .platz { color: #ffd84a; font-size: 17px; font-weight: bold; }
+        @keyframes blink { 50% { opacity: .35; } }
         .startBtn {
             font: bold 30px 'Courier New', Courier, monospace; letter-spacing: .08em;
             color: #fff; background: #d40000; border: 4px solid #fff; border-radius: 18px;
@@ -344,7 +352,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.43';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.44';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -1011,7 +1019,7 @@ function inWater(seg, x) {                             // steht der Punkt x (hal
 const COLS = ['K', 'L', 'G'];
 const COL_NAME = ['KÜSTE', 'LAND', 'GEBIRGE'];
 const COL_COLOR = ['#3aa7d8', '#7cc35a', '#e3e8ef'];
-const TIME_FACTOR = [1.30, 1.20, 1.12];               // Zeit je Drittel = fehlerfreie Bot-Zeit × Faktor
+const TIME_FACTOR = [1.32, 1.25, 1.21];               // Zeit je Drittel = fehlerfreie Bot-Zeit × Faktor (v3.44 großzügiger, Gebirge vorher 1,12)
 const ROWS = 5;
 const ROW_NAME = ['Morgen', 'Vormittag', 'Mittag', 'Abend', 'Nacht'];
 const STAGES = {
@@ -1364,6 +1372,8 @@ function appendStage(id, fromLand, startSeg = null, sim = false) {
         addRoad(RUNOUT);
         segments[S.endSeg].gates = [{ o: 0, kind: 'ziel' }];
         segments[S.endSeg].checker = segments[S.endSeg + 1].checker = true;
+        for (let j = S.endSeg - 110; j < S.endSeg + 90; j += 6) if (j !== S.endSeg && j !== S.endSeg + 1)   // Zielflaggen beidseits (v3.44)
+            segments[j].sprites.push({ type: 'flag', offset: -1.5, scale: 1, v: j }, { type: 'flag', offset: 1.5, scale: 1, v: j + 3 });
     } else {
         Object.assign(S, addFork(id));
         S.endSeg = S.commitSeg;
@@ -2197,7 +2207,18 @@ function drawSpout(sp, x, y, size) {                   // Lavafontäne (v3.35): 
     }
     glows.push({ x, y: y - h * 0.5, r: w * 1.1 * k, c: '255,120,30', always: true });
 }
+function drawFlag(sp, x, y, size) {                    // Zielflagge (v3.44): Mast, schwarz-weiß karierte Fahne, die im Wind weht
+    const h = size * 1.15, cw = size * 0.55, ch = size * 0.34, dir = sp.offset > 0 ? 1 : -1, n = 6, m = 4;
+    if (h < 3) return;
+    ctx.fillStyle = '#9aa0a8'; ctx.fillRect(x - Math.max(1, size * 0.015), y - h, Math.max(1, size * 0.03), h);
+    for (let c = 0; c < n; c++) for (let r = 0; r < m; r++) {
+        const u = c / n, wv = Math.sin(waveT * 7 + c * 0.9 + (sp.v || 0)) * ch * 0.18 * u;
+        ctx.fillStyle = (c + r) % 2 ? '#111' : '#f4f4f4';
+        ctx.fillRect(x + dir * (u * cw) - (dir < 0 ? cw / n : 0), y - h + r * ch / m + wv, cw / n + 0.5, ch / m + 0.5);
+    }
+}
 function drawSprite(sp, x, y, size) {
+    if (sp.type === 'flag') return drawFlag(sp, x, y, size);
     if (sp.type === 'smoke') return drawSmoke(sp, x, y, size);
     if (sp.type === 'spout') return drawSpout(sp, x, y, size);
     const list = SPR[sp.type];
@@ -3135,6 +3156,7 @@ function render() {
         }
     }
 
+    if (fireworks.length) drawFireworks(W, H);         // Zielfeuerwerk (v3.44)
     // Spieler-Auto: steht mittig unten; wackelt im Turbo und auf Schotter
     const carW = W * 0.2;                              // entspricht CAR_WORLD_W im Abstand PLAYER_Z
     const onGravel = (carSegR.gravel || carSegR.cobble) && speed > maxSpeed * 0.1;
@@ -3272,8 +3294,9 @@ function calibrate(id) {
         t += dt;
     }
     const parts = [times[0], times[1] - times[0], times[2] - times[1]];
-    const f = TIME_FACTOR[STAGES[id].col];
-    return (CAL[id] = { G: parts.map(p => Math.ceil(p * f)), bot: parts, total: times[2] });
+    const f = TIME_FACTOR[STAGES[id].col] * (STAGES[id].row === ROWS - 1 ? 1.06 : 1);   // letzte Etappe (Nacht) etwas mehr
+    const zs = STAGES[id].zones || [];                 // Nebel, Sand, Gewitter: der Bot sieht alles, der Fahrer nicht → +8 %
+    return (CAL[id] = { G: parts.map((p, k) => Math.ceil(p * f * (zs[k] && zs[k].weather ? 1.08 : 1))), bot: parts, total: times[2] });
 }
 
 function carSegF() { return (position + PLAYER_Z) / segmentLength; }
@@ -3506,6 +3529,7 @@ function startAt(id, k) {
     lastStart = [id, k];
     setupTrip(id);
     trip.free = id !== 'S' || k > 0;                   // freier Start zählt nicht für die Sammlung
+    trip.tStart = 0;
     if (k > 0) {                                       // kurz vor dem Checkpoint des gewählten Abschnitts aufstellen
         const seg0 = cur.cps[k - 1] - 40;
         position = seg0 * segmentLength - PLAYER_Z; playerX = 0;
@@ -3514,10 +3538,11 @@ function startAt(id, k) {
     }
     startRace();
 }
-function showEnd(title, lines) {
+function showEnd(title, lines, noMap = false) {
     msgEl.classList.remove('an');
     document.getElementById('endTitle').textContent = title;
     document.getElementById('endMap').innerHTML = mapSVG(trip.route, false);
+    document.getElementById('endMap').hidden = noMap;  // im Ziel ohne Karte: Platz für Zeit und Rangliste (v3.44)
     document.getElementById('goInfo').innerHTML = lines.join('<br>');
     btnAgain.textContent = trip.training ? 'KARTE' : 'NOCHMAL';
     gameOverScreen.hidden = false;
@@ -3538,6 +3563,32 @@ function gameOver() {
         collectionText()
     ].filter(Boolean));
 }
+// Zielspektakel (v3.44): Feuerwerk über dem Ziel, Fanfare, großes ZIEL mit Zeit, erst danach die Auswertung mit Rangliste
+let fireworks = [], fwT = 0, fwNext = 0;
+function updateFireworks(dt) {
+    if (fwT > 0) { fwT -= dt; fwNext -= dt;
+        if (fwNext <= 0) { fwNext = 0.22 + Math.random() * 0.25;
+            const cols = ['255,80,80', '255,220,90', '90,200,255', '140,255,140', '255,120,255', '255,255,255'];
+            fireworks.push({ x: 0.15 + Math.random() * 0.7, y: 0.1 + Math.random() * 0.3, t: 0, c: cols[Math.floor(Math.random() * cols.length)], n: 28 + Math.floor(Math.random() * 18), r: 0.12 + Math.random() * 0.1 }); } }
+    for (const f of fireworks) f.t += dt;
+    fireworks = fireworks.filter(f => f.t < 1.6);
+}
+function drawFireworks(W, H) {
+    for (const f of fireworks) {
+        const k = f.t / 1.6, a = Math.max(0, 1 - k), R = f.r * W * Math.sqrt(Math.min(1, f.t / 0.5));
+        ctx.fillStyle = 'rgba(' + f.c + ',' + a.toFixed(2) + ')';
+        for (let i = 0; i < f.n; i++) {
+            const ang = i / f.n * Math.PI * 2, px = f.x * W + Math.cos(ang) * R, py = f.y * H + Math.sin(ang) * R + 60 * f.t * f.t;
+            const sz = Math.max(3, W * 0.013);
+            ctx.fillRect(px - sz / 2, py - sz / 2, sz, sz);
+        }
+        if (f.t < 0.25) { ctx.fillStyle = 'rgba(255,255,230,' + (0.8 - f.t * 3).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(f.x * W, f.y * H, W * 0.03, 0, 7); ctx.fill(); }
+    }
+}
+function fanfare() { [[523, 0], [659, 160], [784, 320], [1047, 480], [784, 700], [1047, 860]].forEach(([f, d]) => setTimeout(() => beep(f, d < 700 ? 0.14 : 0.35), d)); }
+const RANK_KEY = 'autorennen.rangliste';
+let rangliste = {};
+try { rangliste = JSON.parse(localStorage.getItem(RANK_KEY)) || {}; } catch (_) { rangliste = {}; }
 function finishTrip() {
     setPhase('done');
     trip.times.push(raceTime - cur.t0);
@@ -3552,12 +3603,37 @@ function finishTrip() {
         save.ziele[cur.id] = true;
         storeSave();
     }
-    showEnd('ZIEL: ' + st.short, [
-        note || (trip.training ? 'Training – zählt nicht für die Sammlung' : trip.free ? 'Freier Start – zählt nicht für die Sammlung' : ''),
-        'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · Gesamtzeit ' + fmtTime(raceTime),
-        stageLines(),
-        trip.training ? '' : collectionText()
-    ].filter(Boolean));
+    // Rangliste je Ziel und Startpunkt (volle Fahrt ab Morgenland oder freier Start ab Etappe/Abschnitt), je 10 beste Zeiten
+    const ls = trip.free && lastStart ? lastStart : ['S', 0], rkey = cur.id + '|' + ls[0] + ls[1];
+    const fromTxt = ls[0] === 'S' && ls[1] === 0 ? 'ab Morgenland' : 'ab ' + STAGES[ls[0]].name + (ls[1] ? ' (' + (ls[1] + 1) + '. Drittel)' : '');
+    const tTot = raceTime - (trip.tStart || 0);
+    let list = (rangliste[rkey] || []).slice(), mine = -1;
+    if (!trip.training) {
+        const e = { t: tTot, r: trip.route.join('-'), d: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }), n: Date.now() };
+        list.push(e); list.sort((a, b) => a.t - b.t); mine = list.indexOf(e); list = list.slice(0, 10);
+        if (mine >= 10) mine = -1;
+        rangliste[rkey] = list; try { localStorage.setItem(RANK_KEY, JSON.stringify(rangliste)); } catch (_) {}
+    }
+    const rows = list.slice(0, 5).map((e, k) => '<tr' + (k === mine ? ' class="me"' : '') + '><td>' + (k + 1) + '.</td><td>' + fmtTime(e.t) + '</td><td>' + e.d + '</td></tr>').join('');
+    const rankHtml = '<div class="rangTitle">RANGLISTE ' + st.short + ' · ' + fromTxt + '</div><table class="rang">' + rows + '</table>' +
+        (mine === 0 && list.length > 1 ? '<div class="rekord">NEUER REKORD!</div>' : mine > 0 ? '<div class="platz">Platz ' + (mine + 1) + ' von ' + list.length + '</div>' : '');
+    const lines = [
+        '<div class="endTime" id="endTime">0:00,0</div>',
+        trip.training ? 'Training – zählt nicht' : rankHtml,
+        note,
+        'km ' + (dist * KM_PER_UNIT).toFixed(1).replace('.', ',') + ' · ' + stageLines()
+    ].filter(Boolean);
+    fwT = 3.6; fwNext = 0; fireworks = [];
+    fanfare(); if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
+    showMsg('ZIEL!', fmtTime(tTot), 3);
+    setTimeout(() => {
+        if (phase !== 'done') return;
+        showEnd('ZIEL: ' + st.short, lines, true);
+        const el = document.getElementById('endTime'), t0 = performance.now();
+        const step = () => { const k = Math.min(1, (performance.now() - t0) / 1300), e = 1 - Math.pow(1 - k, 3);
+            if (el) el.textContent = fmtTime(tTot * e); if (k < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+    }, 3300);
 }
 document.getElementById('btnStart').addEventListener('click', () => { if (phase === 'menu') { lastStart = null; startRace(); } });
 document.getElementById('btnKnoepfe').addEventListener('click', () => { if (phase === 'menu') setEdit(true); });
@@ -3689,6 +3765,7 @@ function update(dt) {
         const sv = speed; speed = 0; isTurbo = false; squealAmt = 0; gravelAmt = 0; updateAudio(); speed = sv;
         return;
     }
+    updateFireworks(dt);
     if (phase === 'count') updateCount(dt);
     if (phase !== 'race') {
         if (phase === 'done' && speed > 0) {           // nach dem Ziel ausrollen (gebremst)
