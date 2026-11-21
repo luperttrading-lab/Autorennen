@@ -116,6 +116,8 @@
         .overlay .big { font-size: 40px; font-weight: bold; line-height: 1.1; }
         .overlay .small { font-size: 15px; text-shadow: 1px 1px 0 #000; background: rgba(20, 24, 34, 0.78); border-radius: 10px; padding: 6px 12px; line-height: 1.35; }   /* v3.69: dunkles Schild, sonst auf der grauen Straße schlecht lesbar */
         .overlay .small:empty { display: none; }
+        .overlay .small.help, #sammlung { font-size: 13px; padding: 4px 10px; }   /* v3.70: passt sonst nicht über das Bedienfeld (Nutzer-Screenshot) */
+        @media (max-height: 680px) { #startHelp { display: none; } }   /* kleine Handys und Querformat: Hilfezeile weglassen statt abschneiden */
         .endTime { font-size: 46px; font-weight: bold; color: #ffd84a; text-shadow: 3px 3px 0 #000; margin: 2px 0 6px; letter-spacing: 1px; }
         .rangTitle { font-size: 13px; color: #9fd8ff; margin-top: 4px; }
         table.rang { margin: 4px auto; border-collapse: collapse; font-size: 15px; }
@@ -293,9 +295,9 @@
         <div class="map" id="startMap"></div>
         <div class="small" id="sammlung"></div>
         <button class="startBtn" id="btnStart" type="button">START</button>
-        <div class="small" id="startHelp">An der Gabel in die Fahrbahn lenken · Restzeit zählt halb<br>Etappe auf der Karte antippen: ab dort starten</div>
+        <div class="small help" id="startHelp">An der Gabel lenken · Restzeit zählt halb<br>Etappe antippen: dort starten</div>
         <div class="small" id="diag"></div>
-        <div class="small" id="trainHelp" hidden>Kein Game Over, keine Rekorde.<br>Tipp auf die Leiste oben: zurück zur Karte.</div>
+        <div class="small help" id="trainHelp" hidden>Kein Game Over, keine Rekorde<br>Leiste oben antippen: zurück zur Karte</div>
     </div>
     <div class="overlay" id="modeScreen" hidden>
         <div class="big">MODUS</div>
@@ -356,7 +358,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.69';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.70';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -366,6 +368,21 @@ const speedDisplay = document.getElementById('speedDisplay');
 // Langes Drücken: kein Markieren, kein Kontextmenü
 document.addEventListener('selectstart', (e) => e.preventDefault());
 document.addEventListener('contextmenu', (e) => e.preventDefault());
+// v3.70: Bildschirme (Start, Training, Game Over, Ziel) müssen ohne Scrollen über das Bedienfeld passen – Scrollen geht seit
+// der Lupen-Sperre nicht mehr. Passt es nicht, wird die Karte schrittweise kleiner, dann die Überschrift, zuletzt fällt die Hilfe weg.
+function fitOverlays() {
+    for (const o of document.querySelectorAll('.overlay')) {
+        if (o.hidden || !o.offsetParent) continue;
+        const svgs = o.querySelectorAll('.map svg'), big = o.querySelector('.big'), helps = o.querySelectorAll('.help, .map > .small');
+        svgs.forEach(v => v.style.maxHeight = ''); if (big) big.style.fontSize = ''; helps.forEach(h => h.style.display = ''); o.style.gap = ''; o.style.paddingTop = '';
+        const over = () => o.scrollHeight > o.clientHeight + 1;
+        for (let k = 0; k < 30 && over() && svgs.length; k++) svgs.forEach(v => v.style.maxHeight = Math.max(90, v.getBoundingClientRect().height - 14) + 'px');
+        if (over() && big) big.style.fontSize = '28px';
+        if (over()) helps.forEach(h => h.style.display = 'none');
+        if (over()) { o.style.gap = '4px'; o.style.paddingTop = '30px'; }
+    }
+}
+setInterval(fitOverlays, 300); addEventListener('resize', fitOverlays);
 // v3.63: iOS zeigt bei langem Drücken/Doppeltipp-Halten die Lupe, auch mit user-select: none. Berührungen außerhalb von
 // Tipp-Zielen (Knöpfe, Karten, Leiste, Versionsnummer, Update-Hinweis) daher sofort abfangen; Pointer-Ereignisse
 // (Knüppel, Turbo, Knöpfe ziehen) kommen trotzdem an.
@@ -4262,11 +4279,12 @@ function showEnd(title, lines, noMap = false) {
     msgEl.classList.remove('an');
     document.getElementById('endTitle').textContent = title;
     const em = document.getElementById('endMap');
-    em.innerHTML = mapSVG(trip.route, true) + '<div class="small">Etappe antippen: dort neu starten</div>';
+    em.innerHTML = mapSVG(trip.route, true) + '<div class="small help">Etappe antippen: dort neu starten</div>';
     em.classList.toggle('mini', noMap);                // im Ziel kleinere Karte: Platz für Zeit und Rangliste (v3.45 wieder sichtbar)
     document.getElementById('goInfo').innerHTML = lines.join('<br>');
     btnAgain.textContent = trip.training ? 'KARTE' : 'NOCHMAL';
     gameOverScreen.hidden = false;
+    fitOverlays();
     btnAgain.disabled = true;                          // kurz sperren, damit ein Lenkfinger nicht sofort neu startet
     setTimeout(() => { btnAgain.disabled = false; }, 800);
 }
