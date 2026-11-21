@@ -110,6 +110,9 @@
             font: bold 120px 'Courier New', Courier, monospace; color: #fff; text-shadow: 5px 5px 0 #000; opacity: 0; }
         #count.an { animation: cnt 0.9s ease-out forwards; }
         #count.go { color: #7ddc6a; font-size: 90px; }
+        #count.warn { color: #ff4a3a; font-size: 84px; opacity: 0; top: 22%; }   /* v3.71: letzte 5 s */
+        #timeDisplay.eng { color: #ff3b30 !important; animation: eng .5s steps(2) infinite; display: inline-block; transform-origin: left center; }
+        @keyframes eng { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
         @keyframes cnt { 0% { opacity: 0; transform: scale(1.8); } 15% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: scale(0.9); } }
         #msg .t { font-size: 26px; font-weight: bold; padding: 0 8px; }
         #msg .s { font-size: 16px; margin-top: 6px; color: #ffe066; }
@@ -358,7 +361,7 @@
 </div>
 
 <script>
-const APP_VERSION = '3.70';          // bei JEDER Änderung hochzählen, nie zurück
+const APP_VERSION = '3.71';          // bei JEDER Änderung hochzählen, nie zurück
 </script>
 <script>
 const canvas = document.getElementById('gameCanvas');
@@ -3414,13 +3417,7 @@ function drawDeep(g, kind, sd, e, y1, y2, W) {
             const d0 = 1.6 + q * 3.2 + (hb % 100) / 60;
             poly(d0, d0 + 1.6 + ((hb >>> 8) % 100) / 80, ['#8fb35a', '#b8a55a', '#4f7a3c', '#a3c46a', '#3f6a34'][hb % 5]);
         }
-        const ts = 1400 * e.w1 * e.k;                  // Größenvergleich: Bäume tief unten (≈ 10 m hoch)
-        if (ts > 0.6 && ts < 14 && (h0 % 3) === 0) for (let q = 0; q < 2; q++) {   // nur kleine (ferne) Bäume, nahe wirken als flache Dreiecke
-            const d = 2.3 + (((h0 >>> (q * 7)) % 100) / 100) * 10, tx = X1(d), th = ts * (0.8 + ((h0 >>> (q * 5 + 3)) % 10) / 20);
-            if (tx < -10 || tx > W + 10) continue;
-            ctx.fillStyle = (h0 >>> q) & 1 ? '#2f5a2c' : '#3a6a30';
-            ctx.beginPath(); ctx.moveTo(tx, y1 - th); ctx.lineTo(tx - th * 0.35, y1); ctx.lineTo(tx + th * 0.35, y1); ctx.closePath(); ctx.fill();
-        }
+        if ((h0 % 3) === 0) peakQ.push({ tree: true, g, sd, fz, D: sd < 0 ? g.dL : g.dR, k: e.k, h0 });   // Bäume tief unten: später, ungerundet (v3.71)
         const rv = 4 + 2.5 * Math.sin(i * 0.02 + sd), rv2 = 4 + 2.5 * Math.sin((i + 1) * 0.02 + sd);   // Bach
         drawPolygon(X1(rv), y1, X2(rv2), y2, X2(rv2 + 0.35), y2, X1(rv + 0.35), y1, '#5f93b0');
         if (!span) poly(1.2, 1.7, light ? '#7d7c6a' : '#747361');   // Geröll am Fuß des Abhangs
@@ -3444,6 +3441,18 @@ const peakQ = [];
 function drawPeaks() {                                 // Gipfel über dem Wolkenmeer, von hinten nach vorn, aus UNGERUNDETEN Werten (v3.67: sprangen vorher)
     for (const P of peakQ) {
         const g = P.g, q = g.p1.screen.f, x0 = q.x + q.w * g.roads[0], sd = P.sd, y1 = q.y + P.D * q.w * P.k;
+        if (P.tree) {                                  // v3.71: Bäume im Tal (Größenvergleich ≈ 10 m) – vorher gerundet, zuckten und blinkten an Größengrenzen
+            const ts = 1400 * q.w * P.k, a = Math.min(1, (ts - 0.5) / 1.5, (16 - ts) / 6) * Math.min(1, (1 - P.fz) / 0.2);
+            if (a <= 0) continue;
+            ctx.globalAlpha = a;
+            for (let j = 0; j < 2; j++) {
+                const d = 2.3 + (((P.h0 >>> (j * 7)) % 100) / 100) * 10, tx = x0 + sd * q.w * d, th = ts * (0.8 + ((P.h0 >>> (j * 5 + 3)) % 10) / 20);
+                if (tx < -10 || tx > canvas.width + 10) continue;
+                ctx.fillStyle = (P.h0 >>> j) & 1 ? '#2f5a2c' : '#3a6a30';
+                ctx.beginPath(); ctx.moveTo(tx, y1 - th); ctx.lineTo(tx - th * 0.35, y1); ctx.lineTo(tx + th * 0.35, y1); ctx.closePath(); ctx.fill();
+            }
+            ctx.globalAlpha = 1; continue;
+        }
         const hq = (g.index * 2654435761) >>> 0, dc = 7 + (hq % 100) / 8, bw = 2.5 + ((hq >>> 8) % 100) / 30, ht = (0.5 + ((hq >>> 16) % 100) / 120) * P.D * q.w * P.k;
         const X = (d) => x0 + sd * q.w * d, xc = X(dc), xl = X(dc - bw), xr = X(dc + bw * 0.8);
         if (Math.max(xl, xr) < -5 || Math.min(xl, xr) > canvas.width + 5 || ht < 0.5) continue;
@@ -4056,6 +4065,26 @@ function startRace() {
 // Countdown: große Zahl mitten im Bild, je Zahl ein kurzer Piep, bei LOS ein hoher
 let countT = 0, countShown = 0;
 const countEl = document.getElementById('count');
+function chime() {                                     // v3.71: Ping beim Checkpoint und am Gabeltor (neue Zeit)
+    if (!audioCtx || muted) return;
+    const t = audioCtx.currentTime;
+    for (const [f, d] of [[1318, 0], [1976, 0.07]]) {
+        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.16, t + d + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.5);
+        o.connect(g); g.connect(audioCtx.destination); o.start(t + d); o.stop(t + d + 0.55);
+    }
+}
+let warnShown = 0;
+function timeWarn() {                                  // v3.71: letzte 10 s Ticken, letzte 5 s große Zahl + höherer Ton, Zeitanzeige blinkt
+    const eng = !trip.training && timeLeft > 0 && timeLeft <= 10;
+    timeDisplay.classList.toggle('eng', eng);
+    if (!eng) { warnShown = 0; return; }
+    const n = Math.ceil(timeLeft);
+    if (n === warnShown) return;
+    warnShown = n;
+    if (n <= 5) { beep(n === 1 ? 1175 : 988, 0.16); countEl.textContent = String(n); countEl.classList.remove('an', 'go', 'warn'); void countEl.offsetWidth; countEl.classList.add('an', 'warn'); }
+    else beep(660, 0.06);
+}
 function beep(f, len) {
     if (!audioCtx || muted) return;
     const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
@@ -4087,6 +4116,7 @@ function passCheckpoint() {
     timeLeft = g + keep;
     showMsg('CHECKPOINT  +' + g + ' s', 'Rest ' + rest.toFixed(1).replace('.', ',') + ' s, davon ' + keep.toFixed(1).replace('.', ',') + ' s mitgenommen');
     if (navigator.vibrate) navigator.vibrate(30);
+    chime(); warnShown = 0; countEl.classList.remove('an', 'warn');
 }
 // Am Gabeltor: gewählte Fahrbahn wird zur Mitte, Strecke vorn abschneiden, nächste Etappe anhängen
 function commitFork(i) {
@@ -4117,6 +4147,7 @@ function commitFork(i) {
     cur = appendStage(nextId, STAGES[prevId].land, startSeg);
     cur.t0 = raceTime; cur.G = calibrate(nextId).G;
     timeLeft = cur.G[0] + keep;
+    chime(); warnShown = 0; countEl.classList.remove('an', 'warn');
     const st = STAGES[nextId];
     showMsg((st.row + 1) + '/5 ' + st.short + '  +' + cur.G[0] + ' s',
             'Etappe ' + trip.times.length + ' in ' + fmtTime(trip.times[trip.times.length - 1]) + ' · Rest ' + Math.round(rest) + ' s → ' + keep.toFixed(1).replace('.', ',') + ' s', 3);
@@ -4609,7 +4640,8 @@ function update(dt) {
     }
     raceTime += dt;
     timeLeft -= dt;
-    if (timeLeft <= 0 && !trip.training) { gameOver(); updateHud(); return; }
+    timeWarn();
+    if (timeLeft <= 0 && !trip.training) { timeDisplay.classList.remove('eng'); gameOver(); updateHud(); return; }
 
     // Gas und Bremse vom Knüppel (oder Pfeil hoch/runter), ohne Gas rollt das Auto aus
     let gas = Math.max(throttle, keys.up ? 1 : 0, tiltGas), brk = Math.max(brake, keys.down ? 1 : 0, tiltBrake);
